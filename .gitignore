@@ -1,0 +1,33 @@
+# Mobile dependencies and Expo-generated files
+/apps/mobile/node_modules/
+/apps/mobile/.expo/
+/apps/mobile/dist/
+/apps/mobile/web-build/
+/apps/mobile/expo-env.d.ts
+
+# Generated native projects and local Android artifacts
+/apps/mobile/android/
+/apps/mobile/ios/
+/apps/mobile/.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro and package-manager debug output
+/apps/mobile/.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local environment files; examples remain shareable
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local operating-system and TypeScript artifacts
+.DS_Store
+*.tsbuildinfo

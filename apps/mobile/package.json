@@ -1,0 +1,22 @@
+{
+  "name": "mobile-social-network-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "~57.0.22",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}
