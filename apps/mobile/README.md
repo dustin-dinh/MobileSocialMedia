@@ -4,7 +4,7 @@
 
 This directory contains Dev A's Android-targeted Mobile application for the Mobile Social Network MVP. It owns Mobile UI, navigation, client-side state and interaction, API integration, validation, and Mobile testing.
 
-The app is intentionally limited to a verified foundation screen. Authentication, API calls, token storage, navigation, and social features have not been implemented.
+The app currently provides a typed navigation foundation with placeholder screens. Real authentication, API calls, token storage, and social-feature behavior have not been implemented.
 
 ## Stack
 
@@ -13,6 +13,8 @@ The app is intentionally limited to a verified foundation screen. Authentication
 - React 19.2.3
 - TypeScript 6.0.3 with Expo's base TypeScript configuration and strict checking
 - pnpm 12.4.1, invoked through Corepack
+- React Navigation 7 with native stack and bottom tabs
+- Expo-compatible `react-native-screens` and `react-native-safe-area-context`
 
 ## Requirements
 
@@ -104,15 +106,27 @@ The API base URL should be configured through `src/config/` after the Backend co
 
 ## Navigation
 
-The planned Mobile navigation is:
+The navigation foundation is:
 
-- Home
-- Search
-- Create
-- Notifications
-- Profile
+```text
+App
+└── NavigationContainer
+    └── RootNavigator
+        ├── AuthNavigator
+        │   ├── Splash
+        │   ├── Login
+        │   └── Register
+        └── MainTabNavigator
+            ├── Home
+            ├── Search
+            ├── Create
+            ├── Notifications
+            └── Profile
+```
 
-Navigation scaffolding and navigation dependencies have not been implemented yet.
+`RootNavigator` has one isolated, non-persistent temporary navigation mode. It defaults to the unauthenticated branch so Login and Register links can be verified without faking authentication. Phase 5 must replace that constant with real session bootstrap; it must not be used for token storage, API calls, or real authentication.
+
+Auth placeholder screens live in `src/features/auth/screens/`. The five tab placeholders live in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
 
 ## Feature organization
 
@@ -131,6 +145,7 @@ The planned features are authentication, feed, post, profile, search, and notifi
 ## Current Status
 
 - `index.ts` registers the Expo root component from `src/App.tsx`.
-- The foundation screen renders “Mobile Social Network MVP”, “Week 1 - Foundation”, and “No Authentication UI yet.”
-- Dependency installation, TypeScript checking, Expo configuration resolution, Android JavaScript bundling, and a local Expo startup check have passed.
+- `src/App.tsx` stays small and composes safe-area support, `NavigationContainer`, and `RootNavigator`.
+- Login, Register, Splash, Home, Search, Create, Notifications, and Profile currently render navigation-only placeholders.
+- Frozen-lockfile installation, TypeScript checking, Expo configuration resolution, and Android JavaScript bundling have passed.
 - Android device/emulator runtime validation has not been performed in this workspace.

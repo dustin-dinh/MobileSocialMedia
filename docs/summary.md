@@ -46,7 +46,10 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Shared types belong in `apps/mobile/src/types/`.
 - Navigation, configuration, hooks, constants, and utilities have dedicated source areas.
 - `apps/mobile/index.ts` is the Expo entry point and registers the foundation component in `apps/mobile/src/App.tsx`.
-- The current UI is a bootstrap-only foundation screen; feature screens, API calls, and navigation logic have not been implemented.
+- `apps/mobile/src/App.tsx` composes `SafeAreaProvider`, `NavigationContainer`, and `RootNavigator` only.
+- `RootNavigator` prepares checking, unauthenticated, and authenticated application branches without real session logic.
+- `AuthNavigator` owns Splash, Login, and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
+- Placeholder screens are feature-owned; no feature behavior, API calls, or authentication implementation exists yet.
 
 ## Current Tech Stack
 
@@ -55,6 +58,8 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - React 19.2.3 and `expo-status-bar` 57.0.1
 - TypeScript 6.0.3 using `expo/tsconfig.base` with strict checking
 - pnpm 12.4.1 through Corepack, with `apps/mobile/pnpm-lock.yaml`
+- React Navigation 7.3.18 with native-stack 7.18.10 and bottom-tabs 7.18.18
+- Expo-compatible `react-native-screens` 4.26.2 and `react-native-safe-area-context` 5.7.0
 
 ## Dev A Responsibilities
 
@@ -76,15 +81,16 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 
 ## Current Project Status
 
-- `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application.
-- The app has a valid Expo entry point, package manifest, app configuration, TypeScript configuration, and pnpm lockfile.
-- The foundation screen is intentionally the only Mobile UI; no authentication, navigation, API integration, backend, database, or Week 2 feature has been added.
-- Static TypeScript, Expo configuration, Android JavaScript bundle, and local development-server startup validation have passed.
+- `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
+- The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
+- Login, Register, Splash, Home, Search, Create, Notifications, and Profile render only safe navigation placeholders.
+- No real authentication, API integration, token storage, backend, database, or social-feature behavior has been added.
+- Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
 - Android device/emulator runtime validation is pending because Android SDK command-line tools are not available on this workspace's `PATH`.
 
 ## Current Sprint
 
-Week 1 - Phase 1.5: bootstrap the Mobile application before Navigation or Authentication work begins.
+Week 1 - Phase 2: establish the Mobile navigation foundation before Authentication UI work begins.
 
 ## Important Constraints
 
@@ -107,10 +113,12 @@ Week 1 - Phase 1.5: bootstrap the Mobile application before Navigation or Authen
 - `apps/mobile/package.json` - verified Mobile scripts and dependencies
 - `apps/mobile/app.json` - Expo application configuration
 - `apps/mobile/index.ts` - Expo application entry point
+- `apps/mobile/src/navigation/` - typed root, authentication, and tab navigators
+- `apps/mobile/src/components/common/PlaceholderScreen.tsx` - shared safe placeholder container
 
 ## How to Continue Development
 
-1. Confirm the Mobile framework, TypeScript status, package manager, and package scripts by adding or locating the Mobile project manifest.
-2. Update this summary and `apps/mobile/README.md` with only verified commands and configuration.
+1. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
+2. Implement the next agreed Mobile slice within the existing feature-based structure without adding API assumptions.
 3. Agree on API contracts in `docs/api-contract.md` before integrating network calls.
-4. Implement the smallest Mobile slice within the feature-based structure and log the work in `docs/change.md`.
+4. Log each meaningful repository change in `docs/change.md`.

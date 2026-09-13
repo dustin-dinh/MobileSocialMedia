@@ -134,3 +134,51 @@ Week 1 - Phase 1.5 Mobile application bootstrap.
 
 - No nested Git repository was added under `apps/mobile/`.
 - No `package-lock.json`, `yarn.lock`, secrets, backend files, database files, authentication, navigation, or Week 2 features were added.
+
+---
+
+## 2026-09-13 12:21 +07:00 - Dev A / Codex
+
+### Task
+
+Week 1 - Phase 2 Mobile navigation foundation.
+
+### Changed
+
+- Added React Navigation with native stack and bottom-tab support, plus Expo-compatible screen and safe-area dependencies.
+- Added a typed `RootNavigator`, `AuthNavigator`, `MainTabNavigator`, and centralized route parameter lists.
+- Added safe placeholder screens for Splash, Login, Register, Home, Search, Create, Notifications, and Profile in their feature-owned directories.
+- Added the smallest isolated temporary navigation mode for checking, unauthenticated, and authenticated topology validation; it does not authenticate, persist data, or call an API.
+- Kept `App.tsx` as a small composition root for safe-area support, `NavigationContainer`, and `RootNavigator`.
+- Updated Mobile and shared documentation with the established navigation architecture and decision.
+
+### Files
+
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/mobile/src/App.tsx`
+- `apps/mobile/src/components/common/PlaceholderScreen.tsx`
+- `apps/mobile/src/navigation/`
+- `apps/mobile/src/features/*/screens/`
+- `apps/mobile/README.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Decisions
+
+- Use React Navigation 7 with native stack and bottom tabs for the Mobile navigation foundation.
+- Keep the temporary root navigation mode isolated until Phase 5 replaces it with real session bootstrap.
+
+### Validation
+
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm install --frozen-lockfile` passed after retrying outside the sandbox; the first sandboxed attempt could not access the ignored `node_modules/.pnpm` directory.
+- `corepack pnpm exec expo config --type public` passed and resolved Expo SDK 57 with Android support.
+- `corepack pnpm exec expo export --platform android --output-dir <temporary directory>` passed; Metro bundled 850 modules. The temporary export directory was removed after validation.
+- Android device/emulator runtime validation was not performed because Android SDK command-line tools are not available on `PATH`.
+
+### Notes
+
+- The Expo installer resolved compatible native dependency versions but could not spawn a bare `pnpm` executable on this workspace's `PATH`; Corepack pnpm installed those exact Expo-resolved versions successfully.
+- No backend, database, token/session persistence, API calls, fake authentication, or social-feature behavior was added.

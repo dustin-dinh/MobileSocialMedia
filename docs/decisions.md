@@ -63,3 +63,35 @@ Expo reduces initial Android setup work while retaining React Native and TypeScr
 - `apps/mobile/src/App.tsx`
 - `apps/mobile/tsconfig.json`
 - `apps/mobile/pnpm-lock.yaml`
+
+## DEC-003 - Use React Navigation for Mobile navigation
+
+Date: 2026-09-13
+
+Status: Accepted
+
+### Context
+
+Phase 2 needs a typed Mobile navigation foundation that supports future authentication state switching and the five MVP top-level destinations without building product behavior or introducing a routing framework beyond the application's needs.
+
+### Decision
+
+Use React Navigation 7 in `apps/mobile/`: `@react-navigation/native` for the navigation container, `@react-navigation/native-stack` for Splash/Login/Register, and `@react-navigation/bottom-tabs` for Home/Search/Create/Notifications/Profile. Keep route parameter lists centralized in `src/navigation/types.ts`.
+
+### Reason
+
+React Navigation supports the managed Expo application and provides the native stack and bottom-tab primitives required by the agreed navigation hierarchy. It avoids an unnecessary filesystem router, global state library, icon dependency, or UI framework.
+
+### Consequences
+
+- `App.tsx` remains a small composition root rather than holding route configuration.
+- The temporary root navigation mode is isolated in `RootNavigator` and must be replaced by real session bootstrap in Phase 5.
+- Placeholder screens remain feature-owned until their relevant product phases add behavior.
+- Navigation routes without parameters use `undefined`; future parameters should be added only when a confirmed feature requires them.
+
+### Related Files
+
+- `apps/mobile/src/App.tsx`
+- `apps/mobile/src/navigation/`
+- `apps/mobile/src/features/*/screens/`
+- `apps/mobile/package.json`
