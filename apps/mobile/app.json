@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Mobile Social Network MVP",
+    "slug": "mobile-social-network-mvp",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light"
+  }
+}
