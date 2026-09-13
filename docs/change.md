@@ -182,3 +182,52 @@ Week 1 - Phase 2 Mobile navigation foundation.
 
 - The Expo installer resolved compatible native dependency versions but could not spawn a bare `pnpm` executable on this workspace's `PATH`; Corepack pnpm installed those exact Expo-resolved versions successfully.
 - No backend, database, token/session persistence, API calls, fake authentication, or social-feature behavior was added.
+
+---
+
+## 2026-09-13 15:25 +07:00 - Dev A / Codex
+
+### Task
+
+Week 1 - Phase 3 Authentication UI and local validation.
+
+### Changed
+
+- Replaced the Splash, Login, and Register placeholders with a consistent Mobile Social Auth UI.
+- Added feature-owned reusable Auth controls for keyboard-safe layout, branding, form inputs, password visibility, primary actions, and form messages.
+- Added local Login required-field validation and Register required-field, email-format, and password-confirmation validation.
+- Added next-field keyboard focus, accessible labels, error hints, touch targets, and an explicit local notice that no authentication request is sent.
+- Hid the native stack header for Auth routes so the screens own their safe-area presentation.
+- Updated the Mobile README and project summary to describe Auth UI while keeping backend integration explicitly pending.
+
+### Files
+
+- `apps/mobile/src/features/auth/authTheme.ts`
+- `apps/mobile/src/features/auth/validation.ts`
+- `apps/mobile/src/features/auth/components/`
+- `apps/mobile/src/features/auth/screens/SplashScreen.tsx`
+- `apps/mobile/src/features/auth/screens/LoginScreen.tsx`
+- `apps/mobile/src/features/auth/screens/RegisterScreen.tsx`
+- `apps/mobile/src/navigation/AuthNavigator.tsx`
+- `apps/mobile/README.md`
+- `docs/summary.md`
+- `docs/change.md`
+
+### Decisions
+
+- No new cross-project architectural decision was made.
+- Retained the established feature-owned Auth structure and React Native `StyleSheet` convention without adding a UI framework or form library.
+
+### Validation
+
+- `corepack pnpm install --frozen-lockfile` passed after retrying outside the sandbox; the first sandboxed attempt could not access the ignored `node_modules/.pnpm` directory.
+- `corepack pnpm typecheck` passed after correcting an unsupported React Native accessibility-state property.
+- `corepack pnpm exec expo config --type public` passed and resolved Expo SDK 57 with Android support.
+- `corepack pnpm exec expo export --platform android --output-dir <temporary directory>` passed; Metro bundled 857 modules. The temporary export directory was removed after validation.
+- `corepack pnpm exec expo start --tunnel --clear` was attempted but could not start the local Android SDK ADB server because it failed to create `\.android`; no ADB or system configuration was changed.
+
+### Notes
+
+- Local form submission validates only and displays an honest not-connected notice. It does not call an API, save credentials, persist tokens, fake success, or navigate to the main tabs.
+- Splash remains presentation-only. Phase 5 must replace `TEMPORARY_NAVIGATION_MODE` with real session bootstrap.
+- Phase 3 runtime UI interaction remains pending until the local ADB/tunnel issue is resolved or a user manually runs the supported BlueStacks/Expo Go workflow.

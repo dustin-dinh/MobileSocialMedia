@@ -4,7 +4,7 @@
 
 This directory contains Dev A's Android-targeted Mobile application for the Mobile Social Network MVP. It owns Mobile UI, navigation, client-side state and interaction, API integration, validation, and Mobile testing.
 
-The app currently provides a typed navigation foundation with placeholder screens. Real authentication, API calls, token storage, and social-feature behavior have not been implemented.
+The app provides a typed navigation foundation and local Authentication UI. Login and Register validate user input locally but do not call APIs, persist tokens, or authenticate users yet.
 
 ## Stack
 
@@ -126,7 +126,17 @@ App
 
 `RootNavigator` has one isolated, non-persistent temporary navigation mode. It defaults to the unauthenticated branch so Login and Register links can be verified without faking authentication. Phase 5 must replace that constant with real session bootstrap; it must not be used for token storage, API calls, or real authentication.
 
-Auth placeholder screens live in `src/features/auth/screens/`. The five tab placeholders live in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
+Auth screens, reusable controls, theme values, and local validation live in `src/features/auth/`. The five tab placeholders remain in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
+
+## Authentication UI
+
+- Splash is presentation-only and does not start a session or navigate automatically.
+- Login includes a username-or-email field, password field, local required-field validation, keyboard next-field focus, and password visibility control.
+- Register includes username, email, password, and confirm-password fields with required-field, email-format, and password-match validation.
+- Valid local submissions explicitly stop with a notice that no authentication service is connected. They never navigate to the main tabs.
+- Reusable Auth controls support focused, invalid, loading-ready, and message/error-ready presentation without a UI library.
+
+Phase 4 must connect only confirmed API contracts. Phase 5 must replace the temporary root navigation mode with real session bootstrap.
 
 ## Feature organization
 
@@ -146,6 +156,6 @@ The planned features are authentication, feed, post, profile, search, and notifi
 
 - `index.ts` registers the Expo root component from `src/App.tsx`.
 - `src/App.tsx` stays small and composes safe-area support, `NavigationContainer`, and `RootNavigator`.
-- Login, Register, Splash, Home, Search, Create, Notifications, and Profile currently render navigation-only placeholders.
+- Splash, Login, and Register have Mobile UI and local validation; Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
 - Frozen-lockfile installation, TypeScript checking, Expo configuration resolution, and Android JavaScript bundling have passed.
-- Android device/emulator runtime validation has not been performed in this workspace.
+- Phase 3 device runtime validation could not be completed because Expo tunnel startup could not start the local Android SDK ADB server.

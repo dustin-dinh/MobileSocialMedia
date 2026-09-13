@@ -49,7 +49,9 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - `apps/mobile/src/App.tsx` composes `SafeAreaProvider`, `NavigationContainer`, and `RootNavigator` only.
 - `RootNavigator` prepares checking, unauthenticated, and authenticated application branches without real session logic.
 - `AuthNavigator` owns Splash, Login, and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
-- Placeholder screens are feature-owned; no feature behavior, API calls, or authentication implementation exists yet.
+- Auth UI, validation helpers, and reusable Auth controls are feature-owned under `apps/mobile/src/features/auth/`.
+- Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
+- Authentication API calls, token storage, and session bootstrap are not implemented.
 
 ## Current Tech Stack
 
@@ -83,14 +85,15 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 
 - `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
 - The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
-- Login, Register, Splash, Home, Search, Create, Notifications, and Profile render only safe navigation placeholders.
+- Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
+- Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
 - No real authentication, API integration, token storage, backend, database, or social-feature behavior has been added.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
-- Android device/emulator runtime validation is pending because Android SDK command-line tools are not available on this workspace's `PATH`.
+- Phase 3 device runtime validation is pending: BlueStacks is running, but Expo tunnel startup cannot start the local Android SDK ADB server because it cannot create `\.android`.
 
 ## Current Sprint
 
-Week 1 - Phase 2: establish the Mobile navigation foundation before Authentication UI work begins.
+Week 1 - Phase 3: implement Authentication UI and local client-side validation before backend integration.
 
 ## Important Constraints
 
@@ -115,10 +118,11 @@ Week 1 - Phase 2: establish the Mobile navigation foundation before Authenticati
 - `apps/mobile/index.ts` - Expo application entry point
 - `apps/mobile/src/navigation/` - typed root, authentication, and tab navigators
 - `apps/mobile/src/components/common/PlaceholderScreen.tsx` - shared safe placeholder container
+- `apps/mobile/src/features/auth/` - Auth screens, reusable controls, theme values, and local validation
 
 ## How to Continue Development
 
-1. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
-2. Implement the next agreed Mobile slice within the existing feature-based structure without adding API assumptions.
-3. Agree on API contracts in `docs/api-contract.md` before integrating network calls.
+1. Connect the validated Auth forms only after the Backend team confirms an API contract.
+2. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
+3. Implement the next agreed Mobile slice within the existing feature-based structure without adding API assumptions.
 4. Log each meaningful repository change in `docs/change.md`.
