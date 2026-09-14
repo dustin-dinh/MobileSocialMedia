@@ -7,6 +7,8 @@ import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useAuthSubmission } from '../hooks/useAuthSubmission';
+import { authService } from '../services/authService';
 import {
   type FieldErrors,
   type LoginFormValues,
@@ -22,28 +24,27 @@ const INITIAL_VALUES: LoginFormValues = {
 
 export function LoginScreen({ navigation }: LoginScreenProps) {
   const [errors, setErrors] = useState<FieldErrors<keyof LoginFormValues>>({});
-  const [notice, setNotice] = useState<string | null>(null);
   const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES);
   const passwordInputRef = useRef<TextInput | null>(null);
+  const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
 
   const updateField = (field: keyof LoginFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
-    setNotice(null);
+    reset();
   };
 
   const handleSubmit = () => {
     const nextErrors = validateLogin(values);
 
     setErrors(nextErrors);
-    setNotice(null);
+    reset();
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
-    // TODO(Phase 4): Send these validated values through the confirmed authentication API.
-    setNotice('Authentication is not connected yet. No sign-in request was sent.');
+    void submit(() => authService.login(values));
   };
 
   return (
@@ -58,6 +59,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         autoCapitalize="none"
         autoComplete="username"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.identifier}
         keyboardType="email-address"
         label="Username or email"
@@ -72,6 +74,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         autoCapitalize="none"
         autoComplete="current-password"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.password}
         inputRef={passwordInputRef}
         label="Password"
@@ -83,8 +86,8 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         textContentType="password"
         value={values.password}
       />
-      <FormMessage message={notice} />
-      <PrimaryButton label="Log in" onPress={handleSubmit} />
+      <FormMessage message={submissionMessage} tone={submissionTone} />
+      <PrimaryButton isLoading={isSubmitting} label="Log in" onPress={handleSubmit} />
     </AuthScreenContainer>
   );
 }

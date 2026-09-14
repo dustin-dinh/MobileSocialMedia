@@ -95,3 +95,35 @@ React Navigation supports the managed Expo application and provides the native s
 - `apps/mobile/src/navigation/`
 - `apps/mobile/src/features/*/screens/`
 - `apps/mobile/package.json`
+
+## DEC-004 - Use a minimal fetch-based Mobile HTTP boundary until Auth contracts are confirmed
+
+Date: 2026-09-14
+
+Status: Accepted
+
+### Context
+
+Phase 4 needs a reusable Mobile networking foundation, but this repository contains no confirmed Register, Login, or Logout method, URL, request/response shape, error contract, or token/session field. The application must be ready for integration without teaching screens speculative backend details.
+
+### Decision
+
+Use Expo's public `EXPO_PUBLIC_API_BASE_URL` convention through `src/config/api.ts`, a small shared JSON client built on the platform `fetch`, and normalized Mobile transport error categories. Keep Register, Login, and Logout behind a feature-owned Auth service that performs no request until Dev B confirms the contract.
+
+### Reason
+
+This avoids an unnecessary HTTP dependency while giving future Auth integration one place for base-URL, JSON, and basic transport-error handling. It keeps raw requests and backend shapes out of screens without inventing endpoints, response fields, or token behavior.
+
+### Consequences
+
+- Screens retain local validation and delegate valid submissions to the Auth service boundary.
+- The service must map only confirmed API fields and call the shared client when a contract exists.
+- Missing configuration, network failures, HTTP 401 responses, server responses, and unknown failures can be represented consistently on Mobile.
+- Session persistence and authenticated navigation remain Phase 5 responsibilities.
+
+### Related Files
+
+- `apps/mobile/src/config/api.ts`
+- `apps/mobile/src/services/apiError.ts`
+- `apps/mobile/src/services/httpClient.ts`
+- `apps/mobile/src/features/auth/services/authService.ts`

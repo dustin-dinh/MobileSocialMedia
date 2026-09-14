@@ -7,6 +7,8 @@ import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useAuthSubmission } from '../hooks/useAuthSubmission';
+import { authService } from '../services/authService';
 import {
   type FieldErrors,
   type RegisterFormValues,
@@ -24,30 +26,29 @@ const INITIAL_VALUES: RegisterFormValues = {
 
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [errors, setErrors] = useState<FieldErrors<keyof RegisterFormValues>>({});
-  const [notice, setNotice] = useState<string | null>(null);
   const [values, setValues] = useState<RegisterFormValues>(INITIAL_VALUES);
   const emailInputRef = useRef<TextInput | null>(null);
   const passwordInputRef = useRef<TextInput | null>(null);
   const confirmPasswordInputRef = useRef<TextInput | null>(null);
+  const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
 
   const updateField = (field: keyof RegisterFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
-    setNotice(null);
+    reset();
   };
 
   const handleSubmit = () => {
     const nextErrors = validateRegister(values);
 
     setErrors(nextErrors);
-    setNotice(null);
+    reset();
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
-    // TODO(Phase 4): Send these validated values through the confirmed authentication API.
-    setNotice('Authentication is not connected yet. No registration request was sent.');
+    void submit(() => authService.register(values));
   };
 
   return (
@@ -62,6 +63,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCapitalize="none"
         autoComplete="username"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.username}
         label="Username"
         onChangeText={(value) => updateField('username', value)}
@@ -75,6 +77,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCapitalize="none"
         autoComplete="email"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.email}
         inputRef={emailInputRef}
         keyboardType="email-address"
@@ -90,6 +93,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCapitalize="none"
         autoComplete="new-password"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.password}
         inputRef={passwordInputRef}
         label="Password"
@@ -105,6 +109,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCapitalize="none"
         autoComplete="new-password"
         autoCorrect={false}
+        editable={!isSubmitting}
         error={errors.confirmPassword}
         inputRef={confirmPasswordInputRef}
         label="Confirm password"
@@ -116,8 +121,8 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         textContentType="newPassword"
         value={values.confirmPassword}
       />
-      <FormMessage message={notice} />
-      <PrimaryButton label="Create account" onPress={handleSubmit} />
+      <FormMessage message={submissionMessage} tone={submissionTone} />
+      <PrimaryButton isLoading={isSubmitting} label="Create account" onPress={handleSubmit} />
     </AuthScreenContainer>
   );
 }

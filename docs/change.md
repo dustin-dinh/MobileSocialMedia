@@ -231,3 +231,51 @@ Week 1 - Phase 3 Authentication UI and local validation.
 - Local form submission validates only and displays an honest not-connected notice. It does not call an API, save credentials, persist tokens, fake success, or navigate to the main tabs.
 - Splash remains presentation-only. Phase 5 must replace `TEMPORARY_NAVIGATION_MODE` with real session bootstrap.
 - Phase 3 runtime UI interaction remains pending until the local ADB/tunnel issue is resolved or a user manually runs the supported BlueStacks/Expo Go workflow.
+
+---
+
+## 2026-09-14 08:48 +07:00 - Dev A / Codex
+
+### Task
+
+Week 1 - Phase 4 Authentication client/API foundation.
+
+### Changed
+
+- Added public Expo API base-URL configuration under `src/config/` without committing an environment file or URL.
+- Added a shared built-in `fetch` JSON client with relative-path enforcement, JSON request/response handling, and normalized configuration, network, unauthorized, server, and unknown errors.
+- Added a feature-owned Auth service boundary and shared submission-state hook for idle, submitting, and error behavior with duplicate-submission prevention.
+- Refactored Login and Register to retain local validation, delegate valid submissions to the Auth service, show loading/error-ready UI, and honestly report that no request is sent while the contract is pending.
+- Recorded the missing Auth contract status and the minimal fetch-based boundary decision in shared documentation.
+
+### Files
+
+- `apps/mobile/src/config/api.ts`
+- `apps/mobile/src/services/apiError.ts`
+- `apps/mobile/src/services/httpClient.ts`
+- `apps/mobile/src/features/auth/services/authService.ts`
+- `apps/mobile/src/features/auth/hooks/useAuthSubmission.ts`
+- `apps/mobile/src/features/auth/screens/LoginScreen.tsx`
+- `apps/mobile/src/features/auth/screens/RegisterScreen.tsx`
+- `apps/mobile/README.md`
+- `docs/api-contract.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Decisions
+
+- Added DEC-004: use a small fetch-based shared Mobile HTTP boundary and keep Auth endpoint calls disabled until Dev B confirms the API contract.
+
+### Validation
+
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm exec expo config --type public` passed and resolved Expo SDK 57 with Android support.
+- `corepack pnpm exec expo export --platform android --output-dir <temporary directory>` passed; Metro bundled 860 modules. The temporary output directory was removed after validation.
+- Reviewed the Auth/client scope: screens contain no raw HTTP call, the shared client contains the only `fetch`, no endpoint URL or token field was added, and no backend/database file changed.
+
+### Notes
+
+- Register, Login, and Logout are all MISSING: this repository contains no confirmed method, URL, request shape, response shape, error contract, or token/session field.
+- No Auth API request/response types were created because no backend fields are confirmed.
+- No dependency was added. The existing user-owned `@expo/ngrok` manifest/lockfile changes and untracked Expo Go APK were not modified or included.

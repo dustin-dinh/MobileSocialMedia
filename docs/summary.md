@@ -50,6 +50,8 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - `RootNavigator` prepares checking, unauthenticated, and authenticated application branches without real session logic.
 - `AuthNavigator` owns Splash, Login, and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
 - Auth UI, validation helpers, and reusable Auth controls are feature-owned under `apps/mobile/src/features/auth/`.
+- API base configuration is isolated in `apps/mobile/src/config/api.ts`, while JSON HTTP behavior and normalized transport errors are shared under `apps/mobile/src/services/`.
+- The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they intentionally make no endpoint call until Dev B confirms an Auth contract.
 - Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
 - Authentication API calls, token storage, and session bootstrap are not implemented.
 
@@ -86,14 +88,16 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
 - The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
 - Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
+- Auth client infrastructure is implemented with a public environment-based base-URL configuration, shared JSON HTTP client, normalized Mobile error categories, Auth service boundary, and submission state handling.
+- Register, Login, and Logout contracts are all pending Backend confirmation, so the Auth service does not send any request or define speculative request/response/token types.
 - Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
-- No real authentication, API integration, token storage, backend, database, or social-feature behavior has been added.
+- No real authentication, endpoint integration, token storage, backend, database, or social-feature behavior has been added.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
 - Phase 3 device runtime validation is pending: BlueStacks is running, but Expo tunnel startup cannot start the local Android SDK ADB server because it cannot create `\.android`.
 
 ## Current Sprint
 
-Week 1 - Phase 3: implement Authentication UI and local client-side validation before backend integration.
+Week 1 - Phase 4: establish the Authentication client/API foundation while Auth backend contracts remain pending.
 
 ## Important Constraints
 
@@ -118,11 +122,13 @@ Week 1 - Phase 3: implement Authentication UI and local client-side validation b
 - `apps/mobile/index.ts` - Expo application entry point
 - `apps/mobile/src/navigation/` - typed root, authentication, and tab navigators
 - `apps/mobile/src/components/common/PlaceholderScreen.tsx` - shared safe placeholder container
-- `apps/mobile/src/features/auth/` - Auth screens, reusable controls, theme values, and local validation
+- `apps/mobile/src/config/api.ts` - public Expo API base-URL configuration
+- `apps/mobile/src/services/` - shared JSON HTTP client and normalized transport errors
+- `apps/mobile/src/features/auth/` - Auth screens, reusable controls, local validation, service boundary, and submission state
 
 ## How to Continue Development
 
-1. Connect the validated Auth forms only after the Backend team confirms an API contract.
-2. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
-3. Implement the next agreed Mobile slice within the existing feature-based structure without adding API assumptions.
+1. Obtain confirmed Register, Login, and Logout method/URL/request/response/error details from Dev B before implementing an endpoint call.
+2. Map confirmed API fields inside the Auth service, using the shared HTTP client without adding guessed response or token types.
+3. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
 4. Log each meaningful repository change in `docs/change.md`.

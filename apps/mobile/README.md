@@ -4,7 +4,7 @@
 
 This directory contains Dev A's Android-targeted Mobile application for the Mobile Social Network MVP. It owns Mobile UI, navigation, client-side state and interaction, API integration, validation, and Mobile testing.
 
-The app provides a typed navigation foundation and local Authentication UI. Login and Register validate user input locally but do not call APIs, persist tokens, or authenticate users yet.
+The app provides a typed navigation foundation, local Authentication UI, and an Auth client foundation. Login and Register validate user input locally and reach an Auth service boundary, but no endpoint call, token persistence, or real authentication is implemented until the Backend contract is confirmed.
 
 ## Stack
 
@@ -96,13 +96,15 @@ corepack pnpm exec expo config --type public
 
 ## Environment variables
 
-No environment file or backend URL is committed yet. When the API contract is agreed, use a non-secret `EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env.local` and read it through a static `process.env.EXPO_PUBLIC_API_BASE_URL` reference from `src/config/`.
+`src/config/api.ts` reads the optional, non-secret `EXPO_PUBLIC_API_BASE_URL` through a static Expo environment reference. Use `apps/mobile/.env.local` for a local backend URL only after a contract is agreed; no environment file or URL is committed.
 
 `EXPO_PUBLIC_` values are bundled into the client application and must never contain secrets, tokens, or credentials. Local `.env` files are ignored by the repository.
 
 ## API base URL
 
-The API base URL should be configured through `src/config/` after the Backend contract is confirmed. Do not invent an endpoint, host, or response shape.
+The shared `src/services/httpClient.ts` accepts only relative paths and obtains its base URL through `src/config/api.ts`. Missing or invalid configuration becomes a normalized Mobile configuration error; it never falls back to a hardcoded host.
+
+`src/features/auth/services/authService.ts` is the Auth feature boundary. Its Register, Login, and Logout methods currently report that the contract is pending, so they do not call the HTTP client or send any request. Once Dev B confirms a contract, map the confirmed fields and call `httpClient.requestJson` inside this service rather than from a screen.
 
 ## Navigation
 
@@ -133,7 +135,8 @@ Auth screens, reusable controls, theme values, and local validation live in `src
 - Splash is presentation-only and does not start a session or navigate automatically.
 - Login includes a username-or-email field, password field, local required-field validation, keyboard next-field focus, and password visibility control.
 - Register includes username, email, password, and confirm-password fields with required-field, email-format, and password-match validation.
-- Valid local submissions explicitly stop with a notice that no authentication service is connected. They never navigate to the main tabs.
+- Valid local submissions pass through the Auth service boundary, show an explicit no-request-sent notice while the contract is pending, and never navigate to the main tabs.
+- Submission handling supports idle, submitting, and error states; duplicate submissions are prevented while an operation is active.
 - Reusable Auth controls support focused, invalid, loading-ready, and message/error-ready presentation without a UI library.
 
 Phase 4 must connect only confirmed API contracts. Phase 5 must replace the temporary root navigation mode with real session bootstrap.
@@ -157,5 +160,6 @@ The planned features are authentication, feed, post, profile, search, and notifi
 - `index.ts` registers the Expo root component from `src/App.tsx`.
 - `src/App.tsx` stays small and composes safe-area support, `NavigationContainer`, and `RootNavigator`.
 - Splash, Login, and Register have Mobile UI and local validation; Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
+- The Auth client foundation has public API base-URL configuration, a shared JSON HTTP client, normalized Mobile API errors, and a contract-pending Auth service boundary. No Auth endpoint has been implemented because no contract is confirmed.
 - Frozen-lockfile installation, TypeScript checking, Expo configuration resolution, and Android JavaScript bundling have passed.
 - Phase 3 device runtime validation could not be completed because Expo tunnel startup could not start the local Android SDK ADB server.
