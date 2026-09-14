@@ -127,3 +127,35 @@ This avoids an unnecessary HTTP dependency while giving future Auth integration 
 - `apps/mobile/src/services/apiError.ts`
 - `apps/mobile/src/services/httpClient.ts`
 - `apps/mobile/src/features/auth/services/authService.ts`
+
+## DEC-005 - Prefer Expo LAN development with a documented tunnel fallback
+
+Date: 2026-09-14
+
+Status: Accepted
+
+### Context
+
+The Mobile app is developed and manually tested with BlueStacks and Expo Go SDK 57. LAN has worked reliably for local testing, while Expo tunnel has also worked but can disconnect intermittently. The project already has the Expo-compatible `@expo/ngrok` package installed locally to support tunnel transport.
+
+### Decision
+
+Use `expo start --lan` as the documented default development workflow. Keep `expo start --tunnel` as a fallback through the development-only `@expo/ngrok` dependency, exposed by simple `start:lan` and `start:tunnel` package scripts.
+
+### Reason
+
+LAN is the preferred local transport. Retaining the verified tunnel fallback gives developers a documented option when LAN discovery or routing is unavailable, without adding an application runtime dependency or platform automation.
+
+### Consequences
+
+- `@expo/ngrok` is intentionally tracked as a Mobile dev dependency and lockfile entry.
+- Developers should use tunnel only when LAN is unavailable and should expect intermittent tunnel disconnects.
+- BlueStacks-specific environment workarounds are documented as machine-local troubleshooting rather than committed system configuration.
+- Expo Go APK downloads remain ignored local artifacts.
+
+### Related Files
+
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/mobile/README.md`
+- `.gitignore`

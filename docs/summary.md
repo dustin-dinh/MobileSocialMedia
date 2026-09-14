@@ -64,6 +64,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - pnpm 12.4.1 through Corepack, with `apps/mobile/pnpm-lock.yaml`
 - React Navigation 7.3.18 with native-stack 7.18.10 and bottom-tabs 7.18.18
 - Expo-compatible `react-native-screens` 4.26.2 and `react-native-safe-area-context` 5.7.0
+- `@expo/ngrok` 4.1.0 as a development-only Expo tunnel fallback
 
 ## Dev A Responsibilities
 
@@ -93,11 +94,22 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
 - No real authentication, endpoint integration, token storage, backend, database, or social-feature behavior has been added.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
-- Phase 3 device runtime validation is pending: BlueStacks is running, but Expo tunnel startup cannot start the local Android SDK ADB server because it cannot create `\.android`.
+- BlueStacks with Expo Go SDK 57 has been manually verified. LAN is preferred for local testing, with Expo tunnel available as an intermittent fallback through the development-only `@expo/ngrok` dependency.
+- Local Expo Go APK downloads are ignored and remain outside version control.
+
+### Week 1 Mobile Status
+
+- Mobile foundation: Complete.
+- Navigation: Complete.
+- Auth UI: Complete.
+- Auth client foundation: Complete.
+- Real Auth API integration: Blocked by pending Backend contract confirmation.
+- Session persistence: Pending.
+- Authenticated navigation: Pending.
 
 ## Current Sprint
 
-Week 1 - Phase 4: establish the Authentication client/API foundation while Auth backend contracts remain pending.
+Week 1 - Phase 5A: harden the Mobile Auth foundation and prepare Backend handoff while Auth contracts remain pending.
 
 ## Important Constraints
 
@@ -128,7 +140,7 @@ Week 1 - Phase 4: establish the Authentication client/API foundation while Auth 
 
 ## How to Continue Development
 
-1. Obtain confirmed Register, Login, and Logout method/URL/request/response/error details from Dev B before implementing an endpoint call.
-2. Map confirmed API fields inside the Auth service, using the shared HTTP client without adding guessed response or token types.
-3. Keep the temporary `RootNavigator` mode isolated until Phase 5 replaces it with real session bootstrap.
+1. Have Dev B complete the Register, Login, Logout, and Session checklist in `docs/auth-backend-handoff.md` before implementing an endpoint call.
+2. Map only confirmed API fields inside the Auth service, using the shared HTTP client without adding guessed response or token types.
+3. Keep the temporary `RootNavigator` mode isolated until a later phase implements confirmed session bootstrap behavior.
 4. Log each meaningful repository change in `docs/change.md`.

@@ -279,3 +279,50 @@ Week 1 - Phase 4 Authentication client/API foundation.
 - Register, Login, and Logout are all MISSING: this repository contains no confirmed method, URL, request shape, response shape, error contract, or token/session field.
 - No Auth API request/response types were created because no backend fields are confirmed.
 - No dependency was added. The existing user-owned `@expo/ngrok` manifest/lockfile changes and untracked Expo Go APK were not modified or included.
+
+---
+
+## 2026-09-14 10:32 +07:00 - Dev A / Codex
+
+### Task
+
+Week 1 - Phase 5A Mobile hardening and Backend Auth handoff.
+
+### Changed
+
+- Reviewed the Login, Register, Splash, Auth submission, and client boundary behavior; no concrete UI or client code defect required a source refactor.
+- Formalized the existing `@expo/ngrok` 4.1.0 change as a development-only Expo tunnel fallback and added verified `start:lan` and `start:tunnel` scripts.
+- Documented the BlueStacks + Expo Go SDK 57 workflow with LAN as the preferred transport, tunnel as a fallback, and machine-local ADB troubleshooting guidance.
+- Added a targeted ignore rule for local `Expo-Go-*.apk` artifacts, preserving the existing local APK without tracking it.
+- Added the Auth Backend handoff checklist and aligned the API contract template to show every Auth endpoint as pending Backend confirmation.
+- Updated Week 1 Mobile status and recorded DEC-005 for the shared local development workflow.
+
+### Files
+
+- `.gitignore`
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/mobile/README.md`
+- `docs/auth-backend-handoff.md`
+- `docs/api-contract.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Decisions
+
+- Added DEC-005: prefer Expo LAN development and retain the verified `@expo/ngrok` tunnel fallback as a dev-only dependency.
+
+### Validation
+
+- `corepack pnpm install --frozen-lockfile` passed after an approved retry outside the sandbox; the lockfile was current and no packages were downloaded.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm exec expo config --type public` passed and resolved Expo SDK 57 with Android support.
+- `corepack pnpm exec expo export --platform android --output-dir <temporary directory>` passed; Metro bundled 860 modules. The verified temporary export directory was removed after validation.
+- `corepack pnpm run start:lan -- --help` and `corepack pnpm run start:tunnel -- --help` both resolved the verified Expo transport commands without starting a development server.
+- Reviewed the Auth/client boundary: screens contain no raw `fetch`, the shared HTTP client contains the only `fetch`, no endpoint URL or token shape was introduced, and no credential/token logging, backend/database change, APK, or generated export artifact is included.
+
+### Notes
+
+- Automated BlueStacks interaction was not run. BlueStacks + Expo Go SDK 57 had already been manually verified; the current runtime checklist remains the handoff for any further device check.
+- Register, Login, Logout, and session details remain pending Backend confirmation. No request, token persistence, session bootstrap, fake authentication, or Phase 5B implementation was added.

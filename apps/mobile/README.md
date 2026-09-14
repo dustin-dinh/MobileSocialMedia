@@ -15,6 +15,7 @@ The app provides a typed navigation foundation, local Authentication UI, and an 
 - pnpm 12.4.1, invoked through Corepack
 - React Navigation 7 with native stack and bottom tabs
 - Expo-compatible `react-native-screens` and `react-native-safe-area-context`
+- `@expo/ngrok` 4.1.0 as a development-only Expo tunnel fallback
 
 ## Requirements
 
@@ -72,6 +73,39 @@ Start Expo:
 corepack pnpm start
 ```
 
+## Run on BlueStacks / Expo Go
+
+BlueStacks with Expo Go SDK 57 has been manually verified for this project. Prefer LAN for normal local development:
+
+1. Start BlueStacks and Expo Go SDK 57.
+2. From `apps/mobile/`, start Metro over LAN:
+
+   ```powershell
+   corepack pnpm start:lan
+   ```
+
+3. In Expo Go, open the LAN development URL or QR code shown by Expo.
+4. Keep Metro running while testing.
+
+If LAN is unavailable, use the tunnel fallback:
+
+```powershell
+corepack pnpm start:tunnel
+```
+
+Tunnel transport may disconnect intermittently. `@expo/ngrok` is kept as a dev dependency only for this Expo tunnel workflow; it is not part of the Mobile app runtime.
+
+### BlueStacks troubleshooting (this development machine)
+
+If BlueStacks or Expo needs the previously verified ADB environment workarounds on this machine, set them for the current PowerShell session before starting Expo:
+
+```powershell
+$env:ADB_LOCAL_TRANSPORT_MAX_PORT = '0'
+$env:ANDROID_USER_HOME = "$env:USERPROFILE\.android"
+```
+
+These correspond to `ADB_LOCAL_TRANSPORT_MAX_PORT=0` and `ANDROID_USER_HOME=$USERPROFILE\.android`. They are troubleshooting steps for this development machine, not universal project requirements; do not set them system-wide.
+
 ## Run Android
 
 With an Android emulator running or an Android device available to Expo Go:
@@ -80,7 +114,7 @@ With an Android emulator running or an Android device available to Expo Go:
 corepack pnpm android
 ```
 
-This command is defined by the project. It was not device/emulator-tested in this workspace because Android SDK command-line tools are not available on `PATH`.
+This command is defined by the project. BlueStacks with Expo Go SDK 57 has been manually verified through the workflow above; Android SDK command-line tools may still be unavailable on `PATH` in this workspace.
 
 ## TypeScript validation
 
@@ -126,7 +160,7 @@ App
             └── Profile
 ```
 
-`RootNavigator` has one isolated, non-persistent temporary navigation mode. It defaults to the unauthenticated branch so Login and Register links can be verified without faking authentication. Phase 5 must replace that constant with real session bootstrap; it must not be used for token storage, API calls, or real authentication.
+`RootNavigator` has one isolated, non-persistent temporary navigation mode. It defaults to the unauthenticated branch so Login and Register links can be verified without faking authentication. A future Auth-session phase must replace that constant with real session bootstrap; it must not be used for token storage, API calls, or real authentication.
 
 Auth screens, reusable controls, theme values, and local validation live in `src/features/auth/`. The five tab placeholders remain in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
 
@@ -139,7 +173,7 @@ Auth screens, reusable controls, theme values, and local validation live in `src
 - Submission handling supports idle, submitting, and error states; duplicate submissions are prevented while an operation is active.
 - Reusable Auth controls support focused, invalid, loading-ready, and message/error-ready presentation without a UI library.
 
-Phase 4 must connect only confirmed API contracts. Phase 5 must replace the temporary root navigation mode with real session bootstrap.
+Phase 5B may connect only confirmed API contracts. A later session phase must replace the temporary root navigation mode with real session bootstrap.
 
 ## Feature organization
 
@@ -162,4 +196,4 @@ The planned features are authentication, feed, post, profile, search, and notifi
 - Splash, Login, and Register have Mobile UI and local validation; Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
 - The Auth client foundation has public API base-URL configuration, a shared JSON HTTP client, normalized Mobile API errors, and a contract-pending Auth service boundary. No Auth endpoint has been implemented because no contract is confirmed.
 - Frozen-lockfile installation, TypeScript checking, Expo configuration resolution, and Android JavaScript bundling have passed.
-- Phase 3 device runtime validation could not be completed because Expo tunnel startup could not start the local Android SDK ADB server.
+- BlueStacks with Expo Go SDK 57 has been manually verified. LAN is the preferred transport; the documented tunnel fallback may disconnect intermittently.
