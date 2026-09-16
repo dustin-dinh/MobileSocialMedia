@@ -326,3 +326,71 @@ Week 1 - Phase 5A Mobile hardening and Backend Auth handoff.
 
 - Automated BlueStacks interaction was not run. BlueStacks + Expo Go SDK 57 had already been manually verified; the current runtime checklist remains the handoff for any further device check.
 - Register, Login, Logout, and session details remain pending Backend confirmation. No request, token persistence, session bootstrap, fake authentication, or Phase 5B implementation was added.
+
+---
+
+## 2026-09-16 00:00 +07:00 - Dev B / Codex
+
+### Task
+
+Create the Backend and Prisma connection configuration after the shared Supabase development project was prepared.
+
+### Changed
+
+- Added the independent NestJS Backend package under `apps/api/` with pnpm scripts, TypeScript, and Nest CLI configuration.
+- Added untracked-environment guidance through `.env.example`; no real connection URL, secret, token, or `.env` file was added.
+- Added Prisma 7 configuration that uses `DIRECT_URL` for CLI commands and a global `PrismaService` that uses `DATABASE_URL` for the NestJS runtime through the PostgreSQL adapter.
+- Added an intentionally model-free Prisma schema and Backend setup guide; no migration, table, API endpoint, or Auth behavior was created.
+- Ignored Backend dependencies, build output, and generated Prisma Client.
+
+### Files
+
+- `.gitignore`
+- `apps/api/`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Decisions
+
+- Added DEC-006 for the already-agreed NestJS + Prisma + Supabase connection roles.
+
+### Validation
+
+- Installed the declared Backend dependencies with pnpm 12.4.1 and generated `apps/api/pnpm-lock.yaml`.
+- Generated Prisma Client 7.10.0 with a process-only placeholder `DIRECT_URL`; no connection to Supabase was made.
+- Ran `tsc --noEmit` successfully.
+
+### Notes
+
+- The machine's Corepack shim incorrectly looks for `pnpm.cjs` although pnpm 12 provides `pnpm.mjs`. Dependency installation and validation used the verified pnpm executable installed by Corepack directly; project scripts and the documented `corepack pnpm@12.4.1` commands remain the intended developer workflow.
+- Before the API can run against Supabase, Dev B must create `apps/api/.env` locally from `.env.example` and paste the two connection strings directly from Supabase Project → Connect → ORM → Prisma.
+- Database schema, migrations, and all Auth/API contracts remain pending agreement.
+
+---
+
+## 2026-09-16 00:00 +07:00 - Dev B / Codex
+
+### Task
+
+Document the local dependency setup and private Backend environment handoff for Dev A after Supabase connectivity was confirmed.
+
+### Changed
+
+- Added a Dev A onboarding guide that identifies ignored local dependencies and generated artifacts, with reproducible pnpm commands for Mobile and Backend.
+- Documented the private `.env` handoff process, required variables, secret-handling rules, Prisma generation, verification, and Dev A database restrictions.
+- Linked the guide from the project summary.
+
+### Files
+
+- `docs/dev-a-local-setup.md`
+- `docs/summary.md`
+- `docs/change.md`
+
+### Validation
+
+- Reviewed the guide against `.gitignore`, both package manifests/lockfiles, `apps/api/.env.example`, and the Backend/Supabase collaboration rules.
+
+### Notes
+
+- The guide contains placeholders only; no connection string, password, JWT secret, token, or local `.env` was added to the repository.

@@ -159,3 +159,29 @@ LAN is the preferred local transport. Retaining the verified tunnel fallback giv
 - `apps/mobile/pnpm-lock.yaml`
 - `apps/mobile/README.md`
 - `.gitignore`
+
+## DEC-006 - Configure the Backend with NestJS, Prisma 7, and Supabase connection roles
+
+Date: 2026-09-16
+
+Status: Accepted
+
+### Context
+
+The shared Backend/Supabase guide requires a NestJS backend using Prisma with one Supabase development database. The repository had no Backend package or connection configuration.
+
+### Decision
+
+Create `apps/api/` as an independent pnpm package. Use NestJS configuration to read an untracked `.env`; use `DATABASE_URL` through one global `PrismaService` at runtime and `DIRECT_URL` only through `prisma.config.ts` for Prisma CLI commands. Start with no models or migrations.
+
+### Consequences
+
+- Secrets remain local and `.env.example` contains placeholders only.
+- Database schema work requires Dev B approval and a new Prisma migration; direct Dashboard edits and `prisma db push` remain prohibited for the shared database.
+- API contracts, Auth behavior, and Mobile integration remain pending; this configuration adds none of them.
+
+### Related Files
+
+- `apps/api/`
+- `BACKEND_SUPABASE_COLLAB_GUIDE.md`
+- `docs/api-contract.md`

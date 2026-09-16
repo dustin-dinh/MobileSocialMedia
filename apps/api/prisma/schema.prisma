@@ -1,0 +1,12 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Database models are intentionally not defined yet.
+// Dev B must first agree the schema and API impact with Dev A, then add a new
+// Prisma migration. Do not use `prisma db push` against the shared database.
