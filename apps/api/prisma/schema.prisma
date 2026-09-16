@@ -7,6 +7,17 @@ datasource db {
   provider = "postgresql"
 }
 
-// Database models are intentionally not defined yet.
-// Dev B must first agree the schema and API impact with Dev A, then add a new
-// Prisma migration. Do not use `prisma db push` against the shared database.
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// This model is not in Supabase until Dev B explicitly creates and applies a
+// new Prisma migration. Do not use `prisma db push` against the shared database.

@@ -25,7 +25,7 @@ NestJS, Prisma, and Supabase PostgreSQL configuration for the Mobile Social Netw
 
 ## Database workflow
 
-No models or migrations exist yet. Once Dev B and Dev A agree a schema/API change, Dev B adds the models and creates a new migration with:
+The initial `User` model is defined in `prisma/schema.prisma`, but no migration has been created or applied. Once Dev B and Dev A agree a schema/API change, Dev B creates a new migration with:
 
 ```powershell
 corepack pnpm@12.4.1 exec prisma migrate dev --name <descriptive-name>
