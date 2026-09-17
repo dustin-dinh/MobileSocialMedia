@@ -94,9 +94,9 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
 - Auth client infrastructure is implemented with a public environment-based base-URL configuration, shared JSON HTTP client, normalized Mobile error categories, Auth service boundary, and submission state handling.
 - Register, Login, and Logout contracts are all pending Backend confirmation, so the Auth service does not send any request or define speculative request/response/token types.
-- `apps/api/` contains the NestJS and Prisma connection foundation. It reads an untracked local `.env`, uses `DATABASE_URL` at runtime, and reserves `DIRECT_URL` for Prisma CLI. No database model, migration, endpoint, or authentication behavior has been created.
+- `apps/api/` contains the NestJS and Prisma connection foundation. It reads an untracked local `.env`, uses `DATABASE_URL` at runtime, and reserves `DIRECT_URL` for Prisma CLI. Its initial `User` model is defined locally, but no migration, endpoint, or authentication behavior has been created.
 - Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
-- No real authentication, endpoint integration, token storage, database model/migration, or social-feature behavior has been added.
+- No real authentication, endpoint integration, token storage, database migration, or social-feature behavior has been added.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
 - BlueStacks with Expo Go SDK 57 has been manually verified. LAN is preferred for local testing, with Expo tunnel available as an intermittent fallback through the development-only `@expo/ngrok` dependency.
 - Local Expo Go APK downloads are ignored and remain outside version control.
@@ -131,7 +131,7 @@ Week 1 - Phase 5A: harden the Mobile Auth foundation and prepare Backend handoff
 - `docs/change.md` - append-only shared development activity log
 - `docs/decisions.md` - technical decisions affecting both developers
 - `docs/api-contract.md` - Mobile / Backend API contract template
-- `docs/dev-a-local-setup.md` - Dev A local dependency, Backend environment, and secret-handoff guide
+- `docs/supabase_setup_instruction.md` - Dev A local dependency, Backend environment, and secret-handoff guide
 - `apps/mobile/AGENTS.md` - Mobile-specific AI instructions
 - `apps/mobile/README.md` - Mobile setup and contribution notes
 - `apps/mobile/package.json` - verified Mobile scripts and dependencies

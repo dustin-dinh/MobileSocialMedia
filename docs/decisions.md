@@ -185,3 +185,28 @@ Create `apps/api/` as an independent pnpm package. Use NestJS configuration to r
 - `apps/api/`
 - `BACKEND_SUPABASE_COLLAB_GUIDE.md`
 - `docs/api-contract.md`
+
+## DEC-007 - Establish the initial User schema without a database migration
+
+Date: 2026-09-16
+
+Status: Accepted
+
+### Context
+
+The MVP needs a stable identity model before Auth and social-feature models can be designed. The repository has a confirmed Prisma/Supabase connection but no database model.
+
+### Decision
+
+Define the initial Prisma `User` model with a UUID primary key, unique `username` and `email`, required `passwordHash`, optional profile fields (`displayName`, `avatarUrl`, `bio`), and creation/update timestamps. Do not create or apply a migration in this change.
+
+### Consequences
+
+- The model is only local schema source until Dev B creates a new migration.
+- Later Auth endpoints must never return `passwordHash`.
+- Future `Post`, `Follow`, `Like`, `Comment`, and `Notification` models will reference `User` in later, separately reviewed schema changes.
+
+### Related Files
+
+- `apps/api/prisma/schema.prisma`
+- `docs/api-contract.md`

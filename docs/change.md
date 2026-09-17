@@ -394,3 +394,36 @@ Document the local dependency setup and private Backend environment handoff for 
 ### Notes
 
 - The guide contains placeholders only; no connection string, password, JWT secret, token, or local `.env` was added to the repository.
+
+---
+
+## 2026-09-16 00:00 +07:00 - Dev B / Codex
+
+### Task
+
+Define the initial Prisma `User` model without creating a migration.
+
+### Changed
+
+- Added `User` with a UUID identifier, unique username/email, password hash, optional profile fields, and timestamps.
+- Documented DEC-007 and updated Backend/project status to clarify that the model exists only in local Prisma schema.
+
+### Files
+
+- `apps/api/prisma/schema.prisma`
+- `apps/api/README.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Database Changes
+
+- None. No migration was created, applied, edited, or deleted; Supabase schema and data are unchanged.
+
+### API Changes
+
+- None. No endpoint, request/response field, token behavior, or API contract was added.
+
+### Validation
+
+- Ran `prisma validate`, `prisma generate`, and `tsc --noEmit` successfully.
