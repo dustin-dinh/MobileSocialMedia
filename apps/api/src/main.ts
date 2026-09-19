@@ -5,7 +5,10 @@ import { AppModule } from "./app.module";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+
   const port = Number(process.env.PORT ?? 3000);
+
+  app.setGlobalPrefix("api");
 
   app.useGlobalPipes(
     new ValidationPipe({
