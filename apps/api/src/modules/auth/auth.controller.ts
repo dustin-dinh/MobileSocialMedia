@@ -1,8 +1,14 @@
 import {
     Body,
     Controller,
+    Get,
+    HttpCode,
+    HttpStatus,
     Post,
-} from '@nestjs/common';
+    UseGuards,
+} from "@nestjs/common";
+
+import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -22,5 +28,11 @@ export class AuthController {
     @Post('login')
     login(@Body() dto: LoginDto) {
         return this.authService.login(dto);
+    }
+    @UseGuards(JwtAuthGuard)
+    @Post("logout")
+    @HttpCode(HttpStatus.NO_CONTENT)
+    logout(): void {
+        return;
     }
 }
