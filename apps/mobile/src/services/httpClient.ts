@@ -9,7 +9,44 @@ export type JsonRequestOptions<TBody> = {
   method: HttpMethod;
   path: string;
   signal?: AbortSignal;
+  timeoutMs?: number;
 };
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
+
+type RequestSignal = {
+  cleanup: () => void;
+  didTimeout: () => boolean;
+  signal: AbortSignal;
+};
+
+function createRequestSignal(externalSignal: AbortSignal | undefined, timeoutMs: number): RequestSignal {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromExternalSignal = () => {
+    controller.abort();
+  };
+
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener('abort', abortFromExternalSignal, { once: true });
+  }
+
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  return {
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      externalSignal?.removeEventListener('abort', abortFromExternalSignal);
+    },
+    didTimeout: () => timedOut,
+    signal: controller.signal,
+  };
+}
 
 function createApiUrl(path: string): string {
   const normalizedPath = path.replace(/^\/+/, '');
@@ -77,7 +114,12 @@ async function request<TBody = undefined>(
     });
   }
 
+  const requestSignal = createRequestSignal(
+    options.signal,
+    options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+  );
   let response: Response;
+  let payload: unknown | undefined;
 
   try {
     response = await fetch(requestUrl, {
@@ -88,16 +130,20 @@ async function request<TBody = undefined>(
         ...options.headers,
       },
       method: options.method,
-      signal: options.signal,
+      signal: requestSignal.signal,
     });
+
+    payload = await readJson(response);
   } catch {
     throw new ApiError({
       kind: 'network',
-      message: 'Unable to reach the server. Check your connection and try again.',
+      message: requestSignal.didTimeout()
+        ? 'The server took too long to respond. Check the API connection and try again.'
+        : 'Unable to reach the server. Check your connection and try again.',
     });
+  } finally {
+    requestSignal.cleanup();
   }
-
-  const payload = await readJson(response);
 
   if (!response.ok) {
     const fallbackMessage =

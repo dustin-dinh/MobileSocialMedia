@@ -158,7 +158,7 @@ corepack pnpm exec expo config --type public
 
 ## API base URL
 
-The shared `src/services/httpClient.ts` accepts only relative paths and obtains its base URL through `src/config/api.ts`. Missing or invalid configuration becomes a normalized Mobile configuration error; it never falls back to a hardcoded host.
+The shared `src/services/httpClient.ts` accepts only relative paths and obtains its base URL through `src/config/api.ts`. Missing or invalid configuration becomes a normalized Mobile configuration error; it never falls back to a hardcoded host. Requests time out after eight seconds by default so an unreachable local API does not leave a Mobile action loading indefinitely.
 
 `src/features/auth/services/authService.ts` maps the confirmed `/auth/register`, `/auth/login`, `/users/me`, and `/auth/logout` routes. It owns request/response mapping; screens do not issue raw network requests. The complete current contract, including the Login success status of `201`, is in `docs/api-contract.md`.
 
@@ -182,7 +182,7 @@ App
             └── Profile
 ```
 
-`AuthSessionProvider` restores the access token from Expo SecureStore, validates it with `GET /users/me`, and then lets `RootNavigator` render Splash, the Auth stack, or the Main tabs. The token is never placed in route parameters or exposed to screens.
+`AuthSessionProvider` restores the access token from Expo SecureStore, validates it with `GET /users/me`, and then lets `RootNavigator` render Splash, the Auth stack, or the Main tabs. Startup has a five-second guard: if local storage or the API does not respond, Splash ends at Login instead of waiting indefinitely. The token is retained unless the server explicitly returns `401`. The token is never placed in route parameters or exposed to screens.
 
 Auth screens, reusable controls, theme values, and local validation live in `src/features/auth/`. The five tab placeholders remain in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
 

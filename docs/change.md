@@ -482,3 +482,38 @@ Connect the completed Mobile Authentication UI to the confirmed NestJS API and v
 
 - Local Backend and Mobile environment files remain ignored and contain no tracked secrets.
 - No social feature, direct Supabase Mobile connection, or state-management/UI library was added.
+
+---
+
+## 2026-09-21 17:28 +07:00 - Dev A / Codex
+
+### Task
+
+Prevent Mobile session startup from waiting indefinitely at Splash when Expo Go cannot reach the local API.
+
+### Changed
+
+- Added an eight-second default timeout to the shared Mobile JSON HTTP client, including a clear timeout error message.
+- Added a five-second session-bootstrap guard that cancels current-user validation and returns from Splash to Login when local storage or the API does not respond.
+- Kept a saved token unless the Backend explicitly returns `401`, so a temporary local-network failure does not discard a valid session.
+- Documented the bounded request and session-start behavior in the Mobile README and project summary.
+
+### Files
+
+- `apps/mobile/src/services/httpClient.ts`
+- `apps/mobile/src/features/auth/services/authService.ts`
+- `apps/mobile/src/features/auth/authSession.tsx`
+- `apps/mobile/README.md`
+- `docs/summary.md`
+- `docs/change.md`
+
+### Scope
+
+- No Backend source, API contract, Prisma schema, migration, database data, dependency, or environment file was changed.
+
+### Validation
+
+- `corepack pnpm@12.4.1 typecheck` passed.
+- `corepack pnpm@12.4.1 exec expo config --type public` passed and confirmed the ignored Mobile environment configuration was loaded.
+- `corepack pnpm@12.4.1 exec expo export --platform android --output-dir .verification-session-timeout` passed; Metro bundled 866 modules, and the generated verification output was removed afterward.
+- `git diff --check` passed.

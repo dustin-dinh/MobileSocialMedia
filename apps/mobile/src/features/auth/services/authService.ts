@@ -26,6 +26,11 @@ type LoginResponse = {
 type RegisterRequest = Pick<RegisterFormValues, 'email' | 'password' | 'username'>;
 type LoginRequest = LoginFormValues;
 
+type GetCurrentUserOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
 function getAuthorizationHeaders(accessToken: string): Record<string, string> {
   return {
     Authorization: 'Bearer ' + accessToken,
@@ -33,11 +38,16 @@ function getAuthorizationHeaders(accessToken: string): Record<string, string> {
 }
 
 export const authService = {
-  async getCurrentUser(accessToken: string): Promise<AuthUser> {
+  async getCurrentUser(
+    accessToken: string,
+    options: GetCurrentUserOptions = {},
+  ): Promise<AuthUser> {
     const response = await httpClient.requestJson<UserResponse>({
       headers: getAuthorizationHeaders(accessToken),
       method: 'GET',
       path: 'users/me',
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
     });
 
     return response.data;

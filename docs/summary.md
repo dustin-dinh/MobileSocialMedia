@@ -52,7 +52,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Auth UI, validation helpers, and reusable Auth controls are feature-owned under `apps/mobile/src/features/auth/`.
 - API base configuration is isolated in `apps/mobile/src/config/api.ts`, while JSON HTTP behavior and normalized transport errors are shared under `apps/mobile/src/services/`.
 - The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they call only the confirmed Register, Login, Current User, and Logout API contract.
-- Expo SecureStore keeps the access token device-local, while the Auth session provider owns token restoration, validation, and authenticated navigation.
+- Expo SecureStore keeps the access token device-local, while the Auth session provider owns token restoration, validation, and authenticated navigation. Session startup is bounded so an unreachable local API cannot leave Splash running indefinitely.
 - Home, Search, Create, and Notifications remain navigation-only placeholders. Profile exposes the authenticated username and the confirmed Logout action.
 
 ## Current Tech Stack
@@ -93,7 +93,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
 - The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
 - Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
-- Auth integration uses the confirmed public base URL, shared JSON HTTP client, server error messages, and feature-owned service mapping.
+- Auth integration uses the confirmed public base URL, shared JSON HTTP client with bounded requests, server error messages, and feature-owned service mapping.
 - Login persists only `data.accessToken` in Expo SecureStore, validates it through `GET /api/users/me`, and transitions to the authenticated tab navigator. Logout calls `POST /api/auth/logout` and clears local state/token.
 - `apps/api/` contains the NestJS + Prisma + Supabase implementation, an applied User migration, and Register/Login/Current User/Logout endpoints. It reads an ignored local `.env`; Dev A does not change its API, schema, migration, or database contents.
 - Home, Search, Create, and Notifications remain navigation-only placeholders; Profile is only the minimal authenticated Logout surface, not a full profile feature.

@@ -19,6 +19,7 @@ type AuthSessionContextValue = {
 };
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
 export function AuthSessionProvider({ children }: PropsWithChildren) {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -71,18 +72,31 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let isMounted = true;
+    let didTimeout = false;
+    const bootstrapController = new AbortController();
+    const bootstrapTimeoutId = setTimeout(() => {
+      didTimeout = true;
+      bootstrapController.abort();
+
+      if (isMounted) {
+        setIsBootstrapping(false);
+      }
+    }, SESSION_BOOTSTRAP_TIMEOUT_MS);
 
     const restoreSession = async () => {
       try {
         const accessToken = await authTokenStorage.get();
 
-        if (!accessToken) {
+        if (didTimeout || !accessToken) {
           return;
         }
 
-        const user = await authService.getCurrentUser(accessToken);
+        const user = await authService.getCurrentUser(accessToken, {
+          signal: bootstrapController.signal,
+          timeoutMs: SESSION_BOOTSTRAP_TIMEOUT_MS,
+        });
 
-        if (isMounted) {
+        if (isMounted && !didTimeout) {
           setSession({ accessToken, user });
         }
       } catch (error) {
@@ -94,7 +108,9 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
           }
         }
       } finally {
-        if (isMounted) {
+        clearTimeout(bootstrapTimeoutId);
+
+        if (isMounted && !didTimeout) {
           setIsBootstrapping(false);
         }
       }
@@ -104,6 +120,9 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
 
     return () => {
       isMounted = false;
+      didTimeout = true;
+      clearTimeout(bootstrapTimeoutId);
+      bootstrapController.abort();
     };
   }, []);
 
