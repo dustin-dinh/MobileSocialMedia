@@ -168,21 +168,22 @@ The navigation foundation is:
 
 ```text
 App
-└── NavigationContainer
-    └── RootNavigator
-        ├── AuthNavigator
-        │   ├── Splash
-        │   ├── Login
-        │   └── Register
-        └── MainTabNavigator
-            ├── Home
-            ├── Search
-            ├── Create
-            ├── Notifications
-            └── Profile
+└── AuthSessionProvider
+    ├── SplashScreen (while restoring a saved session)
+    └── NavigationContainer
+        └── RootNavigator
+            ├── AuthNavigator
+            │   ├── Login
+            │   └── Register
+            └── MainTabNavigator
+                ├── Home
+                ├── Search
+                ├── Create
+                ├── Notifications
+                └── Profile
 ```
 
-`AuthSessionProvider` restores the access token from Expo SecureStore, validates it with `GET /users/me`, and then lets `RootNavigator` render Splash, the Auth stack, or the Main tabs. Startup has a five-second guard: if local storage or the API does not respond, Splash ends at Login instead of waiting indefinitely. The token is retained unless the server explicitly returns `401`. The token is never placed in route parameters or exposed to screens.
+`AuthSessionProvider` restores the access token from Expo SecureStore and validates it with `GET /users/me`. `App` renders Splash before any navigator while that work is pending; when it completes, `RootNavigator` renders the Auth stack or Main tabs. Startup has a five-second guard: if local storage or the API does not respond, Splash ends at Login instead of waiting indefinitely. The token is retained unless the server explicitly returns `401`. The token is never placed in route parameters or exposed to screens.
 
 Auth screens, reusable controls, theme values, and local validation live in `src/features/auth/`. The five tab placeholders remain in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
 

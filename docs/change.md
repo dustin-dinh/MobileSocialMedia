@@ -517,3 +517,49 @@ Prevent Mobile session startup from waiting indefinitely at Splash when Expo Go 
 - `corepack pnpm@12.4.1 exec expo config --type public` passed and confirmed the ignored Mobile environment configuration was loaded.
 - `corepack pnpm@12.4.1 exec expo export --platform android --output-dir .verification-session-timeout` passed; Metro bundled 866 modules, and the generated verification output was removed afterward.
 - `git diff --check` passed.
+
+---
+
+## 2026-09-21 17:57 +07:00 - Dev A / Codex
+
+### Task
+
+Diagnose and fix the Mobile Splash screen remaining visible after session bootstrap completes in Expo Go.
+
+### Confirmed Root Cause
+
+- The active Metro server was started with `--clear`, and its Android development bundle contained the previous timeout implementation, confirming that the server was serving the current source.
+- `RootNavigator` rendered the same `AuthNavigator` component for both bootstrap and signed-out states while changing only `initialRouteName` from `Splash` to `Login`.
+- React Navigation treats `initialRouteName` as a first-load setting; the existing navigator therefore retained its already-active Splash route after `isBootstrapping` became false.
+
+### Changed
+
+- Rendered Splash directly from `App` before any navigator while session restoration is pending.
+- Mounted `NavigationContainer` and `RootNavigator` only after session bootstrap completes.
+- Simplified `AuthNavigator` to the actual unauthenticated flow: Login and Register, with Login as its static initial route.
+- Removed the obsolete navigable Splash route type and updated Mobile navigation documentation.
+- Added DEC-009 to record the session-Splash lifecycle rule.
+
+### Files
+
+- `apps/mobile/src/App.tsx`
+- `apps/mobile/src/navigation/RootNavigator.tsx`
+- `apps/mobile/src/navigation/AuthNavigator.tsx`
+- `apps/mobile/src/navigation/types.ts`
+- `apps/mobile/README.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Validation
+
+- `corepack pnpm@12.4.1 typecheck` passed.
+- `corepack pnpm@12.4.1 exec expo config --type public` passed.
+- A source regression check confirmed zero `initialRouteName="Splash"` references under `apps/mobile/src`.
+- The running Metro bundle was queried directly and contained the new `AppContent` bootstrap boundary.
+- `corepack pnpm@12.4.1 exec expo export --platform android --output-dir .verification-navigation-bootstrap` passed; Metro bundled 866 modules and the generated verification output was removed afterward.
+- `git diff --check` passed.
+
+### Scope
+
+- No Backend source, API contract, database, environment file, dependency, or remote Git state was changed.

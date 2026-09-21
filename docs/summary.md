@@ -46,9 +46,9 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Shared types belong in `apps/mobile/src/types/`.
 - Navigation, configuration, hooks, constants, and utilities have dedicated source areas.
 - `apps/mobile/index.ts` is the Expo entry point and registers the foundation component in `apps/mobile/src/App.tsx`.
-- `apps/mobile/src/App.tsx` composes `SafeAreaProvider`, `AuthSessionProvider`, `NavigationContainer`, and `RootNavigator`.
-- `RootNavigator` validates a persisted token during its checking branch, then renders the authenticated or unauthenticated branch.
-- `AuthNavigator` owns Splash, Login, and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
+- `apps/mobile/src/App.tsx` composes `SafeAreaProvider` and `AuthSessionProvider`, renders Splash before any navigator while session restoration is pending, then mounts `NavigationContainer` and `RootNavigator`.
+- `RootNavigator` renders the authenticated or unauthenticated branch after the session provider completes restoration.
+- `AuthNavigator` owns Login and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
 - Auth UI, validation helpers, and reusable Auth controls are feature-owned under `apps/mobile/src/features/auth/`.
 - API base configuration is isolated in `apps/mobile/src/config/api.ts`, while JSON HTTP behavior and normalized transport errors are shared under `apps/mobile/src/services/`.
 - The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they call only the confirmed Register, Login, Current User, and Logout API contract.

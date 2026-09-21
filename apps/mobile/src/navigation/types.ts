@@ -6,7 +6,6 @@ export type AuthStackParamList = {
       }
     | undefined;
   Register: undefined;
-  Splash: undefined;
 };
 
 export type MainTabParamList = {

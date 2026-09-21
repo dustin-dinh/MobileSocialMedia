@@ -228,7 +228,7 @@ Use the Expo-compatible `expo-secure-store` package to store only the access tok
 ### Consequences
 
 - The token is not hardcoded, committed, logged, or placed in React Navigation parameters.
-- `RootNavigator` waits for token validation before choosing the authenticated or unauthenticated branch.
+- `App` renders `SplashScreen` before mounting a navigator while token validation is pending; `RootNavigator` chooses the authenticated or unauthenticated branch only after that work completes.
 - Screens receive the authenticated user and actions through the Auth feature context; no new global state-management library is required.
 - A future refresh-token or server-side revocation contract needs a reviewed update to this decision and the Auth service.
 
@@ -238,3 +238,34 @@ Use the Expo-compatible `expo-secure-store` package to store only the access tok
 - `apps/mobile/src/features/auth/authSession.tsx`
 - `apps/mobile/src/features/auth/services/authTokenStorage.ts`
 - `apps/mobile/src/features/auth/services/authService.ts`
+
+## DEC-009 - Render session Splash outside Mobile navigators
+
+Date: 2026-09-21
+
+Status: Accepted
+
+### Context
+
+The first session-bootstrap implementation reused `AuthNavigator` while changing its `initialRouteName` from Splash to Login. React Navigation treats `initialRouteName` as the route for the navigator's first load, so completing bootstrap did not replace the navigator's already-active Splash route.
+
+### Decision
+
+Render `SplashScreen` directly from `App` while `AuthSessionProvider` is bootstrapping. Mount `NavigationContainer` and `RootNavigator` only after bootstrap finishes. Keep `AuthNavigator` focused on Login and Register with a static Login initial route.
+
+### Reason
+
+This follows the React Navigation authentication-flow guidance to render Splash before navigators and avoids using an initialization-only navigator prop as mutable application state.
+
+### Consequences
+
+- A completed or timed-out session bootstrap always mounts the unauthenticated navigator at Login when no user is available.
+- Splash is not a navigable Auth stack route and does not retain stale navigation state.
+- Login, Logout, and authenticated tab transitions continue to switch complete navigator branches based on session state.
+
+### Related Files
+
+- `apps/mobile/src/App.tsx`
+- `apps/mobile/src/navigation/RootNavigator.tsx`
+- `apps/mobile/src/navigation/AuthNavigator.tsx`
+- `apps/mobile/src/navigation/types.ts`

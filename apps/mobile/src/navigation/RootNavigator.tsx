@@ -3,15 +3,11 @@ import { AuthNavigator } from './AuthNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 
 export function RootNavigator() {
-  const { isBootstrapping, user } = useAuthSession();
-
-  if (isBootstrapping) {
-    return <AuthNavigator initialRouteName="Splash" />;
-  }
+  const { user } = useAuthSession();
 
   if (user) {
     return <MainTabNavigator />;
   }
 
-  return <AuthNavigator initialRouteName="Login" />;
+  return <AuthNavigator />;
 }
