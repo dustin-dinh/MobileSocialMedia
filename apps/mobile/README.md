@@ -4,7 +4,7 @@
 
 This directory contains Dev A's Android-targeted Mobile application for the Mobile Social Network MVP. It owns Mobile UI, navigation, client-side state and interaction, API integration, validation, and Mobile testing.
 
-The app provides a typed navigation foundation, local Authentication UI, and an Auth client foundation. Login and Register validate user input locally and reach an Auth service boundary, but no endpoint call, token persistence, or real authentication is implemented until the Backend contract is confirmed.
+The app provides typed navigation, Authentication UI, and a confirmed Auth client/session flow. Login, Register, token persistence, current-user validation, authenticated navigation, and Logout communicate only with the documented NestJS API contract.
 
 ## Stack
 
@@ -15,6 +15,7 @@ The app provides a typed navigation foundation, local Authentication UI, and an 
 - pnpm 12.4.1, invoked through Corepack
 - React Navigation 7 with native stack and bottom tabs
 - Expo-compatible `react-native-screens` and `react-native-safe-area-context`
+- `expo-secure-store` 57.0.4 for device-local access-token storage
 - `@expo/ngrok` 4.1.0 as a development-only Expo tunnel fallback
 
 ## Requirements
@@ -73,6 +74,27 @@ Start Expo:
 corepack pnpm start
 ```
 
+## Run the full local Auth stack
+
+1. In `apps/api/`, create or retain the ignored local `.env` supplied privately by Dev B. It needs the Backend database and JWT variables from `.env.example`; never commit it.
+2. Start the Backend:
+
+   ~~~powershell
+   cd apps/api
+   corepack pnpm@12.4.1 prisma:generate
+   corepack pnpm@12.4.1 start:dev
+   ~~~
+
+3. In `apps/mobile/.env.local`, set an API URL reachable from the device. A local Android/BlueStacks session normally needs the Wi-Fi LAN address of this computer:
+
+   ~~~env
+   EXPO_PUBLIC_API_BASE_URL=http://<LAN-IP>:3000/api
+   ~~~
+
+4. Restart Expo after changing `.env.local`, then use the BlueStacks/Expo Go LAN workflow below.
+
+Mobile does not use a Supabase SDK or connect to PostgreSQL directly. It calls the local NestJS API, which owns the Prisma/Supabase connection.
+
 ## Run on BlueStacks / Expo Go
 
 BlueStacks with Expo Go SDK 57 has been manually verified for this project. Prefer LAN for normal local development:
@@ -130,7 +152,7 @@ corepack pnpm exec expo config --type public
 
 ## Environment variables
 
-`src/config/api.ts` reads the optional, non-secret `EXPO_PUBLIC_API_BASE_URL` through a static Expo environment reference. Use `apps/mobile/.env.local` for a local backend URL only after a contract is agreed; no environment file or URL is committed.
+`src/config/api.ts` reads the non-secret `EXPO_PUBLIC_API_BASE_URL` through a static Expo environment reference. Use ignored `apps/mobile/.env.local` for the device-reachable local Backend URL and restart Expo when it changes.
 
 `EXPO_PUBLIC_` values are bundled into the client application and must never contain secrets, tokens, or credentials. Local `.env` files are ignored by the repository.
 
@@ -138,7 +160,7 @@ corepack pnpm exec expo config --type public
 
 The shared `src/services/httpClient.ts` accepts only relative paths and obtains its base URL through `src/config/api.ts`. Missing or invalid configuration becomes a normalized Mobile configuration error; it never falls back to a hardcoded host.
 
-`src/features/auth/services/authService.ts` is the Auth feature boundary. Its Register, Login, and Logout methods currently report that the contract is pending, so they do not call the HTTP client or send any request. Once Dev B confirms a contract, map the confirmed fields and call `httpClient.requestJson` inside this service rather than from a screen.
+`src/features/auth/services/authService.ts` maps the confirmed `/auth/register`, `/auth/login`, `/users/me`, and `/auth/logout` routes. It owns request/response mapping; screens do not issue raw network requests. The complete current contract, including the Login success status of `201`, is in `docs/api-contract.md`.
 
 ## Navigation
 
@@ -160,20 +182,20 @@ App
             └── Profile
 ```
 
-`RootNavigator` has one isolated, non-persistent temporary navigation mode. It defaults to the unauthenticated branch so Login and Register links can be verified without faking authentication. A future Auth-session phase must replace that constant with real session bootstrap; it must not be used for token storage, API calls, or real authentication.
+`AuthSessionProvider` restores the access token from Expo SecureStore, validates it with `GET /users/me`, and then lets `RootNavigator` render Splash, the Auth stack, or the Main tabs. The token is never placed in route parameters or exposed to screens.
 
 Auth screens, reusable controls, theme values, and local validation live in `src/features/auth/`. The five tab placeholders remain in the `screens/` directory of their relevant feature. Route parameter types are centralized in `src/navigation/types.ts`.
 
 ## Authentication UI
 
-- Splash is presentation-only and does not start a session or navigate automatically.
-- Login includes a username-or-email field, password field, local required-field validation, keyboard next-field focus, and password visibility control.
-- Register includes username, email, password, and confirm-password fields with required-field, email-format, and password-match validation.
-- Valid local submissions pass through the Auth service boundary, show an explicit no-request-sent notice while the contract is pending, and never navigate to the main tabs.
+- Splash is displayed only while the saved token is being checked.
+- Login accepts the Backend-supported email/password fields, validates them locally, stores only the returned access token in SecureStore, confirms it with `/users/me`, and then enters the Main tabs.
+- Register sends username, email, and password after local validation; it returns to Login with the registered email after the Backend confirms account creation.
+- Profile exposes the authenticated username and a Logout action. Logout waits for the Backend `204` response, deletes the local token, and returns to Login.
 - Submission handling supports idle, submitting, and error states; duplicate submissions are prevented while an operation is active.
 - Reusable Auth controls support focused, invalid, loading-ready, and message/error-ready presentation without a UI library.
 
-Phase 5B may connect only confirmed API contracts. A later session phase must replace the temporary root navigation mode with real session bootstrap.
+The current Backend uses one-day stateless access tokens. Refresh tokens and immediate server-side revocation are not implemented; see `docs/api-contract.md` before changing this behavior.
 
 ## Feature organization
 
@@ -192,8 +214,8 @@ The planned features are authentication, feed, post, profile, search, and notifi
 ## Current Status
 
 - `index.ts` registers the Expo root component from `src/App.tsx`.
-- `src/App.tsx` stays small and composes safe-area support, `NavigationContainer`, and `RootNavigator`.
-- Splash, Login, and Register have Mobile UI and local validation; Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
-- The Auth client foundation has public API base-URL configuration, a shared JSON HTTP client, normalized Mobile API errors, and a contract-pending Auth service boundary. No Auth endpoint has been implemented because no contract is confirmed.
+- `src/App.tsx` stays small and composes safe-area support, Auth session state, `NavigationContainer`, and `RootNavigator`.
+- Splash, Login, and Register have live Auth behavior; Home, Search, Create, and Notifications remain navigation-only placeholders. Profile is the minimal authenticated Logout surface.
+- The Auth client uses a public API base URL, shared JSON HTTP behavior, normalized Backend errors, confirmed Auth service mapping, Expo SecureStore, and React Context session bootstrap.
 - Frozen-lockfile installation, TypeScript checking, Expo configuration resolution, and Android JavaScript bundling have passed.
 - BlueStacks with Expo Go SDK 57 has been manually verified. LAN is the preferred transport; the documented tunnel fallback may disconnect intermittently.

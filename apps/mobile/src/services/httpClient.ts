@@ -35,9 +35,37 @@ async function readJson(response: Response): Promise<unknown | undefined> {
   }
 }
 
-async function requestJson<TResponse, TBody = undefined>(
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getResponseMessage(payload: unknown, fallbackMessage: string): string {
+  if (!isRecord(payload)) {
+    return fallbackMessage;
+  }
+
+  const { message } = payload;
+
+  if (typeof message === 'string' && message.trim()) {
+    return message.trim();
+  }
+
+  if (Array.isArray(message)) {
+    const messages = message.filter(
+      (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+    );
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  return fallbackMessage;
+}
+
+async function request<TBody = undefined>(
   options: JsonRequestOptions<TBody>,
-): Promise<TResponse> {
+): Promise<unknown | undefined> {
   let requestUrl: string;
 
   try {
@@ -72,27 +100,41 @@ async function requestJson<TResponse, TBody = undefined>(
   const payload = await readJson(response);
 
   if (!response.ok) {
+    const fallbackMessage =
+      response.status === 401
+        ? 'The server did not authorize this request.'
+        : 'The server could not complete this request.';
+
     throw new ApiError({
       kind: response.status === 401 ? 'unauthorized' : 'server',
-      message:
-        response.status === 401
-          ? 'The server did not authorize this request.'
-          : 'The server could not complete this request.',
+      message: getResponseMessage(payload, fallbackMessage),
       status: response.status,
     });
   }
+
+  return payload;
+}
+
+async function requestJson<TResponse, TBody = undefined>(
+  options: JsonRequestOptions<TBody>,
+): Promise<TResponse> {
+  const payload = await request(options);
 
   if (payload === undefined) {
     throw new ApiError({
       kind: 'unknown',
       message: 'The server returned an unexpected response.',
-      status: response.status,
     });
   }
 
   return payload as TResponse;
 }
 
+async function requestVoid<TBody = undefined>(options: JsonRequestOptions<TBody>): Promise<void> {
+  await request(options);
+}
+
 export const httpClient = {
   requestJson,
+  requestVoid,
 } as const;

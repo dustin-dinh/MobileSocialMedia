@@ -427,3 +427,58 @@ Define the initial Prisma `User` model without creating a migration.
 ### Validation
 
 - Ran `prisma validate`, `prisma generate`, and `tsc --noEmit` successfully.
+
+---
+
+## 2026-09-21 08:42 +07:00 - Dev A / Codex
+
+### Task
+
+Connect the completed Mobile Authentication UI to the confirmed NestJS API and verify the local Mobile → Backend → Supabase development flow.
+
+### Changed
+
+- Replaced the contract-pending Auth service with confirmed Register, Login, Current User, and Logout request/response mapping.
+- Added Expo SecureStore token storage and a feature-owned React Context session provider that restores, validates, and clears the access token without exposing it to screens.
+- Replaced the temporary RootNavigator mode with real session bootstrap and authenticated navigation.
+- Changed Login to the Backend-supported email/password identifier and aligned local validation with Backend username, email, and password constraints.
+- Added a minimal authenticated Profile Logout control; Home, Search, Create, and Notifications remain placeholders.
+- Extended the shared HTTP client to handle empty successful responses and expose safe Backend JSON error messages to forms.
+- Added the Expo SDK 57-compatible `expo-secure-store` dependency.
+- Recorded the confirmed Auth contract and the actual Login success status (`201`) in shared documentation and the Dev A integration guide.
+
+### Files
+
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/mobile/src/App.tsx`
+- `apps/mobile/src/navigation/`
+- `apps/mobile/src/services/httpClient.ts`
+- `apps/mobile/src/features/auth/`
+- `apps/mobile/src/features/profile/screens/ProfileScreen.tsx`
+- `apps/mobile/README.md`
+- `docs/api-contract.md`
+- `docs/auth-backend-handoff.md`
+- `DEV_A_WEEK1_API_INTEGRATION_GUIDE.md`
+- `docs/summary.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+### Database and API Scope
+
+- No Backend source, Prisma schema, migration, API behavior, or database structure was modified.
+- A uniquely prefixed development test account was created by the end-to-end Auth verification. It was not deleted because the confirmed API exposes no account-deletion route.
+
+### Validation
+
+- Fetched the current `origin/main` and confirmed it matched the local base before implementation.
+- Confirmed the local Backend Prisma schema and shared database are up to date with `prisma migrate status`.
+- Started the local NestJS API and verified Register `201`, duplicate Register `409`, invalid Login `401`, valid Login `201`, Current User `200`, Logout `204`, and unauthenticated Current User `401`.
+- Confirmed Expo reads the ignored Mobile API URL configuration.
+- Ran `corepack pnpm@12.4.1 install --frozen-lockfile` and `corepack pnpm@12.4.1 typecheck` successfully after the implementation.
+- Exported the final Android JavaScript bundle successfully with Expo; the temporary export output was removed afterward.
+
+### Notes
+
+- Local Backend and Mobile environment files remain ignored and contain no tracked secrets.
+- No social feature, direct Supabase Mobile connection, or state-management/UI library was added.

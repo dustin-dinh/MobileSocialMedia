@@ -46,14 +46,14 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Shared types belong in `apps/mobile/src/types/`.
 - Navigation, configuration, hooks, constants, and utilities have dedicated source areas.
 - `apps/mobile/index.ts` is the Expo entry point and registers the foundation component in `apps/mobile/src/App.tsx`.
-- `apps/mobile/src/App.tsx` composes `SafeAreaProvider`, `NavigationContainer`, and `RootNavigator` only.
-- `RootNavigator` prepares checking, unauthenticated, and authenticated application branches without real session logic.
+- `apps/mobile/src/App.tsx` composes `SafeAreaProvider`, `AuthSessionProvider`, `NavigationContainer`, and `RootNavigator`.
+- `RootNavigator` validates a persisted token during its checking branch, then renders the authenticated or unauthenticated branch.
 - `AuthNavigator` owns Splash, Login, and Register; `MainTabNavigator` owns Home, Search, Create, Notifications, and Profile in that order.
 - Auth UI, validation helpers, and reusable Auth controls are feature-owned under `apps/mobile/src/features/auth/`.
 - API base configuration is isolated in `apps/mobile/src/config/api.ts`, while JSON HTTP behavior and normalized transport errors are shared under `apps/mobile/src/services/`.
-- The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they intentionally make no endpoint call until Dev B confirms an Auth contract.
-- Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
-- Authentication API calls, token storage, and session bootstrap are not implemented.
+- The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they call only the confirmed Register, Login, Current User, and Logout API contract.
+- Expo SecureStore keeps the access token device-local, while the Auth session provider owns token restoration, validation, and authenticated navigation.
+- Home, Search, Create, and Notifications remain navigation-only placeholders. Profile exposes the authenticated username and the confirmed Logout action.
 
 ## Current Tech Stack
 
@@ -64,6 +64,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - pnpm 12.4.1 through Corepack, with `apps/mobile/pnpm-lock.yaml`
 - React Navigation 7.3.18 with native-stack 7.18.10 and bottom-tabs 7.18.18
 - Expo-compatible `react-native-screens` 4.26.2 and `react-native-safe-area-context` 5.7.0
+- Expo SecureStore 57.0.4 for device-local access-token storage
 - `@expo/ngrok` 4.1.0 as a development-only Expo tunnel fallback
 - NestJS 11 + TypeScript for the backend in `apps/api/`
 - Prisma 7 with the PostgreSQL adapter and Supabase PostgreSQL
@@ -92,11 +93,11 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
 - The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
 - Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
-- Auth client infrastructure is implemented with a public environment-based base-URL configuration, shared JSON HTTP client, normalized Mobile error categories, Auth service boundary, and submission state handling.
-- Register, Login, and Logout contracts are all pending Backend confirmation, so the Auth service does not send any request or define speculative request/response/token types.
-- `apps/api/` contains the NestJS and Prisma connection foundation. It reads an untracked local `.env`, uses `DATABASE_URL` at runtime, and reserves `DIRECT_URL` for Prisma CLI. Its initial `User` model is defined locally, but no migration, endpoint, or authentication behavior has been created.
-- Home, Search, Create, Notifications, and Profile remain navigation-only placeholders.
-- No real authentication, endpoint integration, token storage, database migration, or social-feature behavior has been added.
+- Auth integration uses the confirmed public base URL, shared JSON HTTP client, server error messages, and feature-owned service mapping.
+- Login persists only `data.accessToken` in Expo SecureStore, validates it through `GET /api/users/me`, and transitions to the authenticated tab navigator. Logout calls `POST /api/auth/logout` and clears local state/token.
+- `apps/api/` contains the NestJS + Prisma + Supabase implementation, an applied User migration, and Register/Login/Current User/Logout endpoints. It reads an ignored local `.env`; Dev A does not change its API, schema, migration, or database contents.
+- Home, Search, Create, and Notifications remain navigation-only placeholders; Profile is only the minimal authenticated Logout surface, not a full profile feature.
+- No Week 2 social-feature behavior has been added.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
 - BlueStacks with Expo Go SDK 57 has been manually verified. LAN is preferred for local testing, with Expo tunnel available as an intermittent fallback through the development-only `@expo/ngrok` dependency.
 - Local Expo Go APK downloads are ignored and remain outside version control.
@@ -107,13 +108,13 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - Navigation: Complete.
 - Auth UI: Complete.
 - Auth client foundation: Complete.
-- Real Auth API integration: Blocked by pending Backend contract confirmation.
-- Session persistence: Pending.
-- Authenticated navigation: Pending.
+- Real Auth API integration: Complete.
+- Session persistence: Complete with Expo SecureStore.
+- Authenticated navigation: Complete.
 
 ## Current Sprint
 
-Week 1 - Phase 5A: harden the Mobile Auth foundation and prepare Backend handoff while Auth contracts remain pending.
+Week 1 - confirmed Mobile Authentication API integration and local Backend/Supabase verification.
 
 ## Important Constraints
 
@@ -130,7 +131,7 @@ Week 1 - Phase 5A: harden the Mobile Auth foundation and prepare Backend handoff
 - `docs/summary.md` - concise project context
 - `docs/change.md` - append-only shared development activity log
 - `docs/decisions.md` - technical decisions affecting both developers
-- `docs/api-contract.md` - Mobile / Backend API contract template
+- `docs/api-contract.md` - confirmed Mobile / Backend Authentication API contract
 - `docs/supabase_setup_instruction.md` - Dev A local dependency, Backend environment, and secret-handoff guide
 - `apps/mobile/AGENTS.md` - Mobile-specific AI instructions
 - `apps/mobile/README.md` - Mobile setup and contribution notes
@@ -141,12 +142,12 @@ Week 1 - Phase 5A: harden the Mobile Auth foundation and prepare Backend handoff
 - `apps/mobile/src/components/common/PlaceholderScreen.tsx` - shared safe placeholder container
 - `apps/mobile/src/config/api.ts` - public Expo API base-URL configuration
 - `apps/mobile/src/services/` - shared JSON HTTP client and normalized transport errors
-- `apps/mobile/src/features/auth/` - Auth screens, reusable controls, local validation, service boundary, and submission state
+- `apps/mobile/src/features/auth/` - Auth screens, secure token storage, session provider, validation, service boundary, and submission state
 - `apps/api/` - NestJS + Prisma configuration and Backend setup guide
 
 ## How to Continue Development
 
-1. Have Dev B complete the Register, Login, Logout, and Session checklist in `docs/auth-backend-handoff.md` before implementing an endpoint call.
-2. Map only confirmed API fields inside the Auth service, using the shared HTTP client without adding guessed response or token types.
-3. Keep the temporary `RootNavigator` mode isolated until a later phase implements confirmed session bootstrap behavior.
+1. Start the local NestJS API from `apps/api/` using its ignored local `.env`; do not run migrations or direct database commands from the Mobile role.
+2. Set `apps/mobile/.env.local` to an API URL reachable by the Mobile runtime, then restart Expo after changing it.
+3. Use `docs/api-contract.md` as the source of truth for future Auth changes and wait for confirmed contracts before integrating any social feature.
 4. Log each meaningful repository change in `docs/change.md`.

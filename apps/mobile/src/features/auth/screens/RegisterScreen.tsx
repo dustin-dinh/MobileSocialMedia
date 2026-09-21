@@ -48,7 +48,14 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       return;
     }
 
-    void submit(() => authService.register(values));
+    void submit(() => authService.register(values)).then((user) => {
+      if (user) {
+        navigation.replace('Login', {
+          email: user.email,
+          message: 'Account created. Sign in with your email and password.',
+        });
+      }
+    });
   };
 
   return (

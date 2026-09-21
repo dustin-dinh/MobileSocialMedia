@@ -210,3 +210,31 @@ Define the initial Prisma `User` model with a UUID primary key, unique `username
 
 - `apps/api/prisma/schema.prisma`
 - `docs/api-contract.md`
+
+## DEC-008 - Persist the Mobile Auth session with Expo SecureStore
+
+Date: 2026-09-21
+
+Status: Accepted
+
+### Context
+
+The confirmed Week 1 Backend contract returns a JWT access token from Login and requires that token for Current User and Logout. Mobile needs to restore a valid session after an app restart without exposing the token to screens or adding a state-management library.
+
+### Decision
+
+Use the Expo-compatible `expo-secure-store` package to store only the access token. Keep session bootstrap, Login verification through `/users/me`, and Logout cleanup in the feature-owned `AuthSessionProvider` built with React Context. Retain the existing fetch-based HTTP client.
+
+### Consequences
+
+- The token is not hardcoded, committed, logged, or placed in React Navigation parameters.
+- `RootNavigator` waits for token validation before choosing the authenticated or unauthenticated branch.
+- Screens receive the authenticated user and actions through the Auth feature context; no new global state-management library is required.
+- A future refresh-token or server-side revocation contract needs a reviewed update to this decision and the Auth service.
+
+### Related Files
+
+- `apps/mobile/package.json`
+- `apps/mobile/src/features/auth/authSession.tsx`
+- `apps/mobile/src/features/auth/services/authTokenStorage.ts`
+- `apps/mobile/src/features/auth/services/authService.ts`

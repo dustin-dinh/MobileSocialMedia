@@ -1,31 +1,104 @@
 # API Contract
 
-> API contracts must be agreed by Mobile and Backend before integration.
+> Confirmed from the checked-in NestJS implementation and a local end-to-end verification on 2026-09-21. Mobile calls the NestJS API only; it never connects directly to Supabase PostgreSQL.
 
-## Current Authentication Status
+## Base URL
 
-Authentication API details are pending Backend confirmation.
+`EXPO_PUBLIC_API_BASE_URL` must include the API prefix. For local Android/BlueStacks testing, use `http://<LAN-IP>:3000/api`.
 
-- Register: Pending Backend confirmation
-- Login: Pending Backend confirmation
-- Logout: Pending Backend confirmation
+## Authentication behavior
 
-No authentication HTTP method, URL, request shape, success response, error response, or token/session field has been confirmed in this repository. Mobile must not call an Auth endpoint until those details are agreed. The information Dev B needs to provide before this template is filled in is listed in `docs/auth-backend-handoff.md`.
+- Protected endpoints require `Authorization: Bearer <accessToken>`.
+- The Backend issues a stateless JWT with a one-day expiry.
+- There is no refresh-token flow or server-side token revocation in the current implementation.
 
-For every endpoint use:
+## Register
 
-## Endpoint Name
+- Method: `POST`
+- Path: `/auth/register`
+- Authentication: none
 
-Method:
-URL:
-Authentication:
+Request body:
 
-### Request Params
+~~~json
+{
+  "username": "capt_01",
+  "email": "capt@example.com",
+  "password": "at-least-8-characters"
+}
+~~~
 
-### Request Body
+Validation: username is 3–30 characters and uses letters, numbers, dots, or underscores; email is required; password is 8–72 characters.
 
-### Success Response
+Success: `201 Created`
 
-### Error Responses
+~~~json
+{
+  "data": {
+    "id": "uuid",
+    "username": "capt_01",
+    "email": "capt@example.com",
+    "displayName": null,
+    "bio": null,
+    "avatarUrl": null,
+    "createdAt": "ISO-8601 timestamp"
+  }
+}
+~~~
 
-### Notes
+Errors: `400` invalid input; `409` duplicate email or username.
+
+## Login
+
+- Method: `POST`
+- Path: `/auth/login`
+- Authentication: none
+
+Request body:
+
+~~~json
+{
+  "email": "capt@example.com",
+  "password": "at-least-8-characters"
+}
+~~~
+
+Success: `201 Created` (the current NestJS controller uses the framework default for a POST handler).
+
+~~~json
+{
+  "data": {
+    "accessToken": "JWT",
+    "user": {
+      "id": "uuid",
+      "username": "capt_01",
+      "email": "capt@example.com",
+      "displayName": null,
+      "bio": null,
+      "avatarUrl": null
+    }
+  }
+}
+~~~
+
+Errors: `400` invalid input; `401` invalid email or password.
+
+## Current user
+
+- Method: `GET`
+- Path: `/users/me`
+- Authentication: Bearer JWT
+
+Success: `200 OK`, returning `{ data: user }` with the Login user fields plus `createdAt` and `updatedAt`.
+
+Errors: `401` missing, invalid, or expired token.
+
+## Logout
+
+- Method: `POST`
+- Path: `/auth/logout`
+- Authentication: Bearer JWT
+
+Success: `204 No Content`.
+
+Mobile clears its locally stored access token and authenticated state after this response. Because the current JWT implementation is stateless, a successful Logout does not revoke the token at the server.

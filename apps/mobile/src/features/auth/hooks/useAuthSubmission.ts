@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { ApiError } from '../../../services/apiError';
-import { AuthContractUnavailableError } from '../services/authService';
 
 export type AuthSubmissionState = 'error' | 'idle' | 'submitting';
 export type AuthSubmissionTone = 'error' | 'info';
@@ -12,13 +11,6 @@ type SubmissionMessage = {
 };
 
 function getSubmissionMessage(error: unknown): SubmissionMessage {
-  if (error instanceof AuthContractUnavailableError) {
-    return {
-      text: 'Authentication is not connected yet. No request was sent.',
-      tone: 'info',
-    };
-  }
-
   if (error instanceof ApiError) {
     switch (error.kind) {
       case 'configuration':
@@ -26,9 +18,9 @@ function getSubmissionMessage(error: unknown): SubmissionMessage {
       case 'network':
         return { text: 'Unable to reach the server. Check your connection and try again.', tone: 'error' };
       case 'unauthorized':
-        return { text: 'The server did not authorize this request.', tone: 'error' };
+        return { text: error.message, tone: 'error' };
       case 'server':
-        return { text: 'The server could not complete this request.', tone: 'error' };
+        return { text: error.message, tone: 'error' };
       default:
         return { text: 'Something went wrong. Please try again.', tone: 'error' };
     }

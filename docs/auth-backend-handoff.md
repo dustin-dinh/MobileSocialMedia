@@ -1,52 +1,24 @@
 # Auth Backend Handoff
 
-## Purpose
+## Status
 
-This checklist records what Dev A needs from Dev B before Phase 5B can connect the Mobile Auth service to a real backend. It requests confirmation only; it does not prescribe endpoints, token fields, or session features.
+Completed on 2026-09-21. The confirmed Week 1 Authentication contract is recorded in `docs/api-contract.md` and implemented by Mobile.
 
-## Register
+## Confirmed handoff
 
-Need confirmation for:
+- Register: `POST /api/auth/register`, username/email/password, returns a safe user object on `201`.
+- Login: `POST /api/auth/login`, email/password only, returns `data.accessToken` and a safe user object on `201`.
+- Current user: `GET /api/users/me`, Bearer JWT, returns `{ data: user }` on `200`.
+- Logout: `POST /api/auth/logout`, Bearer JWT, returns `204 No Content`; it is stateless server validation followed by Mobile-local token removal.
+- Session: access tokens expire after one day. Refresh tokens and immediate server-side revocation are not implemented.
 
-- HTTP method and URL.
-- Request body fields, including which are required or optional.
-- Success status and success response shape.
-- Validation and conflict error statuses and response shapes.
+## Mobile integration boundary
 
-## Login
+- `apps/mobile/src/features/auth/services/authService.ts` owns the confirmed request and response mapping.
+- `expo-secure-store` stores only the access token on the device.
+- `AuthSessionProvider` validates a stored token through `/users/me` before rendering the authenticated navigator.
+- Mobile must continue to call only the documented REST API and must not access Supabase PostgreSQL directly.
 
-Need confirmation for:
+## Future Backend changes
 
-- HTTP method and URL.
-- Supported identifier format.
-- Request body fields.
-- Success status and response shape.
-- Access token or session field, if any.
-- Returned user shape, if any.
-- Invalid-credential status and error behavior.
-
-## Logout
-
-Need confirmation for:
-
-- HTTP method and URL.
-- Authentication requirement.
-- Whether logout is server-side or client-only.
-- Expected success status and response.
-
-## Session
-
-Need confirmation for:
-
-- Token type, if tokens are used.
-- Whether the access token expires.
-- Whether refresh tokens are supported.
-- Refresh behavior, if supported.
-- Authorization header format.
-- Expired-token response behavior.
-
-## Handoff Notes
-
-- Confirm whether access-token expiry and refresh-token behavior are supported; Mobile does not assume either feature exists.
-- Once confirmed, record the final contract in `docs/api-contract.md` and map only those fields inside `apps/mobile/src/features/auth/services/authService.ts`.
-- Until then, the Auth service must continue to send no request and Mobile must not persist credentials, tokens, or a session.
+Dev B must update `docs/api-contract.md` before Mobile changes when an endpoint, field, status, expiry rule, refresh-token flow, or logout behavior changes.

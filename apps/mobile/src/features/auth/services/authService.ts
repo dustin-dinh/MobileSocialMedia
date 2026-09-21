@@ -1,28 +1,79 @@
+import { httpClient } from '../../../services/httpClient';
 import type { LoginFormValues, RegisterFormValues } from '../validation';
 
-export type AuthOperation = 'login' | 'logout' | 'register';
+export type AuthUser = {
+  avatarUrl: string | null;
+  bio: string | null;
+  createdAt?: string;
+  displayName: string | null;
+  email: string;
+  id: string;
+  updatedAt?: string;
+  username: string;
+};
 
-export class AuthContractUnavailableError extends Error {
-  readonly operation: AuthOperation;
+type UserResponse = {
+  data: AuthUser;
+};
 
-  constructor(operation: AuthOperation) {
-    super(`${operation.charAt(0).toUpperCase()}${operation.slice(1)} API details are pending backend confirmation.`);
+type LoginResponse = {
+  data: {
+    accessToken: string;
+    user: AuthUser;
+  };
+};
 
-    this.name = 'AuthContractUnavailableError';
-    this.operation = operation;
-  }
+type RegisterRequest = Pick<RegisterFormValues, 'email' | 'password' | 'username'>;
+type LoginRequest = LoginFormValues;
+
+function getAuthorizationHeaders(accessToken: string): Record<string, string> {
+  return {
+    Authorization: 'Bearer ' + accessToken,
+  };
 }
 
-// When Dev B confirms an endpoint, map the form values here and call httpClient.requestJson.
-// Do not add a URL, request shape, response type, or token handling before that confirmation.
 export const authService = {
-  async login(_values: LoginFormValues): Promise<never> {
-    throw new AuthContractUnavailableError('login');
+  async getCurrentUser(accessToken: string): Promise<AuthUser> {
+    const response = await httpClient.requestJson<UserResponse>({
+      headers: getAuthorizationHeaders(accessToken),
+      method: 'GET',
+      path: 'users/me',
+    });
+
+    return response.data;
   },
-  async logout(): Promise<never> {
-    throw new AuthContractUnavailableError('logout');
+  async login(values: LoginFormValues): Promise<LoginResponse['data']> {
+    const body: LoginRequest = {
+      email: values.email.trim().toLowerCase(),
+      password: values.password,
+    };
+    const response = await httpClient.requestJson<LoginResponse, LoginRequest>({
+      body,
+      method: 'POST',
+      path: 'auth/login',
+    });
+
+    return response.data;
   },
-  async register(_values: RegisterFormValues): Promise<never> {
-    throw new AuthContractUnavailableError('register');
+  async logout(accessToken: string): Promise<void> {
+    await httpClient.requestVoid({
+      headers: getAuthorizationHeaders(accessToken),
+      method: 'POST',
+      path: 'auth/logout',
+    });
+  },
+  async register(values: RegisterFormValues): Promise<AuthUser> {
+    const body: RegisterRequest = {
+      email: values.email.trim().toLowerCase(),
+      password: values.password,
+      username: values.username.trim(),
+    };
+    const response = await httpClient.requestJson<UserResponse, RegisterRequest>({
+      body,
+      method: 'POST',
+      path: 'auth/register',
+    });
+
+    return response.data;
   },
 } as const;

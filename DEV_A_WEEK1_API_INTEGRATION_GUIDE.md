@@ -214,7 +214,7 @@ POST /api/auth/login
 Status:
 
 ```text
-200 OK
+201 Created
 ```
 
 Ví dụ:

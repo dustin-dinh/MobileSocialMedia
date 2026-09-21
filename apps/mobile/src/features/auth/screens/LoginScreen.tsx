@@ -3,12 +3,12 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 
 import type { AuthStackParamList } from '../../../navigation/types';
+import { useAuthSession } from '../authSession';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
-import { authService } from '../services/authService';
 import {
   type FieldErrors,
   type LoginFormValues,
@@ -18,19 +18,25 @@ import {
 type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 const INITIAL_VALUES: LoginFormValues = {
-  identifier: '',
+  email: '',
   password: '',
 };
 
-export function LoginScreen({ navigation }: LoginScreenProps) {
+export function LoginScreen({ navigation, route }: LoginScreenProps) {
   const [errors, setErrors] = useState<FieldErrors<keyof LoginFormValues>>({});
-  const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<LoginFormValues>({
+    ...INITIAL_VALUES,
+    email: route.params?.email ?? '',
+  });
+  const [successMessage, setSuccessMessage] = useState(route.params?.message ?? null);
   const passwordInputRef = useRef<TextInput | null>(null);
+  const { signIn } = useAuthSession();
   const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
 
   const updateField = (field: keyof LoginFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+    setSuccessMessage(null);
     reset();
   };
 
@@ -44,7 +50,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       return;
     }
 
-    void submit(() => authService.login(values));
+    void submit(() => signIn(values));
   };
 
   return (
@@ -57,18 +63,18 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     >
       <AuthTextInput
         autoCapitalize="none"
-        autoComplete="username"
+        autoComplete="email"
         autoCorrect={false}
         editable={!isSubmitting}
-        error={errors.identifier}
+        error={errors.email}
         keyboardType="email-address"
-        label="Username or email"
-        onChangeText={(value) => updateField('identifier', value)}
+        label="Email"
+        onChangeText={(value) => updateField('email', value)}
         onSubmitEditing={() => passwordInputRef.current?.focus()}
         placeholder="you@example.com"
         returnKeyType="next"
-        textContentType="username"
-        value={values.identifier}
+        textContentType="emailAddress"
+        value={values.email}
       />
       <AuthTextInput
         autoCapitalize="none"
@@ -86,7 +92,10 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         textContentType="password"
         value={values.password}
       />
-      <FormMessage message={submissionMessage} tone={submissionTone} />
+      <FormMessage
+        message={submissionMessage ?? successMessage}
+        tone={submissionMessage ? submissionTone : 'info'}
+      />
       <PrimaryButton isLoading={isSubmitting} label="Log in" onPress={handleSubmit} />
     </AuthScreenContainer>
   );
