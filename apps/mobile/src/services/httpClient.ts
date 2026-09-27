@@ -122,19 +122,34 @@ async function request<TBody = undefined>(
   let payload: unknown | undefined;
 
   try {
+    const requestHeaders = {
+      Accept: 'application/json',
+      ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...options.headers,
+    };
+    console.log(`\n📡 [HTTP REQUEST] ${options.method} ${requestUrl}`);
+    console.log('   [Headers]:', JSON.stringify(requestHeaders, null, 2));
+
     response = await fetch(requestUrl, {
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      headers: {
-        Accept: 'application/json',
-        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...options.headers,
-      },
+      headers: requestHeaders,
       method: options.method,
       signal: requestSignal.signal,
     });
 
     payload = await readJson(response);
-  } catch {
+
+    if (response.ok) {
+      console.log(`✅ [HTTP RESPONSE ${response.status}] ${options.method} ${requestUrl}`);
+    } else {
+      console.log(`❌ [HTTP RESPONSE ERROR ${response.status}] ${options.method} ${requestUrl}`);
+      console.log('   [Error Payload]:', JSON.stringify(payload, null, 2));
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    console.log(`💥 [HTTP NETWORK ERROR] ${options.method} ${requestUrl}`, error);
     throw new ApiError({
       kind: 'network',
       message: requestSignal.didTimeout()

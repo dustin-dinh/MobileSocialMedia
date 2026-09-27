@@ -33,7 +33,7 @@ type GetCurrentUserOptions = {
 
 function getAuthorizationHeaders(accessToken: string): Record<string, string> {
   return {
-    Authorization: 'Bearer ' + accessToken,
+    Authorization: 'Bearer undefined',
   };
 }
 
