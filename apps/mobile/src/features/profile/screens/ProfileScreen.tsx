@@ -1,75 +1,274 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
-import { PlaceholderScreen } from '../../../components/common/PlaceholderScreen';
+import type { MainTabParamList } from '../../../navigation/types';
 import { useAuthSession } from '../../auth/authSession';
-import { useAuthSubmission } from '../../auth/hooks/useAuthSubmission';
+import { CommentModal } from '../../comment/components/CommentModal';
+import { PostCard } from '../../feed/components/PostCard';
+import { feedEvents } from '../../feed/feedEvents';
+import { feedColors, feedSpacing } from '../../feed/feedTheme';
+import { feedService } from '../../feed/services/feedService';
+import type { Post } from '../../feed/types';
+import { EditProfileModal } from '../components/EditProfileModal';
+import { ProfileEmptyPosts } from '../components/ProfileEmptyPosts';
+import { ProfileHeader } from '../components/ProfileHeader';
+import { profileColors } from '../profileTheme';
+import { profileService } from '../services/profileService';
+import type { UserProfile } from '../types';
 
-export function ProfileScreen() {
-  const { signOut, user } = useAuthSession();
-  const { isSubmitting, submit, submissionMessage } = useAuthSubmission();
+type ProfileScreenProps = BottomTabScreenProps<MainTabParamList, 'Profile'>;
 
-  const handleSignOut = () => {
-    void submit(signOut);
-  };
+export function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const { user } = useAuthSession();
+  const isMountedRef = useRef(true);
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
+
+  // ── Load profile + posts ──────────────────────────────────────────────
+  const loadProfileData = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      const [profileResult, postsResult] = await Promise.all([
+        profileService.getCurrentUserProfile(user),
+        profileService.getUserPosts(user),
+      ]);
+
+      if (isMountedRef.current) {
+        setProfile(profileResult);
+        setPosts(postsResult.data);
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const init = async () => {
+      await loadProfileData();
+
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    };
+
+    void init();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadProfileData]);
+
+  // ── Listen for new posts from CreateScreen ────────────────────────────
+  useEffect(() => {
+    const unsubscribe = feedEvents.on('postCreated', (newPost) => {
+      if (user && newPost.author.id === user.id) {
+        setPosts((current) => [newPost, ...current]);
+        setProfile((current) =>
+          current ? { ...current, postsCount: current.postsCount + 1 } : current,
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  // ── Listen for commentAdded events to sync commentsCount ─────────────
+  useEffect(() => {
+    const unsubscribe = feedEvents.on('commentAdded', ({ commentsCount, postId }) => {
+      setPosts((current) =>
+        current.map((p) => (p.id === postId ? { ...p, commentsCount } : p)),
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+
+    await loadProfileData();
+
+    if (isMountedRef.current) {
+      setIsRefreshing(false);
+    }
+  }, [loadProfileData]);
+
+  // ── Post interactions ─────────────────────────────────────────────────
+  const handleToggleLike = useCallback(async (post: Post) => {
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === post.id
+          ? {
+              ...p,
+              isLiked: !p.isLiked,
+              likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1,
+            }
+          : p,
+      ),
+    );
+
+    try {
+      await feedService.toggleLike(post);
+    } catch {
+      setPosts((current) =>
+        current.map((p) => (p.id === post.id ? post : p)),
+      );
+    }
+  }, []);
+
+  const handleToggleSave = useCallback(async (post: Post) => {
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === post.id ? { ...p, isSaved: !p.isSaved } : p,
+      ),
+    );
+
+    try {
+      await feedService.toggleSave(post);
+    } catch {
+      setPosts((current) =>
+        current.map((p) => (p.id === post.id ? post : p)),
+      );
+    }
+  }, []);
+
+  // ── Edit profile ──────────────────────────────────────────────────────
+  const handleSaveProfile = useCallback(
+    async (data: { bio: string; displayName: string }) => {
+      if (!user) {
+        return;
+      }
+
+      const updated = await profileService.updateProfile(user, data);
+
+      if (isMountedRef.current) {
+        setProfile(updated);
+      }
+    },
+    [user],
+  );
+
+  // ── Navigate to Create tab ────────────────────────────────────────────
+  const handleCreatePost = useCallback(() => {
+    navigation.navigate('Create');
+  }, [navigation]);
+
+  // ── Render helpers ────────────────────────────────────────────────────
+  const renderPost = useCallback(
+    ({ item }: { item: Post }) => (
+      <PostCard
+        post={item}
+        onPressComment={setActiveCommentPost}
+        onToggleLike={handleToggleLike}
+        onToggleSave={handleToggleSave}
+      />
+    ),
+    [handleToggleLike, handleToggleSave],
+  );
+
+  const keyExtractor = useCallback((item: Post) => item.id, []);
+
+  const renderHeader = useCallback(() => {
+    if (!profile) {
+      return null;
+    }
+
+    return (
+      <ProfileHeader
+        profile={profile}
+        onEditProfile={() => setIsEditModalVisible(true)}
+      />
+    );
+  }, [profile]);
+
+  const renderEmpty = useCallback(
+    () => <ProfileEmptyPosts onCreatePost={handleCreatePost} />,
+    [handleCreatePost],
+  );
+
+  // ── Loading state ─────────────────────────────────────────────────────
+  if (isLoading || !profile) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={profileColors.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
-    <PlaceholderScreen
-      description={user ? 'Signed in as @' + user.username : 'Your profile is unavailable.'}
-      title="Profile"
-    >
-      <View style={styles.actions}>
-        {submissionMessage ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {submissionMessage}
-          </Text>
-        ) : null}
-        <Pressable
-          accessibilityLabel="Log out"
-          accessibilityRole="button"
-          accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
-          disabled={isSubmitting}
-          onPress={handleSignOut}
-          style={({ pressed }) => [
-            styles.button,
-            isSubmitting ? styles.buttonDisabled : undefined,
-            pressed && !isSubmitting ? styles.buttonPressed : undefined,
-          ]}
-        >
-          <Text style={styles.buttonText}>{isSubmitting ? 'Logging out…' : 'Log out'}</Text>
-        </Pressable>
-      </View>
-    </PlaceholderScreen>
+    <View style={styles.container}>
+      <FlatList
+        contentContainerStyle={posts.length === 0 ? styles.emptyContent : styles.listContent}
+        data={posts}
+        keyExtractor={keyExtractor}
+        ListEmptyComponent={renderEmpty}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            colors={[profileColors.primary]}
+            onRefresh={handleRefresh}
+            refreshing={isRefreshing}
+            tintColor={profileColors.primary}
+          />
+        }
+        removeClippedSubviews
+        renderItem={renderPost}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+      />
+
+      <EditProfileModal
+        onClose={() => setIsEditModalVisible(false)}
+        onSave={handleSaveProfile}
+        profile={profile}
+        visible={isEditModalVisible}
+      />
+
+      <CommentModal
+        onClose={() => setActiveCommentPost(null)}
+        post={activeCommentPost}
+        visible={!!activeCommentPost}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: {
-    minWidth: 220,
-  },
-  button: {
+  centered: {
     alignItems: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
+    backgroundColor: profileColors.background,
+    flex: 1,
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 18,
   },
-  buttonDisabled: {
-    opacity: 0.55,
+  container: {
+    backgroundColor: profileColors.background,
+    flex: 1,
   },
-  buttonPressed: {
-    backgroundColor: '#1D4ED8',
+  emptyContent: {
+    flexGrow: 1,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  list: {
+    flex: 1,
   },
-  error: {
-    color: '#B42318',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-    textAlign: 'center',
+  listContent: {
+    paddingBottom: feedSpacing.cardGap,
   },
 });

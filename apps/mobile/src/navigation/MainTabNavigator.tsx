@@ -13,14 +13,18 @@ export function MainTabNavigator() {
   return (
     <Tab.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
-      <Tab.Screen name="Search" component={SearchScreen} options={{ title: 'Search' }} />
-      <Tab.Screen name="Create" component={CreateScreen} options={{ title: 'Create' }} />
+      <Tab.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{ headerShown: false, title: 'Search' }}
+      />
+      <Tab.Screen name="Create" component={CreateScreen} options={{ headerShown: false, title: 'Create' }} />
       <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={{ title: 'Notifications' }}
+        options={{ headerShown: false, title: 'Notifications' }}
       />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false, title: 'Profile' }} />
     </Tab.Navigator>
   );
 }

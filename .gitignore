@@ -1,3 +1,6 @@
+node_modules/
+.vscode/
+
 # Mobile dependencies and Expo-generated files
 /apps/mobile/node_modules/
 /apps/mobile/.expo/

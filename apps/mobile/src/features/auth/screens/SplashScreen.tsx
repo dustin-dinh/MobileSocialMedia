@@ -1,19 +1,98 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../authTheme';
 import { AuthBrand } from '../components/AuthBrand';
 
+const DOT_COUNT = 3;
+const DOT_SIZE = 8;
+const DOT_SPACING = 12;
+const ANIMATION_DURATION = 600;
+
+function LoadingDots() {
+  const animations = useRef(
+    Array.from({ length: DOT_COUNT }, () => new Animated.Value(0)),
+  ).current;
+
+  useEffect(() => {
+    const staggeredAnimations = animations.map((anim, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * (ANIMATION_DURATION / DOT_COUNT)),
+          Animated.timing(anim, {
+            duration: ANIMATION_DURATION,
+            easing: Easing.inOut(Easing.ease),
+            toValue: 1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            duration: ANIMATION_DURATION,
+            easing: Easing.inOut(Easing.ease),
+            toValue: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    );
+
+    Animated.parallel(staggeredAnimations).start();
+
+    return () => {
+      staggeredAnimations.forEach((a) => a.stop());
+    };
+  }, [animations]);
+
+  return (
+    <View style={styles.dotsRow}>
+      {animations.map((anim, index) => {
+        const scale = anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.5],
+        });
+        const opacity = anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.35, 1],
+        });
+
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.dot,
+              {
+                opacity,
+                transform: [{ scale }],
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
 export function SplashScreen() {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      duration: 500,
+      easing: Easing.out(Easing.ease),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
-      <View style={styles.content}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <AuthBrand />
         <View style={styles.status}>
-          <ActivityIndicator color={authColors.primary} size="small" />
+          <LoadingDots />
           <Text style={styles.statusText}>Preparing your space</Text>
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -24,6 +103,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
+  },
+  dot: {
+    backgroundColor: authColors.primary,
+    borderRadius: DOT_SIZE / 2,
+    height: DOT_SIZE,
+    marginHorizontal: DOT_SPACING / 2,
+    width: DOT_SIZE,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   safeArea: {
     backgroundColor: authColors.background,
@@ -36,6 +126,6 @@ const styles = StyleSheet.create({
   statusText: {
     color: authColors.mutedText,
     fontSize: 14,
-    marginTop: 12,
+    marginTop: 16,
   },
 });

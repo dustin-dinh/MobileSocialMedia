@@ -3,9 +3,9 @@ import { AuthNavigator } from './AuthNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 
 export function RootNavigator() {
-  const { user } = useAuthSession();
+  const { isAuthenticated } = useAuthSession();
 
-  if (user) {
+  if (isAuthenticated) {
     return <MainTabNavigator />;
   }
 

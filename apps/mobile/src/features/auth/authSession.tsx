@@ -4,7 +4,7 @@ import type { PropsWithChildren } from 'react';
 import { ApiError } from '../../services/apiError';
 import { authService, type AuthUser } from './services/authService';
 import { authTokenStorage } from './services/authTokenStorage';
-import type { LoginFormValues } from './validation';
+import type { LoginFormValues, RegisterFormValues } from './validation';
 
 type AuthSession = {
   accessToken: string;
@@ -12,18 +12,48 @@ type AuthSession = {
 };
 
 type AuthSessionContextValue = {
+  /** The current access token, or null when signed out. */
+  accessToken: string | null;
+  /** Whether the initial session restore has completed. */
   isBootstrapping: boolean;
+  /** Convenience boolean – true when a valid session exists. */
+  isAuthenticated: boolean;
+  /**
+   * Register a new account.
+   * On success the user is NOT auto-signed-in; the caller should navigate to
+   * the Login screen so the user confirms their credentials.
+   */
+  register: (values: RegisterFormValues) => Promise<AuthUser>;
+  /** Sign in with email + password. Persists the token in SecureStore. */
   signIn: (values: LoginFormValues) => Promise<void>;
+  /** Sign out: calls the API, clears storage and resets state. */
   signOut: () => Promise<void>;
+  /** The authenticated user profile, or null when signed out. */
   user: AuthUser | null;
 };
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 const SESSION_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
+// Set to true to bypass login and jump straight to MainTabNavigator for UI testing.
+export const BYPASS_AUTH_FOR_TESTING = true;
+
+const MOCK_TEST_USER: AuthUser = {
+  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&h=160&fit=crop&crop=face',
+  bio: 'Mobile Developer | React Native & Expo 📱✨',
+  displayName: 'Nguyễn Nhật Luân',
+  email: 'nhatluan@example.com',
+  id: 'user-001',
+  username: 'nhatluan',
+};
+
 export function AuthSessionProvider({ children }: PropsWithChildren) {
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(!BYPASS_AUTH_FOR_TESTING);
+  const [session, setSession] = useState<AuthSession | null>(
+    BYPASS_AUTH_FOR_TESTING
+      ? { accessToken: 'mock-test-access-token', user: MOCK_TEST_USER }
+      : null,
+  );
 
   const clearSession = useCallback(async () => {
     await authTokenStorage.clear();
@@ -54,6 +84,10 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const register = useCallback(async (values: RegisterFormValues): Promise<AuthUser> => {
+    return authService.register(values);
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!session) {
       return;
@@ -71,6 +105,11 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   }, [clearSession, session]);
 
   useEffect(() => {
+    if (BYPASS_AUTH_FOR_TESTING) {
+      setIsBootstrapping(false);
+      return;
+    }
+
     let isMounted = true;
     let didTimeout = false;
     const bootstrapController = new AbortController();
@@ -128,12 +167,15 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<AuthSessionContextValue>(
     () => ({
+      accessToken: session?.accessToken ?? null,
+      isAuthenticated: session !== null,
       isBootstrapping,
+      register,
       signIn,
       signOut,
       user: session?.user ?? null,
     }),
-    [isBootstrapping, session, signIn, signOut],
+    [isBootstrapping, register, session, signIn, signOut],
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;

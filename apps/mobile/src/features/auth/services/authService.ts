@@ -18,7 +18,8 @@ type UserResponse = {
 
 type LoginResponse = {
   data: {
-    accessToken: string;
+    accessToken?: string;
+    token?: string;
     user: AuthUser;
   };
 };
@@ -32,8 +33,14 @@ type GetCurrentUserOptions = {
 };
 
 function getAuthorizationHeaders(accessToken: string): Record<string, string> {
+  const token = typeof accessToken === 'string' ? accessToken.trim() : '';
+
+  if (!token || token === 'undefined' || token === 'null') {
+    throw new Error('Cannot construct authorization header: accessToken is missing or invalid');
+  }
+
   return {
-    Authorization: 'Bearer undefined',
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -52,7 +59,7 @@ export const authService = {
 
     return response.data;
   },
-  async login(values: LoginFormValues): Promise<LoginResponse['data']> {
+  async login(values: LoginFormValues): Promise<{ accessToken: string; user: AuthUser }> {
     const body: LoginRequest = {
       email: values.email.trim().toLowerCase(),
       password: values.password,
@@ -63,7 +70,15 @@ export const authService = {
       path: 'auth/login',
     });
 
-    return response.data;
+    const rawToken = response.data.accessToken ?? response.data.token;
+    if (!rawToken || typeof rawToken !== 'string' || rawToken.trim() === '' || rawToken === 'undefined') {
+      throw new Error('Invalid or missing authentication token from server');
+    }
+
+    return {
+      accessToken: rawToken.trim(),
+      user: response.data.user,
+    };
   },
   async logout(accessToken: string): Promise<void> {
     await httpClient.requestVoid({

@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '../config/api';
 import { ApiError } from './apiError';
+import { tokenStorage } from './tokenStorage';
 
 export type HttpMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
 
@@ -114,6 +115,22 @@ async function request<TBody = undefined>(
     });
   }
 
+  // Auto-inject Bearer token from secure storage when no Authorization header
+  // is explicitly provided. Explicit headers always take precedence.
+  let authHeaders: Record<string, string> = {};
+
+  if (!options.headers?.['Authorization']) {
+    try {
+      const storedToken = await tokenStorage.getToken();
+
+      if (storedToken) {
+        authHeaders = { Authorization: `Bearer ${storedToken}` };
+      }
+    } catch {
+      // Token read failed – proceed without auth header.
+    }
+  }
+
   const requestSignal = createRequestSignal(
     options.signal,
     options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
@@ -125,6 +142,7 @@ async function request<TBody = undefined>(
     const requestHeaders = {
       Accept: 'application/json',
       ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...authHeaders,
       ...options.headers,
     };
     console.log(`\n📡 [HTTP REQUEST] ${options.method} ${requestUrl}`);
@@ -161,6 +179,15 @@ async function request<TBody = undefined>(
   }
 
   if (!response.ok) {
+    // Auto-clear expired/invalid tokens on 401 to prevent stale-token loops.
+    if (response.status === 401) {
+      try {
+        await tokenStorage.removeToken();
+      } catch {
+        // Best-effort cleanup; the auth layer will handle the rest.
+      }
+    }
+
     const fallbackMessage =
       response.status === 401
         ? 'The server did not authorize this request.'
