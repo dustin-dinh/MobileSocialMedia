@@ -7,6 +7,9 @@ datasource db {
   provider = "postgresql"
 }
 
+// This model is not in Supabase until Dev B explicitly creates and applies a
+// new Prisma migration. Do not use `prisma db push` against the shared database.
+
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -17,7 +20,45 @@ model User {
   bio          String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  posts        Post[]
+  followers    Follow[] @relation("followers")
+  following    Follow[] @relation("following")
 }
 
-// This model is not in Supabase until Dev B explicitly creates and applies a
-// new Prisma migration. Do not use `prisma db push` against the shared database.
+model Post {
+  id        String    @id @default(cuid())
+  authorId  String
+  content   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media  PostMedia[]
+
+  @@index([authorId, createdAt])
+}
+
+model PostMedia {
+  id     String @id @default(cuid())
+  postId String
+  url    String
+  type   String
+  order  Int    @default(0)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, order])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
