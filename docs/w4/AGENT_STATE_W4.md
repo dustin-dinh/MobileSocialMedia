@@ -1,7 +1,7 @@
 # Agent State - Week 4 (MobileSocialMedia)
 
 ## 1. Trạng thái Hiện tại (Current State)
-- **CURRENT_PHASE**: PHASE_3
+- **CURRENT_PHASE**: PHASE_4
 - **MODE**: **MOCK** (Xác định: `BYPASS_AUTH_FOR_TESTING = true` trong `authSession.tsx`; `USE_MOCK = true` trong `searchService.ts`, `profileService.ts`, `postService.ts`, `notificationService.ts`, `feedService.ts`, `commentService.ts`)
 
 ### Bảng Trạng thái 8 Phase
@@ -10,8 +10,8 @@
 | **Phase 0** | Khởi động & Audit Baseline | GATE_PASSED | Đã hoàn thành audit baseline, MODE=MOCK, Scope Matrix & Test Plan đầy đủ |
 | **Phase 1** | Hạ tầng QA tự động | GATE_PASSED | `gate.ps1`, `adb-helpers.ps1`, `smoke.ps1` exit 0, evidence saved |
 | **Phase 2** | Test Tuần 3 + Triage + Sửa P0/P1 (S1) | GATE_PASSED | 13/13 tests T3-01..T3-13 PASS, 0 bug P0/P1 mở, G-BASE pass |
-| **Phase 3** | Full Regression MVP (S2) | IN_PROGRESS | Bộ test R-01..R-16 với >= 2 tài khoản, 4 trạng thái |
-| **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | NOT_STARTED | 3 cấu hình màn hình, font Nunito, Phosphor icon |
+| **Phase 3** | Full Regression MVP (S2) | GATE_PASSED | Bộ test R-01..R-16 + 5 states PASS (46/46 unit tests), 0 bug P0/P1 mở |
+| **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | IN_PROGRESS | 3 cấu hình màn hình, font Nunito, require cycle, Phosphor icon |
 | **Phase 5** | Tính năng nhỏ (S6) | NOT_STARTED | S6a (xóa/sửa), S6b (bookmark), S6c (cài đặt) |
 | **Phase 6** | Release Candidate + E2E đầy đủ (S7) | NOT_STARTED | Kịch bản 10 bước E2E trên tag `w4-rc1` |
 | **Phase 7** | Demo & Tài liệu bàn giao (S8) | NOT_STARTED | User guide, video demo, slide/report, handoff |
@@ -52,6 +52,12 @@ Format: `N | phase | lệnh | lỗi dòng đầu nguyên văn | nguyên nhân | 
 *(Nhắc lại quy tắc sau 5 lần thử (lần 10): Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
 
 11 | Phase 2 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | `gate.ps1` | PASS (Scope Guard: PASS, tsc: PASS, jest: 27/27 PASS, export: PASS)
+12 | Phase 3 | `corepack pnpm exec jest __tests__/regression.test.ts` | FAIL regression.test.ts | Sai signature meta và mock SecureStore | `regression.test.ts` | Điều chỉnh test khớp implementation
+13 | Phase 3 | `corepack pnpm exec jest __tests__/regression.test.ts` | - | - | `regression.test.ts` | PASS (19/19 tests passed trong 11.38s)
+14 | Phase 3 | `powershell apps/mobile/scripts/qa/test-regression-device.ps1` | - | - | `test-regression-device.ps1` | PASS (Chụp 4 evidence r-05, r-09, r-restart, r-network)
+15 | Phase 3 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | `gate.ps1` | PASS (Scope Guard: PASS, tsc: PASS, jest: 46/46 PASS, export: PASS)
+
+*(Nhắc lại quy tắc sau 5 lần thử (lần 15): Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
 
 ---
 

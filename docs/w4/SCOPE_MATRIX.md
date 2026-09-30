@@ -32,7 +32,7 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
   - `src/features/feed/screens/HomeScreen.tsx`
   - `src/features/profile/screens/ProfileScreen.tsx`
 - **Phase thực hiện:** Phase 3
-- **Trạng thái:** NOT_STARTED
+- **Trạng thái:** COMPLETED
 - **Tiêu chí nghiệm thu:** Bộ regression R-01..R-16 đạt tỉ lệ PASS >= 90%.
 
 ### S3: Test Đa Cấu Hình Thiết Bị
