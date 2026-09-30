@@ -34,9 +34,9 @@
   - [x] Dừng node processes
   - [x] Xóa `node_modules` và `.expo` tại `apps/mobile` đúng cách
   - [x] Xác nhận `Test-Path node_modules` là False
-- [ ] **Giai đoạn 3: Cấu hình pnpm**
-  - [ ] Tạo `apps/mobile/.npmrc` với `node-linker=hoisted`
-  - [ ] Sửa `apps/mobile/pnpm-workspace.yaml` (bỏ `set this to true or false`, cấu hình `@parcel/watcher` và `unrs-resolver` thành `true`)
+- [x] **Giai đoạn 3: Cấu hình pnpm**
+  - [x] Tạo `apps/mobile/.npmrc` với `node-linker=hoisted`
+  - [x] Sửa `apps/mobile/pnpm-workspace.yaml` (bỏ `set this to true or false`, cấu hình `@parcel/watcher` và `unrs-resolver` thành `true`)
 - [ ] **Giai đoạn 4: Cài đặt**
   - [ ] Chạy `corepack pnpm install` trong `apps/mobile`
   - [ ] Xác nhận `node_modules\.pnpm` không còn là liên kết chính
