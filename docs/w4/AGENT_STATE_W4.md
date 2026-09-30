@@ -1,15 +1,15 @@
 # Agent State - Week 4 (MobileSocialMedia)
 
 ## 1. Trạng thái Hiện tại (Current State)
-- **CURRENT_PHASE**: PHASE_0
+- **CURRENT_PHASE**: PHASE_2
 - **MODE**: **MOCK** (Xác định: `BYPASS_AUTH_FOR_TESTING = true` trong `authSession.tsx`; `USE_MOCK = true` trong `searchService.ts`, `profileService.ts`, `postService.ts`, `notificationService.ts`, `feedService.ts`, `commentService.ts`)
 
 ### Bảng Trạng thái 8 Phase
 | Phase | Tên Phase | Trạng thái | Ghi chú |
 |---|---|---|---|
 | **Phase 0** | Khởi động & Audit Baseline | GATE_PASSED | Đã hoàn thành audit baseline, MODE=MOCK, Scope Matrix & Test Plan đầy đủ |
-| **Phase 1** | Hạ tầng QA tự động | IN_PROGRESS | Bắt đầu xây dựng script QA (`gate.ps1`, `adb-helpers.ps1`, `smoke.ps1`) |
-| **Phase 2** | Test Tuần 3 + Triage + Sửa P0/P1 (S1) | NOT_STARTED | 13 test cases T3-01..T3-13 |
+| **Phase 1** | Hạ tầng QA tự động | GATE_PASSED | `gate.ps1`, `adb-helpers.ps1`, `smoke.ps1` exit 0, evidence saved |
+| **Phase 2** | Test Tuần 3 + Triage + Sửa P0/P1 (S1) | IN_PROGRESS | Bắt đầu thực thi 13 test case T3-01..T3-13 |
 | **Phase 3** | Full Regression MVP (S2) | NOT_STARTED | Bộ test R-01..R-16 với >= 2 tài khoản |
 | **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | NOT_STARTED | 3 cấu hình màn hình, font Nunito, Phosphor icon |
 | **Phase 5** | Tính năng nhỏ (S6) | NOT_STARTED | S6a (xóa/sửa), S6b (bookmark), S6c (cài đặt) |
@@ -40,6 +40,12 @@ Format: `N | phase | lệnh | lỗi dòng đầu nguyên văn | nguyên nhân | 
 3 | Phase 0 | `corepack pnpm exec jest __tests__` | - | - | - | PASS (2 suites passed, 14 tests passed, thời gian 34.075s)
 4 | Phase 0 | `corepack pnpm exec expo export --platform android` | - | - | - | PASS (Android Bundled 48745ms, 4099 modules, 8.6MB bytecode)
 5 | Phase 0 | `corepack pnpm exec expo start --android --clear` | - | - | - | PASS (App mở màn hình Feed Mobile Social trên BlueStacks không đỏ, 4242 modules)
+
+*(Nhắc lại quy tắc sau 5 lần thử: Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
+
+6 | Phase 1 | `powershell apps/mobile/scripts/qa/smoke.ps1` | - | - | `smoke.ps1` | PASS (Phát hiện màn hình Mobile Social, lưu evidence `smoke-screen.png`)
+7 | Phase 1 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | Command "tsc" not found | Lỗi tính toán đường dẫn `$scriptDir` | `gate.ps1`, `smoke.ps1` | Sửa dùng `$PSScriptRoot`
+8 | Phase 1 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | - | PASS (Scope Guard: PASS, tsc: PASS, jest: 14/14 PASS, export: PASS)
 
 ---
 
