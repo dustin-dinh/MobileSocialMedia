@@ -1,17 +1,22 @@
-import { useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
-import { feedColors, feedRadii, feedSpacing } from '../feedTheme';
+import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
+import { feedRadii, feedSpacing } from '../feedTheme';
+import { clayDimensions } from '../../../theme/spacing';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { Post, PostMedia } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -21,13 +26,13 @@ import type { Post, PostMedia } from '../types';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_HORIZONTAL_MARGIN = feedSpacing.cardPadding;
 const MEDIA_WIDTH = SCREEN_WIDTH - CARD_HORIZONTAL_MARGIN * 2;
-const AVATAR_SIZE = 42;
+const AVATAR_SIZE = 44;
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Renders the author's avatar – falls back to initials when no image. */
+/** Renders the author's avatar with clay halo and fallback initials. */
 function Avatar({ author }: { author: Post['author'] }) {
   const initials = (author.displayName ?? author.username)
     .split(' ')
@@ -36,13 +41,22 @@ function Avatar({ author }: { author: Post['author'] }) {
     .slice(0, 2)
     .toUpperCase();
 
-  if (author.avatarUrl) {
-    return <Image source={{ uri: author.avatarUrl }} style={styles.avatar} />;
-  }
-
   return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarInitials}>{initials}</Text>
+    <View style={styles.avatarHalo}>
+      {author.avatarUrl ? (
+        <Image
+          source={{ uri: author.avatarUrl }}
+          style={styles.avatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback]}>
+          <ClayText variant="caption" style={styles.avatarInitials}>
+            {initials}
+          </ClayText>
+        </View>
+      )}
     </View>
   );
 }
@@ -73,7 +87,8 @@ function SingleImage({ media }: { media: PostMedia }) {
       <Image
         source={{ uri: media.url }}
         style={[styles.mediaSingleImage, !loaded && styles.hidden]}
-        resizeMode="cover"
+        contentFit="cover"
+        cachePolicy="memory-disk"
         onLoad={() => setLoaded(true)}
       />
     </View>
@@ -85,7 +100,6 @@ function MediaGrid({ items }: { items: PostMedia[] }) {
     return <SingleImage media={items[0]} />;
   }
 
-  // Horizontal scrollable carousel for 2+ images
   return (
     <FlatList
       data={items}
@@ -94,7 +108,12 @@ function MediaGrid({ items }: { items: PostMedia[] }) {
       pagingEnabled
       renderItem={({ item }) => (
         <View style={styles.carouselItem}>
-          <Image source={{ uri: item.url }} style={styles.carouselImage} resizeMode="cover" />
+          <Image
+            source={{ uri: item.url }}
+            style={styles.carouselImage}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
         </View>
       )}
       showsHorizontalScrollIndicator={false}
@@ -104,49 +123,17 @@ function MediaGrid({ items }: { items: PostMedia[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Icon components (pure RN, no library dependency)
+// Main PostCard (memoized)
 // ---------------------------------------------------------------------------
 
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <Text style={[styles.iconText, filled && { color: feedColors.liked }]}>
-      {filled ? '♥' : '♡'}
-    </Text>
-  );
-}
-
-function CommentIcon() {
-  return <Text style={styles.iconText}>💬</Text>;
-}
-
-function ShareIcon() {
-  return <Text style={styles.iconText}>↗</Text>;
-}
-
-function BookmarkIcon({ filled }: { filled: boolean }) {
-  return (
-    <Text style={[styles.iconText, filled && { color: feedColors.saved }]}>
-      {filled ? '★' : '☆'}
-    </Text>
-  );
-}
-
-function MoreIcon() {
-  return <Text style={styles.moreIcon}>•••</Text>;
-}
-
-// ---------------------------------------------------------------------------
-// Main PostCard
-// ---------------------------------------------------------------------------
-
-type PostCardProps = {
+export type PostCardProps = {
   onPressComment?: (post: Post) => void;
   onToggleLike?: (post: Post) => void;
   onToggleSave?: (post: Post) => void;
   post: Post;
 };
 
-export function PostCard({
+export const PostCard = memo(function PostCard({
   onPressComment,
   onToggleLike,
   onToggleSave,
@@ -155,11 +142,10 @@ export function PostCard({
   const likeScale = useRef(new Animated.Value(1)).current;
 
   const handleLike = useCallback(() => {
-    // Springy micro-animation on like tap
     Animated.sequence([
       Animated.timing(likeScale, {
         duration: 100,
-        toValue: 1.3,
+        toValue: 1.35,
         useNativeDriver: true,
       }),
       Animated.spring(likeScale, {
@@ -179,28 +165,41 @@ export function PostCard({
   const displayName = post.author.displayName ?? post.author.username;
 
   return (
-    <View style={styles.card}>
+    <ClaySurface variant="raisedLite" style={styles.card}>
       {/* ── Header ─────────────────────────────────────────── */}
       <View style={styles.header}>
         <Avatar author={post.author} />
         <View style={styles.headerText}>
-          <Text style={styles.displayName} numberOfLines={1}>
+          <ClayText variant="heading" style={styles.displayName} numberOfLines={1}>
             {displayName}
-          </Text>
+          </ClayText>
           <View style={styles.headerMeta}>
-            <Text style={styles.username}>@{post.author.username}</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.timestamp}>{formatTimeAgo(post.createdAt)}</Text>
+            <ClayText variant="meta" style={styles.username}>
+              @{post.author.username}
+            </ClayText>
+            <ClayText variant="meta" style={styles.dot}>
+              ·
+            </ClayText>
+            <ClayText variant="meta" style={styles.timestamp}>
+              {formatTimeAgo(post.createdAt)}
+            </ClayText>
           </View>
         </View>
-        <Pressable hitSlop={12} style={styles.moreButton}>
-          <MoreIcon />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+          hitSlop={10}
+          style={styles.moreButton}
+        >
+          <ClayIcon name="DotsThree" size={22} weight="bold" color={clayColors.caption} />
         </Pressable>
       </View>
 
       {/* ── Content ────────────────────────────────────────── */}
       {post.content.trim().length > 0 && (
-        <Text style={styles.content}>{post.content}</Text>
+        <ClayText variant="body" style={styles.content}>
+          {post.content}
+        </ClayText>
       )}
 
       {/* ── Media ──────────────────────────────────────────── */}
@@ -213,40 +212,74 @@ export function PostCard({
       {/* ── Action Bar ─────────────────────────────────────── */}
       <View style={styles.actions}>
         <View style={styles.actionsLeft}>
-          <Pressable onPress={handleLike} style={styles.actionButton} hitSlop={8}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={post.isLiked ? 'Unlike post' : 'Like post'}
+            onPress={handleLike}
+            style={styles.actionButton}
+            hitSlop={8}
+          >
             <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-              <HeartIcon filled={post.isLiked} />
+              <ClayIcon
+                name="Heart"
+                size={22}
+                weight={post.isLiked ? 'fill' : 'duotone'}
+                color={post.isLiked ? clayColors.liked : clayColors.caption}
+              />
             </Animated.View>
             {post.likesCount > 0 && (
-              <Text style={[styles.actionCount, post.isLiked && styles.actionCountLiked]}>
+              <ClayText
+                variant="caption"
+                style={[styles.actionCount, post.isLiked && styles.actionCountLiked]}
+              >
                 {formatCount(post.likesCount)}
-              </Text>
+              </ClayText>
             )}
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Comments"
             onPress={() => onPressComment?.(post)}
             style={styles.actionButton}
             hitSlop={8}
           >
-            <CommentIcon />
+            <ClayIcon name="ChatCircle" size={22} weight="duotone" color={clayColors.caption} />
             {post.commentsCount > 0 && (
-              <Text style={styles.actionCount}>{formatCount(post.commentsCount)}</Text>
+              <ClayText variant="caption" style={styles.actionCount}>
+                {formatCount(post.commentsCount)}
+              </ClayText>
             )}
           </Pressable>
 
-          <Pressable style={styles.actionButton} hitSlop={8}>
-            <ShareIcon />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share post"
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <ClayIcon name="ShareNetwork" size={22} weight="duotone" color={clayColors.caption} />
           </Pressable>
         </View>
 
-        <Pressable onPress={handleSave} style={styles.actionButton} hitSlop={8}>
-          <BookmarkIcon filled={post.isSaved} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={post.isSaved ? 'Unsave post' : 'Save post'}
+          onPress={handleSave}
+          style={styles.actionButton}
+          hitSlop={8}
+        >
+          <ClayIcon
+            name="BookmarkSimple"
+            size={22}
+            weight={post.isSaved ? 'fill' : 'duotone'}
+            color={post.isSaved ? clayColors.saved : clayColors.caption}
+          />
         </Pressable>
       </View>
-    </View>
+    </ClaySurface>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -256,30 +289,33 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    gap: 6,
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   actionCount: {
-    color: feedColors.caption,
+    color: clayColors.caption,
     fontSize: 13,
-    fontWeight: '500',
   },
   actionCountLiked: {
-    color: feedColors.liked,
+    color: clayColors.liked,
+    fontFamily: fontFamilies.bold,
   },
   actions: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingBottom: 10,
     paddingHorizontal: feedSpacing.cardPadding,
-    paddingBottom: 12,
     paddingTop: 4,
   },
   actionsLeft: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,
@@ -288,31 +324,37 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: feedColors.primary,
+    backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
   },
+  avatarHalo: {
+    borderRadius: (AVATAR_SIZE + 4) / 2,
+    borderWidth: 2,
+    borderColor: clayColors.surfaceHigh,
+    shadowColor: 'rgb(100,60,85)',
+    shadowOffset: { width: 1, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   avatarInitials: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    color: clayColors.primary,
+    fontSize: 15,
+    fontFamily: fontFamilies.extraBold,
   },
   card: {
-    backgroundColor: feedColors.surface,
-    borderRadius: feedRadii.card,
     marginHorizontal: CARD_HORIZONTAL_MARGIN,
     marginVertical: feedSpacing.cardGap / 2,
-    // Subtle shadow for elevation
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: 0,
+    overflow: 'hidden',
   },
   carousel: {
     width: MEDIA_WIDTH,
   },
   carouselImage: {
     borderRadius: feedRadii.media,
+    borderWidth: 1,
+    borderColor: clayColors.border,
     height: MEDIA_WIDTH * 0.65,
     width: MEDIA_WIDTH - feedSpacing.cardPadding * 2 - 8,
   },
@@ -320,51 +362,42 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   content: {
-    color: feedColors.text,
-    fontSize: 15,
     lineHeight: 22,
+    paddingBottom: 10,
     paddingHorizontal: feedSpacing.cardPadding,
-    paddingBottom: 8,
   },
   displayName: {
-    color: feedColors.text,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: fontFamilies.bold,
   },
   dot: {
-    color: feedColors.caption,
-    fontSize: 12,
     marginHorizontal: 4,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     padding: feedSpacing.cardPadding,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   headerMeta: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginTop: 1,
+    marginTop: 2,
   },
   headerText: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   hidden: {
     opacity: 0,
     position: 'absolute',
   },
-  iconText: {
-    color: feedColors.caption,
-    fontSize: 20,
-  },
   mediaContainer: {
-    paddingBottom: 8,
+    paddingBottom: 10,
     paddingHorizontal: feedSpacing.cardPadding,
   },
   mediaPlaceholder: {
-    backgroundColor: feedColors.border,
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: feedRadii.media,
     height: MEDIA_WIDTH * 0.65,
     width: '100%',
@@ -375,24 +408,21 @@ const styles = StyleSheet.create({
   },
   mediaSingleImage: {
     borderRadius: feedRadii.media,
+    borderWidth: 1,
+    borderColor: clayColors.border,
     height: MEDIA_WIDTH * 0.65,
     width: '100%',
   },
   moreButton: {
-    padding: 4,
-  },
-  moreIcon: {
-    color: feedColors.caption,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
   },
   timestamp: {
-    color: feedColors.caption,
-    fontSize: 13,
+    fontSize: 12,
   },
   username: {
-    color: feedColors.caption,
-    fontSize: 13,
+    fontSize: 12,
   },
 });

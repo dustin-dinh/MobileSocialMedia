@@ -4,23 +4,30 @@ import {
   Alert,
   FlatList,
   Image,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image as ExpoImage } from 'expo-image';
 
 import { useAuthSession } from '../../auth/authSession';
 import { feedEvents } from '../../feed/feedEvents';
 import type { Post } from '../../feed/types';
 import { commentColors, commentRadii } from '../commentTheme';
+import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
+import { clayDimensions } from '../../../theme/spacing';
+import { getClayBoxShadow } from '../../../theme/clay';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { commentService } from '../services/commentService';
 import type { CommentAuthor, PostComment } from '../types';
 import { CommentItem } from './CommentItem';
@@ -47,13 +54,22 @@ function UserMiniAvatar({
     .slice(0, 2)
     .toUpperCase();
 
-  if (avatarUrl) {
-    return <Image source={{ uri: avatarUrl }} style={styles.inputAvatar} />;
-  }
-
   return (
-    <View style={[styles.inputAvatar, styles.inputAvatarFallback]}>
-      <Text style={styles.inputAvatarInitials}>{initials || '?'}</Text>
+    <View style={styles.avatarHalo}>
+      {avatarUrl ? (
+        <ExpoImage
+          source={{ uri: avatarUrl }}
+          style={styles.inputAvatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View style={[styles.inputAvatar, styles.inputAvatarFallback]}>
+          <ClayText variant="caption" style={styles.inputAvatarInitials}>
+            {initials || '?'}
+          </ClayText>
+        </View>
+      )}
     </View>
   );
 }
@@ -61,9 +77,13 @@ function UserMiniAvatar({
 function CommentEmptyState() {
   return (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyEmoji}>💬</Text>
-      <Text style={styles.emptyTitle}>Chưa có bình luận nào</Text>
-      <Text style={styles.emptySubtitle}>Hãy là người đầu tiên bình luận về bài viết này!</Text>
+      <ClayEmoji name="speech_balloon" size={56} />
+      <ClayText variant="heading" style={styles.emptyTitle}>
+        Chưa có bình luận nào
+      </ClayText>
+      <ClayText variant="caption" style={styles.emptySubtitle}>
+        Hãy là người đầu tiên bình luận về bài viết này!
+      </ClayText>
     </View>
   );
 }
@@ -240,13 +260,21 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
     >
       <View style={styles.overlay}>
         {/* Backdrop dismiss */}
-        <Pressable style={styles.backdropPressable} onPress={onClose} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss comments sheet"
+          style={styles.backdropPressable}
+          onPress={onClose}
+        />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardContainer}
         >
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <ClaySurface
+            variant="modal"
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}
+          >
             {/* ── Handle Bar ───────────────────────────────── */}
             <View style={styles.handleContainer}>
               <View style={styles.handle} />
@@ -255,24 +283,36 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
             {/* ── Header ───────────────────────────────────── */}
             <View style={styles.header}>
               <View style={styles.headerTitleWrap}>
-                <Text style={styles.headerTitle}>Bình luận</Text>
+                <ClayText variant="heading" style={styles.headerTitle}>
+                  Bình luận
+                </ClayText>
                 {currentCount > 0 ? (
                   <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>{currentCount}</Text>
+                    <ClayText variant="caption" style={styles.countBadgeText}>
+                      {currentCount}
+                    </ClayText>
                   </View>
                 ) : null}
               </View>
 
-              <Pressable hitSlop={12} onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close comments"
+                hitSlop={12}
+                onPress={onClose}
+                style={styles.closeButton}
+              >
+                <ClayIcon name="X" size={16} weight="bold" color={clayColors.caption} />
               </Pressable>
             </View>
 
             {/* ── Comment List ─────────────────────────────── */}
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={commentColors.primary} />
-                <Text style={styles.loadingText}>Đang tải bình luận...</Text>
+                <ActivityIndicator size="small" color={clayColors.primary} />
+                <ClayText variant="caption" style={styles.loadingText}>
+                  Đang tải bình luận...
+                </ClayText>
               </View>
             ) : (
               <FlatList
@@ -285,12 +325,16 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
                 keyboardShouldPersistTaps="handled"
                 keyExtractor={(item) => item.id}
                 ListEmptyComponent={CommentEmptyState}
+                initialNumToRender={6}
+                maxToRenderPerBatch={6}
+                windowSize={7}
+                removeClippedSubviews={Platform.OS === 'android'}
                 refreshControl={
                   <RefreshControl
-                    colors={[commentColors.primary]}
+                    colors={[clayColors.primary]}
                     onRefresh={handleRefresh}
                     refreshing={isRefreshing}
-                    tintColor={commentColors.primary}
+                    tintColor={clayColors.primary}
                   />
                 }
                 renderItem={({ item }) => (
@@ -317,30 +361,36 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
                   multiline
                   onChangeText={setInputText}
                   placeholder="Thêm bình luận..."
-                  placeholderTextColor={commentColors.placeholder}
+                  placeholderTextColor={clayColors.caption}
                   style={styles.input}
                   value={inputText}
                 />
 
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send comment"
                   disabled={!canSend}
-                  hitSlop={6}
+                  hitSlop={8}
                   onPress={handleSendComment}
-                  style={({ pressed }) => [
+                  style={[
                     styles.sendButton,
                     canSend ? styles.sendButtonActive : styles.sendButtonDisabled,
-                    pressed && canSend ? styles.sendButtonPressed : undefined,
                   ]}
                 >
                   {isSending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={clayColors.onPrimary} />
                   ) : (
-                    <Text style={styles.sendButtonIcon}>↑</Text>
+                    <ClayIcon
+                      name="ArrowUp"
+                      size={16}
+                      weight="bold"
+                      color={canSend ? clayColors.onPrimary : clayColors.caption}
+                    />
                   )}
                 </Pressable>
               </View>
             </View>
-          </View>
+          </ClaySurface>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -352,6 +402,11 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+  avatarHalo: {
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: clayColors.surfaceHigh,
+  },
   backdropPressable: {
     bottom: 0,
     left: 0,
@@ -361,28 +416,27 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: 14,
     height: 28,
     justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
     width: 28,
   },
-  closeButtonText: {
-    color: commentColors.caption,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   countBadge: {
-    backgroundColor: '#EEF2F6',
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: 10,
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: clayColors.border,
   },
   countBadgeText: {
-    color: commentColors.textSecondary,
+    color: clayColors.textSecondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fontFamilies.bold,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -390,27 +444,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 60,
   },
-  emptyEmoji: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
   emptyListContent: {
     flexGrow: 1,
     justifyContent: 'center',
   },
   emptySubtitle: {
-    color: commentColors.caption,
-    fontSize: 13,
-    marginTop: 4,
+    color: clayColors.caption,
+    marginTop: 6,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: commentColors.text,
-    fontSize: 16,
-    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center',
   },
   handle: {
-    backgroundColor: commentColors.handle,
+    backgroundColor: clayColors.border,
     borderRadius: 3,
     height: 5,
     width: 40,
@@ -422,7 +470,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    borderBottomColor: commentColors.border,
+    borderBottomColor: clayColors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -430,16 +478,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitle: {
-    color: commentColors.text,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
   },
   headerTitleWrap: {
     alignItems: 'center',
     flexDirection: 'row',
   },
   input: {
-    color: commentColors.text,
+    color: clayColors.text,
+    fontFamily: fontFamilies.regular,
     flex: 1,
     fontSize: 14,
     maxHeight: 90,
@@ -454,18 +501,18 @@ const styles = StyleSheet.create({
   },
   inputAvatarFallback: {
     alignItems: 'center',
-    backgroundColor: commentColors.primary,
+    backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
   },
   inputAvatarInitials: {
-    color: '#FFFFFF',
+    color: clayColors.primary,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fontFamilies.extraBold,
   },
   inputContainer: {
     alignItems: 'flex-end',
-    backgroundColor: commentColors.surface,
-    borderTopColor: commentColors.border,
+    backgroundColor: clayColors.surface,
+    borderTopColor: clayColors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 10,
@@ -474,13 +521,19 @@ const styles = StyleSheet.create({
   },
   inputWrap: {
     alignItems: 'center',
-    backgroundColor: commentColors.inputBg,
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: commentRadii.input,
     flex: 1,
     flexDirection: 'row',
     minHeight: 40,
     paddingHorizontal: 12,
     paddingVertical: 2,
+    borderWidth: 1,
+    borderTopColor: clayColors.border,
+    borderLeftColor: clayColors.border,
+    borderRightColor: clayColors.shadowLight,
+    borderBottomColor: clayColors.shadowLight,
+    boxShadow: getClayBoxShadow('inset'),
   },
   keyboardContainer: {
     justifyContent: 'flex-end',
@@ -498,8 +551,6 @@ const styles = StyleSheet.create({
     paddingVertical: 50,
   },
   loadingText: {
-    color: commentColors.caption,
-    fontSize: 13,
     marginTop: 8,
   },
   overlay: {
@@ -509,31 +560,26 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     alignItems: 'center',
-    borderRadius: 14,
-    height: 28,
+    borderRadius: 15,
+    height: 30,
     justifyContent: 'center',
     marginLeft: 6,
-    width: 28,
+    width: 30,
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
   },
   sendButtonActive: {
-    backgroundColor: commentColors.primary,
+    backgroundColor: clayColors.primary,
   },
   sendButtonDisabled: {
-    backgroundColor: commentColors.primaryDisabled,
-  },
-  sendButtonIcon: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sendButtonPressed: {
-    backgroundColor: commentColors.primaryPressed,
+    backgroundColor: clayColors.surfaceWell,
   },
   sheet: {
-    backgroundColor: commentColors.surface,
+    backgroundColor: clayColors.surface,
     borderTopLeftRadius: commentRadii.modal,
     borderTopRightRadius: commentRadii.modal,
     height: '75%',
     maxHeight: '85%',
+    padding: 0,
   },
 });

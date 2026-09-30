@@ -4,10 +4,10 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -18,55 +18,14 @@ import { SearchEmptyState } from '../components/SearchEmptyState';
 import { SearchSkeleton } from '../components/SearchSkeleton';
 import { UserSearchCard } from '../components/UserSearchCard';
 import { searchColors, searchRadii } from '../searchTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions } from '../../../theme/spacing';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { fontFamilies } from '../../../theme/typography';
 import { searchService } from '../services/searchService';
 import type { SearchedUser } from '../types';
-
-// ---------------------------------------------------------------------------
-// SearchGlassIcon (Clean vector shape using Native Views)
-// ---------------------------------------------------------------------------
-
-function SearchGlassIcon({
-  color = searchColors.searchIcon,
-  size = 18,
-}: {
-  color?: string;
-  size?: number;
-}) {
-  const circleSize = Math.round(size * 0.68);
-
-  return (
-    <View style={{ alignItems: 'center', height: size, justifyContent: 'center', width: size }}>
-      <View
-        style={{
-          borderColor: color,
-          borderRadius: circleSize / 2,
-          borderWidth: 2,
-          height: circleSize,
-          left: 0,
-          position: 'absolute',
-          top: 0,
-          width: circleSize,
-        }}
-      />
-      <View
-        style={{
-          backgroundColor: color,
-          borderRadius: 1,
-          bottom: 1,
-          height: size * 0.44,
-          position: 'absolute',
-          right: 1,
-          transform: [{ rotate: '-45deg' }],
-          width: 2.2,
-        }}
-      />
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main SearchScreen
-// ---------------------------------------------------------------------------
 
 export function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -188,14 +147,14 @@ export function SearchScreen() {
 
     return (
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
+        <ClayText variant="heading" style={styles.sectionTitle}>
           {hasQuery ? 'Kết quả tìm kiếm' : 'Gợi ý cho bạn'}
-        </Text>
-        <Text style={styles.sectionSubtitle}>
+        </ClayText>
+        <ClayText variant="caption" style={styles.sectionSubtitle}>
           {hasQuery
             ? `${users.length} người dùng phù hợp`
             : 'Những người bạn có thể quan tâm'}
-        </Text>
+        </ClayText>
       </View>
     );
   }, [debouncedQuery, isLoading, users.length]);
@@ -220,10 +179,12 @@ export function SearchScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       {/* ── Top Header & Search Bar ────────────────────────── */}
       <View style={styles.headerContainer}>
-        <Text style={styles.screenTitle}>Tìm kiếm</Text>
+        <ClayText variant="title" style={styles.screenTitle}>
+          Tìm kiếm
+        </ClayText>
 
-        <View style={styles.searchBar}>
-          <SearchGlassIcon size={18} color={searchColors.searchIcon} />
+        <ClaySurface variant="inset" style={styles.searchBar}>
+          <ClayIcon name="MagnifyingGlass" size={20} color={clayColors.caption} />
 
           <TextInput
             autoCapitalize="none"
@@ -246,17 +207,16 @@ export function SearchScreen() {
             />
           ) : hasQueryInput ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search query"
               hitSlop={8}
               onPress={handleClearQuery}
-              style={({ pressed }) => [
-                styles.clearButton,
-                pressed && styles.clearButtonPressed,
-              ]}
+              style={styles.clearButton}
             >
-              <Text style={styles.clearButtonText}>✕</Text>
+              <ClayIcon name="X" size={14} weight="bold" color={clayColors.caption} />
             </Pressable>
           ) : null}
-        </View>
+        </ClaySurface>
       </View>
 
       {/* ── List Content ────────────────────────────────────── */}
@@ -267,6 +227,10 @@ export function SearchScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         keyExtractor={keyExtractor}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListEmptyComponent={
           isLoading ? (
             <SearchSkeleton />
@@ -297,33 +261,27 @@ export function SearchScreen() {
 const styles = StyleSheet.create({
   clearButton: {
     alignItems: 'center',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 10,
-    height: 20,
+    backgroundColor: clayColors.canvas,
+    borderRadius: 12,
+    height: 24,
     justifyContent: 'center',
     marginLeft: 8,
-    width: 20,
-  },
-  clearButtonPressed: {
-    backgroundColor: '#CBD5E1',
-  },
-  clearButtonText: {
-    color: '#475569',
-    fontSize: 11,
-    fontWeight: '700',
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
+    width: 24,
   },
   headerContainer: {
     backgroundColor: searchColors.surface,
     borderBottomColor: searchColors.border,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 14,
     paddingHorizontal: 16,
     paddingTop: 8,
   },
   listContent: {
-    backgroundColor: searchColors.surface,
+    backgroundColor: clayColors.canvas,
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 96,
   },
   loaderIcon: {
     marginLeft: 8,
@@ -333,22 +291,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   screenTitle: {
-    color: searchColors.text,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
     marginBottom: 12,
   },
   searchBar: {
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: searchColors.inputBg,
     borderRadius: searchRadii.input,
     flexDirection: 'row',
-    height: 44,
+    height: 48,
     paddingHorizontal: 14,
   },
   searchInput: {
     color: searchColors.text,
+    fontFamily: fontFamilies.regular,
     flex: 1,
     fontSize: 15,
     height: '100%',
@@ -364,13 +319,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   sectionSubtitle: {
-    color: searchColors.caption,
-    fontSize: 13,
     marginTop: 2,
   },
   sectionTitle: {
-    color: searchColors.text,
     fontSize: 16,
-    fontWeight: '700',
   },
 });

@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { searchColors, searchRadii } from '../searchTheme';
+import { ClayButton } from '../../../components/ui/ClayButton';
+import { ClayEmoji } from '../../../components/icons/ClayEmoji';
+import { ClayText } from '../../../components/ui/ClayText';
+import { searchColors } from '../searchTheme';
 
 type SearchEmptyStateProps = {
   onClear?: () => void;
@@ -11,44 +14,30 @@ export function SearchEmptyState({ onClear, query }: SearchEmptyStateProps) {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconEmoji}>🔍</Text>
+        <ClayEmoji name="magnifying_glass" size={54} />
       </View>
 
-      <Text style={styles.title}>Không tìm thấy người dùng phù hợp</Text>
-      <Text style={styles.description}>
+      <ClayText variant="heading" style={styles.title}>
+        Không tìm thấy người dùng phù hợp
+      </ClayText>
+      <ClayText variant="body" style={styles.description}>
         Không có kết quả nào cho &quot;{query}&quot;. Vui lòng thử tìm kiếm bằng username hoặc tên hiển thị khác.
-      </Text>
+      </ClayText>
 
       {onClear ? (
-        <Pressable
+        <ClayButton
+          accessibilityLabel="Xóa tìm kiếm"
           onPress={onClear}
-          style={({ pressed }) => [
-            styles.clearButton,
-            pressed && styles.clearButtonPressed,
-          ]}
-        >
-          <Text style={styles.clearButtonText}>Xóa tìm kiếm</Text>
-        </Pressable>
+          title="Xóa tìm kiếm"
+          variant="secondary"
+          size="sm"
+        />
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  clearButton: {
-    backgroundColor: '#EEF2F6',
-    borderRadius: searchRadii.button,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  clearButtonPressed: {
-    backgroundColor: '#E2E8F0',
-  },
-  clearButtonText: {
-    color: searchColors.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -57,28 +46,22 @@ const styles = StyleSheet.create({
   },
   description: {
     color: searchColors.caption,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'center',
   },
   iconCircle: {
     alignItems: 'center',
-    backgroundColor: '#EEF2F6',
-    borderRadius: 40,
-    height: 80,
+    backgroundColor: searchColors.surfaceWell,
+    borderRadius: 44,
+    height: 88,
     justifyContent: 'center',
-    marginBottom: 16,
-    width: 80,
-  },
-  iconEmoji: {
-    fontSize: 34,
+    marginBottom: 20,
+    width: 88,
   },
   title: {
     color: searchColors.text,
-    fontSize: 17,
-    fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
   },
 });
+

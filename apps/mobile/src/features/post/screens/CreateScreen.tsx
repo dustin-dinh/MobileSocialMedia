@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -8,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -20,6 +18,14 @@ import { useAuthSession } from '../../auth/authSession';
 import { feedEvents } from '../../feed/feedEvents';
 import { useImagePicker } from '../hooks/useImagePicker';
 import { postService } from '../services/postService';
+import { clayColors } from '../../../theme/colors';
+import { clayRadii, clayDimensions } from '../../../theme/spacing';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayButton } from '../../../components/ui/ClayButton';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { fontFamilies } from '../../../theme/typography';
+import { Image as ExpoImage } from 'expo-image';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -27,19 +33,6 @@ import { postService } from '../services/postService';
 
 const MAX_CONTENT_LENGTH = 500;
 const CHAR_WARNING_THRESHOLD = 450;
-
-const colors = {
-  background: '#F4F7FB',
-  border: '#E8ECF2',
-  caption: '#667085',
-  danger: '#EF4444',
-  primary: '#2563EB',
-  primaryPressed: '#1D4ED8',
-  surface: '#FFFFFF',
-  text: '#172033',
-  textSecondary: '#4B5563',
-  warning: '#F59E0B',
-} as const;
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -57,13 +50,17 @@ function AuthorAvatar({ avatarUrl, displayName, username }: {
     .slice(0, 2)
     .toUpperCase();
 
-  if (avatarUrl) {
-    return <Image source={{ uri: avatarUrl }} style={styles.avatar} />;
-  }
-
   return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarInitials}>{initials}</Text>
+    <View style={styles.avatarHalo}>
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback]}>
+          <ClayText variant="caption" style={styles.avatarInitials}>
+            {initials}
+          </ClayText>
+        </View>
+      )}
     </View>
   );
 }
@@ -87,11 +84,13 @@ function MediaPreview({ images, onRemove }: {
         <View key={img.uri} style={styles.mediaThumbnailWrap}>
           <Image source={{ uri: img.uri }} style={styles.mediaThumbnail} />
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove photo"
             onPress={() => onRemove(img.uri)}
             style={styles.mediaRemoveBtn}
             hitSlop={6}
           >
-            <Text style={styles.mediaRemoveText}>✕</Text>
+            <ClayIcon name="X" size={13} weight="bold" color={clayColors.onPrimary} />
           </Pressable>
         </View>
       ))}
@@ -129,10 +128,10 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
   const charCountColor =
     charCount > MAX_CONTENT_LENGTH
-      ? colors.danger
+      ? clayColors.error
       : charCount >= CHAR_WARNING_THRESHOLD
-        ? colors.warning
-        : colors.caption;
+        ? clayColors.saved
+        : clayColors.caption;
 
   // ── Handlers ────────────────────────────────────────────────────────
   const handleCancel = useCallback(() => {
@@ -202,34 +201,31 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     >
       {/* ── Header ────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 8) }]}>
-        <Pressable onPress={handleCancel} hitSlop={8} style={styles.headerSideBtn}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-
-        <Text style={styles.headerTitle}>New Post</Text>
-
         <Pressable
-          onPress={handleSubmit}
-          disabled={!canSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel post"
+          onPress={handleCancel}
           hitSlop={8}
-          style={[
-            styles.postButton,
-            canSubmit ? styles.postButtonEnabled : styles.postButtonDisabled,
-          ]}
+          style={styles.headerSideBtn}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text
-              style={[
-                styles.postButtonText,
-                !canSubmit && styles.postButtonTextDisabled,
-              ]}
-            >
-              Post
-            </Text>
-          )}
+          <ClayText variant="button" style={styles.cancelText}>
+            Cancel
+          </ClayText>
         </Pressable>
+
+        <ClayText variant="heading" style={styles.headerTitle}>
+          New Post
+        </ClayText>
+
+        <ClayButton
+          accessibilityLabel="Publish post"
+          variant="primary"
+          label="Post"
+          disabled={!canSubmit}
+          isLoading={isSubmitting}
+          onPress={handleSubmit}
+          style={styles.postButton}
+        />
       </View>
 
       {/* ── Body ──────────────────────────────────────────── */}
@@ -248,37 +244,43 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             />
           )}
           <View style={styles.authorInfo}>
-            <Text style={styles.authorName} numberOfLines={1}>
+            <ClayText variant="heading" style={styles.authorName} numberOfLines={1}>
               {displayName}
-            </Text>
+            </ClayText>
             {user && (
-              <Text style={styles.authorUsername}>@{user.username}</Text>
+              <ClayText variant="meta" style={styles.authorUsername}>
+                @{user.username}
+              </ClayText>
             )}
           </View>
         </View>
 
-        {/* Text input */}
-        <TextInput
-          ref={inputRef}
-          style={styles.textInput}
-          placeholder="What's on your mind?"
-          placeholderTextColor={colors.caption}
-          multiline
-          maxLength={MAX_CONTENT_LENGTH + 50}
-          value={content}
-          onChangeText={setContent}
-          editable={!isSubmitting}
-          autoFocus
-          textAlignVertical="top"
-        />
+        {/* Text input in inset container */}
+        <ClaySurface variant="inset" style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.textInput}
+            placeholder="What's on your mind?"
+            placeholderTextColor={clayColors.caption}
+            multiline
+            maxLength={MAX_CONTENT_LENGTH + 50}
+            value={content}
+            onChangeText={setContent}
+            editable={!isSubmitting}
+            autoFocus
+            textAlignVertical="top"
+          />
+        </ClaySurface>
 
         {/* Media preview */}
         <MediaPreview images={images} onRemove={removeImage} />
       </ScrollView>
 
       {/* ── Bottom toolbar ────────────────────────────────── */}
-      <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, 12) + 60 }]}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add photo"
           onPress={pickImages}
           disabled={remainingSlots <= 0 || isPicking || isSubmitting}
           style={[
@@ -287,20 +289,21 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           ]}
           hitSlop={8}
         >
-          <Text style={styles.toolbarIcon}>🖼</Text>
-          <Text
+          <ClayIcon name="Image" size={24} weight="duotone" color={clayColors.primary} />
+          <ClayText
+            variant="button"
             style={[
               styles.toolbarLabel,
               remainingSlots <= 0 && styles.toolbarLabelDisabled,
             ]}
           >
             Photo {images.length > 0 ? `${images.length}/4` : ''}
-          </Text>
+          </ClayText>
         </Pressable>
 
-        <Text style={[styles.charCount, { color: charCountColor }]}>
+        <ClayText variant="caption" style={[styles.charCount, { color: charCountColor }]}>
           {charCount}/{MAX_CONTENT_LENGTH}
-        </Text>
+        </ClayText>
       </View>
     </KeyboardAvoidingView>
   );
@@ -310,7 +313,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 // Styles
 // ---------------------------------------------------------------------------
 
-const AVATAR_SIZE = 40;
+const AVATAR_SIZE = 42;
 
 const styles = StyleSheet.create({
   authorBar: {
@@ -321,16 +324,12 @@ const styles = StyleSheet.create({
   },
   authorInfo: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   authorName: {
-    color: colors.text,
     fontSize: 15,
-    fontWeight: '700',
   },
   authorUsername: {
-    color: colors.caption,
-    fontSize: 13,
     marginTop: 1,
   },
   avatar: {
@@ -340,13 +339,23 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
   },
+  avatarHalo: {
+    borderRadius: (AVATAR_SIZE + 4) / 2,
+    borderWidth: 2,
+    borderColor: clayColors.surfaceHigh,
+    shadowColor: 'rgb(150,84,96)',
+    shadowOffset: { width: 1, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   avatarInitials: {
-    color: '#FFFFFF',
+    color: clayColors.primary,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fontFamilies.extraBold,
   },
   body: {
     flex: 1,
@@ -355,21 +364,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   cancelText: {
-    color: colors.text,
-    fontSize: 16,
+    color: clayColors.caption,
   },
   charCount: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: fontFamilies.bold,
   },
   container: {
-    backgroundColor: colors.surface,
+    backgroundColor: clayColors.canvas,
     flex: 1,
   },
   header: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderBottomColor: colors.border,
+    backgroundColor: clayColors.surface,
+    borderBottomColor: clayColors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -377,81 +385,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerSideBtn: {
-    minWidth: 60,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
   },
   headerTitle: {
-    color: colors.text,
     fontSize: 17,
-    fontWeight: '700',
+  },
+  inputContainer: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    minHeight: 140,
+    padding: 12,
+    borderRadius: clayRadii.control,
   },
   mediaRemoveBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 11,
-    height: 22,
+    backgroundColor: 'rgba(74,42,53,0.7)',
+    borderRadius: 12,
+    height: 24,
     justifyContent: 'center',
     position: 'absolute',
     right: 6,
     top: 6,
-    width: 22,
-  },
-  mediaRemoveText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    width: 24,
   },
   mediaRow: {
-    gap: 8,
+    gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   mediaScroll: {
     flexGrow: 0,
   },
   mediaThumbnail: {
-    borderRadius: 12,
-    height: 140,
-    width: 140,
+    borderRadius: 14,
+    height: 130,
+    width: 130,
   },
   mediaThumbnailWrap: {
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: clayColors.border,
     overflow: 'hidden',
   },
   postButton: {
-    alignItems: 'center',
-    borderRadius: 20,
-    justifyContent: 'center',
-    minHeight: 36,
-    minWidth: 60,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-  },
-  postButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  postButtonEnabled: {
-    backgroundColor: colors.primary,
-  },
-  postButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  postButtonTextDisabled: {
-    color: colors.caption,
+    minHeight: 38,
+    minWidth: 70,
+    paddingHorizontal: 16,
   },
   textInput: {
-    color: colors.text,
-    fontSize: 17,
+    color: clayColors.text,
+    fontFamily: fontFamilies.regular,
+    fontSize: 16,
     lineHeight: 24,
     minHeight: 120,
-    paddingHorizontal: 16,
-    paddingTop: 0,
+    padding: 0,
   },
   toolbar: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
+    backgroundColor: clayColors.surface,
+    borderTopColor: clayColors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -461,21 +455,17 @@ const styles = StyleSheet.create({
   toolbarButton: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
+    minHeight: clayDimensions.minTouchTarget,
     paddingVertical: 4,
   },
   toolbarButtonDisabled: {
     opacity: 0.4,
   },
-  toolbarIcon: {
-    fontSize: 20,
-  },
   toolbarLabel: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: clayColors.primary,
   },
   toolbarLabelDisabled: {
-    color: colors.caption,
+    color: clayColors.caption,
   },
 });

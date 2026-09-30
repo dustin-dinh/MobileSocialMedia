@@ -1,6 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { authColors, authRadii } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayRadii } from '../../../theme/spacing';
+import { ClayText } from '../../../components/ui/ClayText';
 
 type FormMessageProps = {
   message: string | null;
@@ -19,31 +21,42 @@ export function FormMessage({ message, tone = 'info' }: FormMessageProps) {
       accessibilityRole="alert"
       style={[styles.container, isError ? styles.errorContainer : styles.infoContainer]}
     >
-      <Text style={[styles.message, isError ? styles.errorMessage : styles.infoMessage]}>{message}</Text>
+      <ClayText
+        variant="caption"
+        style={[styles.message, isError ? styles.errorMessage : styles.infoMessage]}
+      >
+        {message}
+      </ClayText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: authRadii.control,
+    borderRadius: clayRadii.control,
     marginBottom: 16,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
   },
   errorContainer: {
-    backgroundColor: authColors.errorBackground,
+    backgroundColor: clayColors.errorBg,
+    borderColor: clayColors.error,
   },
   errorMessage: {
-    color: authColors.error,
+    color: clayColors.error,
+    fontWeight: '700',
   },
   infoContainer: {
-    backgroundColor: authColors.noticeBackground,
+    backgroundColor: clayColors.primarySoft,
+    borderColor: clayColors.primary,
   },
   infoMessage: {
-    color: authColors.noticeText,
+    color: clayColors.primary,
+    fontWeight: '700',
   },
   message: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

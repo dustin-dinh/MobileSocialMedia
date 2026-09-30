@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { authColors } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { ClayText } from '../../../components/ui/ClayText';
 import { AuthBrand } from '../components/AuthBrand';
 
 const DOT_COUNT = 3;
-const DOT_SIZE = 8;
-const DOT_SPACING = 12;
+const DOT_SIZE = 10;
+const DOT_SPACING = 14;
 const ANIMATION_DURATION = 600;
 
 function LoadingDots() {
@@ -48,7 +49,7 @@ function LoadingDots() {
       {animations.map((anim, index) => {
         const scale = anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [1, 1.5],
+          outputRange: [1, 1.4],
         });
         const opacity = anim.interpolate({
           inputRange: [0, 1],
@@ -90,7 +91,9 @@ export function SplashScreen() {
         <AuthBrand />
         <View style={styles.status}>
           <LoadingDots />
-          <Text style={styles.statusText}>Preparing your space</Text>
+          <ClayText variant="caption" style={styles.statusText}>
+            Preparing your space
+          </ClayText>
         </View>
       </Animated.View>
     </SafeAreaView>
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dot: {
-    backgroundColor: authColors.primary,
+    backgroundColor: clayColors.primary,
     borderRadius: DOT_SIZE / 2,
     height: DOT_SIZE,
     marginHorizontal: DOT_SPACING / 2,
@@ -116,7 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   safeArea: {
-    backgroundColor: authColors.background,
+    backgroundColor: clayColors.canvas,
     flex: 1,
   },
   status: {
@@ -124,8 +127,7 @@ const styles = StyleSheet.create({
     marginTop: 44,
   },
   statusText: {
-    color: authColors.mutedText,
-    fontSize: 14,
+    color: clayColors.caption,
     marginTop: 16,
   },
 });

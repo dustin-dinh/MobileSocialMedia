@@ -1,14 +1,15 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Image,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 
+import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayText } from '../../../components/ui/ClayText';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import type { AppNotification, NotificationType } from '../types';
@@ -21,19 +22,19 @@ const AVATAR_SIZE = 44;
 
 function TypeBadge({ type }: { type: NotificationType }) {
   let badgeBg: string = notificationsColors.likeBadge;
-  let icon = '♥';
+  let iconName: 'Heart' | 'ChatCircle' | 'User' = 'Heart';
 
   if (type === 'COMMENT') {
     badgeBg = notificationsColors.commentBadge;
-    icon = '💬';
+    iconName = 'ChatCircle';
   } else if (type === 'FOLLOW') {
     badgeBg = notificationsColors.followBadge;
-    icon = '👤';
+    iconName = 'User';
   }
 
   return (
     <View style={[styles.typeBadge, { backgroundColor: badgeBg }]}>
-      <Text style={styles.typeBadgeIcon}>{icon}</Text>
+      <ClayIcon name={iconName} size={10} color={notificationsColors.onPrimary} weight="fill" />
     </View>
   );
 }
@@ -65,10 +66,17 @@ function ActorAvatar({
   return (
     <View style={styles.avatarWrapper}>
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+        <Image
+          source={{ uri: avatarUrl }}
+          style={styles.avatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
       ) : (
         <View style={[styles.avatar, styles.avatarFallback]}>
-          <Text style={styles.avatarInitials}>{initials || '?'}</Text>
+          <ClayText variant="caption" style={styles.avatarInitials}>
+            {initials || '?'}
+          </ClayText>
         </View>
       )}
 
@@ -78,7 +86,7 @@ function ActorAvatar({
 }
 
 // ---------------------------------------------------------------------------
-// NotificationItem Component
+// NotificationItem Component (memoized)
 // ---------------------------------------------------------------------------
 
 export type NotificationItemProps = {
@@ -88,7 +96,11 @@ export type NotificationItemProps = {
   onToggleFollowBack: (notification: AppNotification) => void;
 };
 
-export function NotificationItem({
+/**
+ * NotificationItem component (memoized, lite clay tier)
+ * Uses lightweight row layout with subtle border and elevation 2 on badge (<= 2 layers).
+ */
+export const NotificationItem = memo(function NotificationItem({
   isFollowPending = false,
   notification,
   onPressItem,
@@ -118,6 +130,8 @@ export function NotificationItem({
 
   return (
     <Pressable
+      accessibilityLabel={`Thông báo từ ${actorName}`}
+      accessibilityRole="button"
       onPress={() => onPressItem(notification)}
       style={({ pressed }) => [
         styles.container,
@@ -135,20 +149,26 @@ export function NotificationItem({
 
       {/* ── Center: Notification Description & Time ─────────── */}
       <View style={styles.contentWrap}>
-        <Text style={styles.descriptionText} numberOfLines={3}>
-          <Text style={styles.actorName}>{actorName} </Text>
+        <ClayText variant="body" style={styles.descriptionText} numberOfLines={3}>
+          <ClayText variant="heading" style={styles.actorName}>
+            {actorName}{' '}
+          </ClayText>
           {notification.type === 'LIKE' && 'đã thích bài viết của bạn.'}
           {notification.type === 'COMMENT' && (
             <>
               đã bình luận: &quot;
-              <Text style={styles.commentSnippet}>{notification.commentText}</Text>
+              <ClayText variant="caption" style={styles.commentSnippet}>
+                {notification.commentText}
+              </ClayText>
               &quot;
             </>
           )}
           {notification.type === 'FOLLOW' && 'đã bắt đầu theo dõi bạn.'}
-        </Text>
+        </ClayText>
 
-        <Text style={styles.timeAgo}>{formatTimeAgo(notification.createdAt)}</Text>
+        <ClayText variant="meta" style={styles.timeAgo}>
+          {formatTimeAgo(notification.createdAt)}
+        </ClayText>
       </View>
 
       {/* ── Right: Post Thumbnail or Follow Back Button ─────── */}
@@ -156,8 +176,14 @@ export function NotificationItem({
         {notification.type === 'FOLLOW' ? (
           <Animated.View style={{ transform: [{ scale: followScale }] }}>
             <Pressable
+              accessibilityLabel={
+                notification.isFollowingBack
+                  ? `Đang theo dõi ${actorName}`
+                  : `Theo dõi lại ${actorName}`
+              }
+              accessibilityRole="button"
               disabled={isFollowPending}
-              hitSlop={6}
+              hitSlop={8}
               onPress={handleFollowPress}
               style={({ pressed }) => [
                 styles.followButton,
@@ -175,12 +201,13 @@ export function NotificationItem({
                   color={
                     notification.isFollowingBack
                       ? notificationsColors.text
-                      : '#FFFFFF'
+                      : notificationsColors.onPrimary
                   }
                   size="small"
                 />
               ) : (
-                <Text
+                <ClayText
+                  variant="caption"
                   style={[
                     styles.followButtonText,
                     notification.isFollowingBack
@@ -189,7 +216,7 @@ export function NotificationItem({
                   ]}
                 >
                   {notification.isFollowingBack ? 'Đang theo dõi' : 'Theo dõi lại'}
-                </Text>
+                </ClayText>
               )}
             </Pressable>
           </Animated.View>
@@ -197,12 +224,14 @@ export function NotificationItem({
           <Image
             source={{ uri: notification.postImageUrl }}
             style={styles.postThumbnail}
+            contentFit="cover"
+            cachePolicy="memory-disk"
           />
         ) : notification.postPreview ? (
           <View style={styles.postSnippetBox}>
-            <Text style={styles.postSnippetText} numberOfLines={2}>
+            <ClayText variant="meta" style={styles.postSnippetText} numberOfLines={2}>
               {notification.postPreview}
-            </Text>
+            </ClayText>
           </View>
         ) : null}
 
@@ -211,7 +240,7 @@ export function NotificationItem({
       </View>
     </Pressable>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -220,8 +249,8 @@ export function NotificationItem({
 const styles = StyleSheet.create({
   actorName: {
     color: notificationsColors.text,
+    fontFamily: 'Nunito_700Bold',
     fontSize: 14,
-    fontWeight: '700',
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,
@@ -230,13 +259,15 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: '#3B82F6',
+    backgroundColor: notificationsColors.surfaceWell,
+    borderColor: notificationsColors.border,
+    borderWidth: 1.5,
     justifyContent: 'center',
   },
   avatarInitials: {
-    color: '#FFFFFF',
+    color: notificationsColors.primary,
+    fontFamily: 'Nunito_800ExtraBold',
     fontSize: 15,
-    fontWeight: '700',
   },
   avatarWrapper: {
     height: AVATAR_SIZE,
@@ -245,7 +276,7 @@ const styles = StyleSheet.create({
   },
   commentSnippet: {
     color: notificationsColors.textSecondary,
-    fontStyle: 'italic',
+    fontFamily: 'Nunito_600SemiBold_Italic',
   },
   container: {
     alignItems: 'center',
@@ -257,7 +288,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   containerPressed: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: notificationsColors.surfaceWell,
   },
   containerUnread: {
     backgroundColor: notificationsColors.surfaceUnread,
@@ -269,6 +300,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     color: notificationsColors.text,
+    fontFamily: 'Nunito_400Regular',
     fontSize: 14,
     lineHeight: 19,
   },
@@ -279,34 +311,36 @@ const styles = StyleSheet.create({
     backgroundColor: notificationsColors.primaryPressed,
   },
   followBackButtonText: {
-    color: '#FFFFFF',
+    color: notificationsColors.onPrimary,
+    fontFamily: 'Nunito_700Bold',
   },
   followButton: {
     alignItems: 'center',
     borderRadius: notificationsRadii.button,
     justifyContent: 'center',
-    minHeight: 32,
-    minWidth: 92,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 44,
+    minWidth: 96,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   followButtonText: {
+    fontFamily: 'Nunito_700Bold',
     fontSize: 12,
-    fontWeight: '700',
   },
   followingButton: {
-    backgroundColor: notificationsColors.surface,
+    backgroundColor: notificationsColors.surfaceWell,
     borderColor: notificationsColors.border,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   followingButtonPressed: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: notificationsColors.surface,
   },
   followingButtonText: {
     color: notificationsColors.text,
+    fontFamily: 'Nunito_700Bold',
   },
   postSnippetBox: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: notificationsColors.surfaceWell,
     borderColor: notificationsColors.postThumbBorder,
     borderRadius: notificationsRadii.postThumb,
     borderWidth: 1,
@@ -317,6 +351,7 @@ const styles = StyleSheet.create({
   },
   postSnippetText: {
     color: notificationsColors.caption,
+    fontFamily: 'Nunito_500Medium',
     fontSize: 9,
     lineHeight: 12,
   },
@@ -334,6 +369,7 @@ const styles = StyleSheet.create({
   },
   timeAgo: {
     color: notificationsColors.caption,
+    fontFamily: 'Nunito_500Medium',
     fontSize: 12,
     marginTop: 4,
   },
@@ -343,16 +379,16 @@ const styles = StyleSheet.create({
     borderRadius: notificationsRadii.badge,
     borderWidth: 1.5,
     bottom: -2,
-    height: 18,
+    height: 20,
     justifyContent: 'center',
     position: 'absolute',
     right: -2,
-    width: 18,
+    width: 20,
   },
   typeBadgeIcon: {
-    color: '#FFFFFF',
+    color: notificationsColors.onPrimary,
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: 'Nunito_700Bold',
   },
   unreadDot: {
     backgroundColor: notificationsColors.unreadDot,
