@@ -74,3 +74,34 @@ export function validateRegister(
 
   return errors;
 }
+
+export type ForgotPasswordFormValues = {
+  email: string;
+};
+
+export function validateForgotPassword(
+  values: ForgotPasswordFormValues,
+): FieldErrors<keyof ForgotPasswordFormValues> {
+  const errors: FieldErrors<keyof ForgotPasswordFormValues> = {};
+
+  if (!values.email.trim()) {
+    errors.email = 'Enter your email address.';
+  } else if (!EMAIL_PATTERN.test(values.email.trim())) {
+    errors.email = 'Enter a valid email address.';
+  } else if (values.email.trim().length > 255) {
+    errors.email = 'Email must be at most 255 characters.';
+  }
+
+  return errors;
+}
+
+export function validateVerificationCode(code: string): string | undefined {
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return 'Enter the 6-digit verification code.';
+  }
+  if (!/^\d{6}$/.test(trimmed)) {
+    return 'Verification code must be exactly 6 digits.';
+  }
+  return undefined;
+}

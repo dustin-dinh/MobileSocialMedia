@@ -1,9 +1,11 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import { Pressable, StyleSheet, type TextInput } from 'react-native';
 
+import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { useAuthSession } from '../authSession';
+import { authColors } from '../authTheme';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
@@ -92,6 +94,17 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
         textContentType="password"
         value={values.password}
       />
+      <Pressable
+        accessibilityLabel="Forgot password?"
+        accessibilityRole="button"
+        hitSlop={8}
+        onPress={() => navigation.navigate('ForgotPassword')}
+        style={styles.forgotPasswordAction}
+      >
+        <ClayText variant="caption" style={styles.forgotPasswordText}>
+          Forgot password?
+        </ClayText>
+      </Pressable>
       <FormMessage
         message={submissionMessage ?? successMessage}
         tone={submissionMessage ? submissionTone : 'info'}
@@ -100,3 +113,16 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
     </AuthScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  forgotPasswordAction: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    color: authColors.primary,
+  },
+});
+
