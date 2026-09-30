@@ -59,14 +59,19 @@
 ## 3. Nhật ký thử nghiệm (Logs)
 Format: `Lần N | lệnh | lỗi nguyên văn dòng đầu | nguyên nhân | file đã sửa | kết quả`
 
-*(Chưa có lần thử nào)*
+Lần 1 | `adb connect 127.0.0.1:5555` | `cannot connect to 127.0.0.1:5555: No connection could be made because the target machine actively refused it. (10061)` | Tiến trình BlueStacks chưa chạy và `bst.enable_adb_access="0"` trong cấu hình BlueStacks | Không sửa file code | Dừng để yêu cầu người dùng bật BlueStacks và Android Debugging
 
 ---
 
 ## 4. Danh sách "Đã thử và thất bại"
-*(Trống)*
+- `adb connect 127.0.0.1:5555` khi BlueStacks chưa chạy / chưa bật ADB trong Settings.
 
 ---
 
 ## 5. Danh sách "Cần người dùng quyết định"
-*(Trống)*
+- Yêu cầu người dùng bật BlueStacks và kích hoạt Android Debugging:
+  1. Mở BlueStacks.
+  2. Vào **Settings > Advanced > bật Android Debugging (Android Debug Bridge)**.
+  3. Kiểm tra cổng ADB hiển thị (mặc định là 5555 hoặc ghi lại số cổng nếu khác).
+  4. Đảm bảo đã cài app **Expo Go** trên BlueStacks hỗ trợ Expo SDK 57.
+  5. Báo lại cho agent sau khi đã mở để tiến hành kết nối adb và khởi động Metro (`expo start --android`).
