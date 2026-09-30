@@ -142,8 +142,8 @@ function Restart-ExpoApp {
     Start-Sleep -Seconds 1
     adb -s $Device reverse tcp:8081 tcp:8081 | Out-Null
     Write-Host "[ADB] Launching Expo Go exp://127.0.0.1:8081..." -ForegroundColor Green
-    adb -s $Device shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent | Out-Null
-    Start-Sleep -Seconds 3
+    adb -s $Device shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" -n host.exp.exponent/.LauncherActivity | Out-Null
+    Start-Sleep -Seconds 5
 }
 
 function Set-Resolution {

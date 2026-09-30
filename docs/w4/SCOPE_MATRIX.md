@@ -83,8 +83,8 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
 - **Mô tả:** Soạn thảo User Guide, Demo Script, quay video demo `demo-app.mp4`, Slide outline, Report, Known issues, Handoff Dev B.
 - **Thành phần liên quan:** Toàn bộ thư mục `docs/w4/`.
 - **Phase thực hiện:** Phase 7
-- **Trạng thái:** NOT_STARTED
-- **Tiêu chí nghiệm thu:** Toàn bộ 7 tài liệu được bàn giao đầy đủ, không rỗng, liên kết evidence chính xác.
+- **Trạng thái:** COMPLETED
+- **Tiêu chí nghiệm thu:** Toàn bộ 7 tài liệu được bàn giao đầy đủ, không rỗng, liên kết 66 evidence chính xác (0 broken link), video `demo-app.mp4` sẵn sàng, smoke & gate pass.
 
 ---
 

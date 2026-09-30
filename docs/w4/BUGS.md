@@ -14,8 +14,10 @@
 |---|---|---|---|---|---|---|---|---|
 | **BUG-001** | Require cycle warning trong theme | P3 | Dev A | Phase 0 | RESOLVED | Cảnh báo vàng LogBox: `Require cycle: src/theme/index.ts -> src/theme/clay.ts -> src/theme/index.ts` do import chéo giữa colors, clay và index. | Tách hàm `setActivePaletteName` trong `colors.ts` và thiết lập từ `index.ts` để gỡ bỏ vòng lặp require. | PASS (`verify-ui.mjs`, `gate.ps1`) |
 | **BUG-002** | Font Nunito phụ chưa được load | P3 | Dev A | Phase 0 | RESOLVED | Các biến thể `Nunito_500Medium`, `Nunito_600SemiBold_Italic`, `Nunito_900Black` được khai báo sử dụng nhưng chưa nạp trong `useFonts` tại `src/App.tsx`. | Nạp đầy đủ các biến thể `Nunito_500Medium`, `Nunito_600SemiBold_Italic`, `Nunito_900Black` trong `useFonts` tại `src/App.tsx`. | PASS (`tsc --noEmit`, `jest __tests__`) |
+| **BUG-003** | Thiếu backend endpoints xóa & sửa bài viết (S6a) | P2 | Dev B | Phase 5 | OPEN (Backend) | API backend hiện chưa cung cấp endpoint `DELETE /posts/:id` và `PATCH /posts/:id`. Mobile đã chuẩn bị sẵn test case và service signature. | Dev B cần bổ sung 2 route trên vào Express API của `apps/api`. | BLOCKED-BACKEND |
 
 ---
 
 ## Bugs chuyển giao Dev B (Backend)
-*(Chưa có bug backend nào được ghi nhận)*
+- **BUG-003**: Cần bổ sung endpoints `DELETE /posts/:id` và `PATCH /posts/:id` để hỗ trợ tính năng quản lý bài viết cá nhân (S6a).
+
