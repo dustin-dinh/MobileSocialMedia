@@ -5,6 +5,9 @@
 // =============================================================================
 export const ACTIVE_PALETTE: 'blush' | 'paper' | 'ink' = 'blush';
 
+import { setActivePaletteName } from './colors';
+setActivePaletteName(ACTIVE_PALETTE);
+
 export * from './palettes';
 export * from './colors';
 export * from './spacing';

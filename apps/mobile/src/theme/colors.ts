@@ -1,23 +1,21 @@
 import { palettes, ColorPalette, PaletteName } from './palettes';
 
-function getActivePaletteName(): PaletteName {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const themeIndex = require('./index');
-    if (themeIndex && themeIndex.ACTIVE_PALETTE && palettes[themeIndex.ACTIVE_PALETTE as PaletteName]) {
-      return themeIndex.ACTIVE_PALETTE as PaletteName;
-    }
-  } catch {
-    // Circular require fallback
+let activePaletteName: PaletteName = 'blush';
+
+export function setActivePaletteName(name: PaletteName): void {
+  if (name && palettes[name]) {
+    activePaletteName = name;
   }
-  return 'blush';
+}
+
+export function getActivePaletteName(): PaletteName {
+  return activePaletteName;
 }
 
 export const clayColors: ColorPalette = new Proxy({} as ColorPalette, {
   get(_target, prop: string | symbol) {
     if (typeof prop === 'string') {
-      const activeName = getActivePaletteName();
-      const currentPalette = palettes[activeName] || palettes.blush;
+      const currentPalette = palettes[activePaletteName] || palettes.blush;
       if (prop in currentPalette) {
         return currentPalette[prop as keyof ColorPalette];
       }
@@ -28,8 +26,7 @@ export const clayColors: ColorPalette = new Proxy({} as ColorPalette, {
     return Reflect.ownKeys(palettes.blush);
   },
   getOwnPropertyDescriptor(_target, prop) {
-    const activeName = getActivePaletteName();
-    const currentPalette = palettes[activeName] || palettes.blush;
+    const currentPalette = palettes[activePaletteName] || palettes.blush;
     return {
       value: currentPalette[prop as keyof ColorPalette],
       enumerable: true,

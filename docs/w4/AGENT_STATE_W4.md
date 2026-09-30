@@ -1,7 +1,7 @@
 # Agent State - Week 4 (MobileSocialMedia)
 
 ## 1. Trạng thái Hiện tại (Current State)
-- **CURRENT_PHASE**: PHASE_4
+- **CURRENT_PHASE**: PHASE_5
 - **MODE**: **MOCK** (Xác định: `BYPASS_AUTH_FOR_TESTING = true` trong `authSession.tsx`; `USE_MOCK = true` trong `searchService.ts`, `profileService.ts`, `postService.ts`, `notificationService.ts`, `feedService.ts`, `commentService.ts`)
 
 ### Bảng Trạng thái 8 Phase
@@ -11,8 +11,8 @@
 | **Phase 1** | Hạ tầng QA tự động | GATE_PASSED | `gate.ps1`, `adb-helpers.ps1`, `smoke.ps1` exit 0, evidence saved |
 | **Phase 2** | Test Tuần 3 + Triage + Sửa P0/P1 (S1) | GATE_PASSED | 13/13 tests T3-01..T3-13 PASS, 0 bug P0/P1 mở, G-BASE pass |
 | **Phase 3** | Full Regression MVP (S2) | GATE_PASSED | Bộ test R-01..R-16 + 5 states PASS (46/46 unit tests), 0 bug P0/P1 mở |
-| **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | IN_PROGRESS | 3 cấu hình màn hình, font Nunito, require cycle, Phosphor icon |
-| **Phase 5** | Tính năng nhỏ (S6) | NOT_STARTED | S6a (xóa/sửa), S6b (bookmark), S6c (cài đặt) |
+| **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | GATE_PASSED | 3 cấu hình màn hình, BUG-001/002 fixed, Phosphor tối ưu giảm 72.8% module |
+| **Phase 5** | Tính năng nhỏ (S6) | IN_PROGRESS | S6a (xóa/sửa), S6b (bookmark), S6c (cài đặt) - Entry check |
 | **Phase 6** | Release Candidate + E2E đầy đủ (S7) | NOT_STARTED | Kịch bản 10 bước E2E trên tag `w4-rc1` |
 | **Phase 7** | Demo & Tài liệu bàn giao (S8) | NOT_STARTED | User guide, video demo, slide/report, handoff |
 
@@ -58,6 +58,14 @@ Format: `N | phase | lệnh | lỗi dòng đầu nguyên văn | nguyên nhân | 
 15 | Phase 3 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | `gate.ps1` | PASS (Scope Guard: PASS, tsc: PASS, jest: 46/46 PASS, export: PASS)
 
 *(Nhắc lại quy tắc sau 5 lần thử (lần 15): Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
+
+16 | Phase 4 | `node scripts/verify-ui.mjs` | - | - | `src/theme/colors.ts`, `src/theme/index.ts` | PASS (Gỡ require cycle BUG-001)
+17 | Phase 4 | `corepack pnpm exec tsc --noEmit` | - | - | `src/App.tsx`, `jest.setup.js` | PASS (Nạp đủ 7 biến thể Nunito BUG-002)
+18 | Phase 4 | `corepack pnpm exec expo export --platform android` | - | - | `ClayIcon.tsx`, `types/phosphor-icons.d.ts` | PASS (Tối ưu Phosphor S5: 4099 -> 1115 modules, 8.6MB -> 2.4MB)
+19 | Phase 4 | `powershell apps/mobile/scripts/qa/test-multi-config.ps1` | - | - | `test-multi-config.ps1` | PASS (Chụp 6 ảnh evidence qua 3 cấu hình màn hình S3)
+20 | Phase 4 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | `gate.ps1` | PASS (G-BASE all checks passed, 46/46 unit tests, 0 bug mở)
+
+*(Nhắc lại quy tắc sau 5 lần thử (lần 20): Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
 
 ---
 

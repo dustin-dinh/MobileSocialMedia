@@ -39,7 +39,7 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
 - **Mô tả:** Kiểm tra độ tương thích trên nhiều kích thước và mật độ màn hình trên BlueStacks, kiểm tra safe area, bàn phím che input, layout.
 - **Thành phần liên quan:** Toàn bộ screens và navigation stack.
 - **Phase thực hiện:** Phase 4
-- **Trạng thái:** NOT_STARTED
+- **Trạng thái:** COMPLETED
 - **Tiêu chí nghiệm thu:** Chạy smoke trên ít nhất 3 cấu hình màn hình khác nhau (ví dụ: 720x1280@320, 1080x1920@420, 1080x2400@440).
 
 ### S4: Sửa Lỗi UI/UX & Hoàn Thiện Giao Diện
@@ -51,7 +51,7 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
   - `src/theme/clay.ts`
   - `src/theme/colors.ts`
 - **Phase thực hiện:** Phase 4
-- **Trạng thái:** NOT_STARTED
+- **Trạng thái:** COMPLETED
 - **Tiêu chí nghiệm thu:** 0 lỗi font cảnh báo, 0 require cycle warning, bố cục đồng nhất.
 
 ### S5: Tối Ưu Hiệu Năng Mobile
@@ -60,7 +60,7 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
   - `src/components/ClayIcon.tsx`
   - `src/features/feed/screens/HomeScreen.tsx`
 - **Phase thực hiện:** Phase 4
-- **Trạng thái:** NOT_STARTED
+- **Trạng thái:** COMPLETED
 - **Tiêu chí nghiệm thu:** Giảm rõ rệt số lượng modules trong Metro Bundler so với mốc 4.242 ban đầu.
 
 ### S6: Tính Năng Nhỏ (Conditional Scope)

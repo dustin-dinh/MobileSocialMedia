@@ -9,6 +9,7 @@ module.exports = {
   preset: 'jest-expo',
   moduleNameMapper: {
     '^@babel/runtime/(.*)$': `${babelRuntimeDir}/$1`,
+    '^phosphor-react-native/lib/module/icons/(.*)$': '<rootDir>/node_modules/phosphor-react-native/lib/commonjs/icons/$1.js',
   },
   transformIgnorePatterns: [
     '[\\\\/]node_modules[\\\\/](?!(\\.pnpm[\\\\/]|(jest-)?react-native|@react-native|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|phosphor-react-native|react-native-svg))',

@@ -60,7 +60,28 @@
 ---
 
 ## 4. Kết quả Đa cấu hình & Hiệu năng (S3, S4, S5)
-*(Sẽ cập nhật ở Phase 4)*
+
+### Đa Cấu Hình Màn Hình (S3)
+| Cấu hình | Độ phân giải | Density | Trạng thái | Evidence Link | Ghi chú |
+|---|---|---|---|---|---|
+| **Config 1** | 720 x 1280 | 320 dpi | PASS | [cfg-720x1280-feed.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-720x1280-feed.png), [cfg-720x1280-profile.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-720x1280-profile.png) | Giao diện thu nhỏ chuẩn, không tràn viền hay lệch nút |
+| **Config 2** | 1080 x 1920 | 420 dpi | PASS | [cfg-1080x1920-feed.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-1080x1920-feed.png), [cfg-1080x1920-search.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-1080x1920-search.png) | Độ phân giải tiêu chuẩn FHD, bố cục hiển thị hoàn hảo |
+| **Config 3** | 1080 x 2400 | 440 dpi | PASS | [cfg-1080x2400-feed.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-1080x2400-feed.png), [cfg-1080x2400-create.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/cfg-1080x2400-create.png) | Tỉ lệ màn hình dài 20:9, safe area bottom tab và top bar chuẩn |
+| **Real Device** | Thiết bị thật đa dạng | - | NEEDS-HUMAN | - | Cần kiểm tra trực tiếp trên máy vật lý để cảm nhận độ mượt cảm ứng |
+
+### Sửa Lỗi UI/UX (S4)
+| Hạng mục | Trạng thái | Bug ID | Evidence | Ghi chú |
+|---|---|---|---|---|
+| Gỡ require cycle theme | RESOLVED | BUG-001 | `verify-ui.mjs` PASS, `gate.ps1` PASS | Không còn warning LogBox trên màn hình |
+| Nạp font Nunito phụ | RESOLVED | BUG-002 | `App.tsx`, `tsc --noEmit` PASS | Đã nạp đủ 7 biến thể Nunito trong useFonts |
+
+### Tối Ưu Hiệu Năng Mobile (S5)
+| Chỉ số đo | Trước tối ưu (Baseline) | Sau tối ưu (Phase 4) | Mức cải thiện |
+|---|---|---|---|
+| **Số modules bundle (Android Export)** | 4,099 modules | **1,115 modules** | **Giảm 72.8%** (-2,984 modules) |
+| **Kích thước bytecode Android bundle** | 8.6 MB | **2.4 MB** | **Giảm 72.1%** (-6.2 MB) |
+| **Thời gian build Android Export** | 48,745 ms (48.7s) | **12,370 ms (12.3s)** | **Nhanh hơn 3.94 lần** |
+| **Thời gian chạy Jest toàn bộ suite** | 34.075 s | **11.834 s** | **Nhanh hơn 2.88 lần** |
 
 ---
 
