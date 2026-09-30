@@ -1,14 +1,14 @@
 # Agent State - Forgot Password Flow (apps/mobile)
 
 ## 1. Trạng thái Hiện tại (Current State)
-- **CURRENT_PHASE**: PHASE_2
+- **CURRENT_PHASE**: PHASE_3
 - **PHASE_STATUS**:
   | Phase | Tên Phase | Trạng thái | Ghi chú |
   |---|---|---|---|
   | **Phase 0** | Audit Baseline & Cấu trúc Auth | GATE_PASSED | Baseline G-BASE: 49 tests pass, STYLE_NOTES và đường đi tới Login sẵn sàng |
   | **Phase 1** | Service Mock + Validation + Navigation | GATE_PASSED | `passwordResetService.ts`, routes, types, 12 new jest tests pass (61 total) |
-  | **Phase 2** | Màn F1 (Quên mật khẩu) | IN_PROGRESS | `ForgotPasswordScreen.tsx`, tests render, validation, loading |
-  | **Phase 3** | Màn F2 (Nhập mã 6 số) | NOT_STARTED | `VerifyCodeScreen.tsx`, input 6 số, countdown 60s, navigate về Login |
+  | **Phase 2** | Màn F1 (Quên mật khẩu) | GATE_PASSED | `ForgotPasswordScreen.tsx`, 7 render tests pass (68 total), validation, loading, style regex 0, a11y labels |
+  | **Phase 3** | Màn F2 (Nhập mã 6 số) | IN_PROGRESS | `VerifyCodeScreen.tsx`, input 6 số, countdown 60s, navigate về Login |
   | **Phase 4** | Nghiệm thu trên BlueStacks + Tài liệu | NOT_STARTED | `test-forgot-device.ps1`, đa cấu hình, HANDOFF_DEV_B.md, README.md |
 
 ---
@@ -47,6 +47,7 @@ Format: `N | phase | lệnh | lỗi dòng đầu | nguyên nhân | file sửa | 
 
 1 | Phase 0 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | - | PASS (Baseline G-BASE: tsc 0 lỗi, jest 49/49 passed, export 1115 modules 2.4MB)
 2 | Phase 1 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke -BaseCommit e79b158` | TS2339: Property 'data' does not exist on type 'PasswordResetResponse' | httpClient.requestJson already unboxes response to TResponse | passwordResetService.ts | PASS (G-BASE: tsc 0, jest 61/61 passed, export pass)
+3 | Phase 2 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke -BaseCommit e79b158` | - | - | ForgotPasswordScreen.tsx, __tests__/forgotPassword.test.tsx | PASS (G-BASE: tsc 0, jest 68/68 passed, export pass, style regex 0, a11y clean)
 
 ---
 
