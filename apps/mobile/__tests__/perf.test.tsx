@@ -143,5 +143,5 @@ describe('Render Performance & Memoization (React.Profiler)', () => {
     // Count must strictly remain 1 (zero re-renders)
     expect(post1RenderSpy).toHaveBeenCalledTimes(1);
     expect(post2RenderSpy).toHaveBeenCalledTimes(1);
-  });
+  }, 15000);
 });

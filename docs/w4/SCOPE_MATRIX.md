@@ -64,13 +64,13 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
 - **Tiêu chí nghiệm thu:** Giảm rõ rệt số lượng modules trong Metro Bundler so với mốc 4.242 ban đầu.
 
 ### S6: Tính Năng Nhỏ (Conditional Scope)
-- **Mô tả:** Chỉ thực hiện khi Phase 5 qua entry gate.
-  - S6a: Xóa/sửa bài viết (`src/features/post/`)
-  - S6b: Lưu bài viết - Bookmark (`src/features/feed/components/PostCard.tsx`)
-  - S6c: Cài đặt cơ bản (`src/features/profile/screens/SettingsScreen.tsx`)
+- **Mô tả:** Thực hiện theo điều kiện vào Phase 5 (0 bug P0/P1 mở, PASS rate >= 90%):
+  - S6a: Xóa/sửa bài viết (`src/features/post/` - BLOCKED-BACKEND chờ Dev B cung cấp API DELETE/PATCH và Rule H)
+  - S6b: Lưu bài viết - Bookmark (`src/features/feed/components/PostCard.tsx` - DONE, test PASS, evidence `s6b-bookmark.png`)
+  - S6c: Cài đặt cơ bản (`src/features/profile/screens/ProfileScreen.tsx` - DONE, test PASS, evidence `s6c-settings.png`)
 - **Phase thực hiện:** Phase 5
-- **Trạng thái:** NOT_STARTED
-- **Tiêu chí nghiệm thu:** Có mini-gate và test evidence riêng cho từng tính năng.
+- **Trạng thái:** COMPLETED (S6b, S6c: PASS; S6a: BLOCKED-BACKEND)
+- **Tiêu chí nghiệm thu:** Có mini-gate và test evidence riêng cho từng tính năng. Unit test 49/49 pass, G-BASE pass.
 
 ### S7: Release Candidate & Kịch Bản E2E 10 Bước
 - **Mô tả:** Đóng gói bản RC, gắn tag `w4-rc1`, chạy full 10 bước E2E tự động qua script `e2e.ps1`.

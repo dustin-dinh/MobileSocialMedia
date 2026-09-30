@@ -85,5 +85,15 @@
 
 ---
 
-## 5. Kết quả Kịch bản E2E 10 Bước (S7)
+## 5. Kết quả Tính Năng Nhỏ (Phase 5 - S6: S6a, S6b, S6c)
+
+| Feature ID | Tên tính năng | Trạng thái | Bug ID | Evidence Link | Ghi chú |
+|---|---|---|---|---|---|
+| **S6a** | Xóa/sửa bài viết | BLOCKED-BACKEND | BUG-003 | `week4_features.test.ts` (S6a) | Chờ Dev B triển khai `DELETE /posts/:id` và `PATCH /posts/:id`. File `PostDetailScreen.tsx` thuộc danh sách Rule H. |
+| **S6b** | Lưu bài viết (Bookmark) | PASS | - | [s6b-bookmark.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/s6b-bookmark.png), `week4_features.test.ts` (S6b) | Nút Bookmark trên PostCard toggle trạng thái lưu, đổi icon solid vàng nhũ. Đạt mini-gate. |
+| **S6c** | Cài đặt cơ bản (Settings/Profile) | PASS | - | [s6c-settings.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/s6c-settings.png), `week4_features.test.ts` (S6c) | Cung cấp màn hình Profile với tùy chọn "Chỉnh sửa hồ sơ", đổi palette màu Clay, và "Đăng xuất" an toàn. Đạt mini-gate. |
+
+---
+
+## 6. Kết quả Kịch bản E2E 10 Bước (S7)
 *(Sẽ cập nhật ở Phase 6)*
