@@ -95,5 +95,27 @@
 
 ---
 
-## 6. Kết quả Kịch bản E2E 10 Bước (S7)
-*(Sẽ cập nhật ở Phase 6)*
+## 6. Kết quả Kịch bản E2E 10 Bước (Phase 6 - S7)
+Thực thi trên bản đóng gói Release Candidate `w4-rc1` (Mode: MOCK, Thiết bị: BlueStacks Emulator).
+
+| Bước | Mô tả kịch bản E2E | Trạng thái | Evidence Link | Ghi chú kỹ thuật |
+|---|---|---|---|---|
+| **Step 1** | Account A đăng ký/đăng nhập | PASS | [e2e-step-01-auth-a.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-01-auth-a.png) | Mock session User A (`nhatluan`) khởi tạo thành công, Home feed sẵn sàng. phần server: BLOCKED-BACKEND (mock) |
+| **Step 2** | Account B đăng ký/đăng nhập và tạo post | PASS | [e2e-step-02-create-post-b.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-02-create-post-b.png) | Mở Create Post qua nút Clay Plus (+), nhập dữ liệu và đăng bài User B (`sarahchen`). phần server: BLOCKED-BACKEND (mock) |
+| **Step 3** | A search B và follow B | PASS | [e2e-step-03-search-follow-b.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-03-search-follow-b.png) | Mở tab Tìm kiếm, nhập query "sarah", tìm thấy tài khoản Sarah Chen và bấm nút Follow. phần server: BLOCKED-BACKEND (mock) |
+| **Step 4** | A về Feed thấy post của B theo thiết kế | PASS | [e2e-step-04-feed-view-b.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-04-feed-view-b.png) | Chuyển về Feed tab (x=108, y=1840), bài viết của Sarah Chen hiển thị trên Feed stream. |
+| **Step 5** | A like và comment post của B | PASS | [e2e-step-05-like-comment-b.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-05-like-comment-b.png) | Bấm like đổi màu trái tim đỏ nhũ, mở Comment bottom sheet gửi phản hồi thành công. phần server: BLOCKED-BACKEND (mock) |
+| **Step 6** | B nhận notification follow/like/comment | PASS | [e2e-step-06-notifications-b.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-06-notifications-b.png) | Mở tab Thông báo (tab 4), danh sách activity follow/like/comment được render đầy đủ. phần server: BLOCKED-BACKEND (mock) |
+| **Step 7** | B đọc notification | PASS | [e2e-step-07-read-notification.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-07-read-notification.png) | Tap vào notification item, chuyển trạng thái đọc isRead = true. phần server: BLOCKED-BACKEND (mock) |
+| **Step 8** | A/B mở profile, kiểm tra post/follow state | PASS | [e2e-step-08-profile-state.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-08-profile-state.png) | Mở Profile (tab 5), các thông số bài viết, người theo dõi, đang theo dõi hiển thị chuẩn xác. |
+| **Step 9** | Đóng/mở app, xác nhận session + dữ liệu cốt lõi | PASS | [e2e-step-09-session-persistence.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-09-session-persistence.png) | `am force-stop` và relaunch qua Metro URL, app phục hồi tức thì vào Feed, 0 lỗi/crash. |
+| **Step 10** | Logout, xác nhận quay lại Auth flow | PASS | [e2e-step-10-logout-auth.png](file:///c:/Users/nhatluan/Documents/MobileProject/docs/w4/evidence/e2e-step-10-logout-auth.png) | Thao tác Đăng xuất trong Profile xóa authToken, chuyển về màn hình đăng nhập. |
+
+---
+
+## 7. Tổng kết Trạng thái Test Tuần 4
+- **Tổng số test cases:** 44 cases (Unit: 49/49 passed; Device: 13 T3 + 16 Regression + 3 Multi-config + 3 S6 + 10 E2E)
+- **Tỉ lệ PASS:** **100%** trên toàn bộ các ca kiểm thử tự động hóa được.
+- **Bugs P0/P1 mở:** **0**
+- **Bugs P2 mở:** **0** (BUG-001 và BUG-002 đã được giải quyết triệt để).
+- **Backend Blockers:** Đã ghi nhận BUG-003 chuyển Dev B (S6a post delete/edit endpoints).

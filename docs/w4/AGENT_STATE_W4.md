@@ -1,7 +1,7 @@
 # Agent State - Week 4 (MobileSocialMedia)
 
 ## 1. Trạng thái Hiện tại (Current State)
-- **CURRENT_PHASE**: PHASE_6
+- **CURRENT_PHASE**: PHASE_7
 - **MODE**: **MOCK** (Xác định: `BYPASS_AUTH_FOR_TESTING = true` trong `authSession.tsx`; `USE_MOCK = true` trong `searchService.ts`, `profileService.ts`, `postService.ts`, `notificationService.ts`, `feedService.ts`, `commentService.ts`)
 
 ### Bảng Trạng thái 8 Phase
@@ -13,8 +13,8 @@
 | **Phase 3** | Full Regression MVP (S2) | GATE_PASSED | Bộ test R-01..R-16 + 5 states PASS (46/46 unit tests), 0 bug P0/P1 mở |
 | **Phase 4** | Đa cấu hình, UI/UX & Hiệu năng (S3, S4, S5) | GATE_PASSED | 3 cấu hình màn hình, BUG-001/002 fixed, Phosphor tối ưu giảm 72.8% module |
 | **Phase 5** | Tính năng nhỏ (S6) | GATE_PASSED | S6b (bookmark) & S6c (settings) PASS có evidence, S6a BLOCKED-BACKEND |
-| **Phase 6** | Release Candidate + E2E đầy đủ (S7) | IN_PROGRESS | Kịch bản 10 bước E2E trên tag `w4-rc1` |
-| **Phase 7** | Demo & Tài liệu bàn giao (S8) | NOT_STARTED | User guide, video demo, slide/report, handoff |
+| **Phase 6** | Release Candidate + E2E đầy đủ (S7) | GATE_PASSED | 10/10 bước E2E PASS trên tag `w4-rc1`, 10 ảnh evidence, exit code 0 |
+| **Phase 7** | Demo & Tài liệu bàn giao (S8) | IN_PROGRESS | User guide, video demo, slide/report, handoff |
 
 ---
 
@@ -68,6 +68,7 @@ Format: `N | phase | lệnh | lỗi dòng đầu nguyên văn | nguyên nhân | 
 *(Nhắc lại quy tắc sau 5 lần thử (lần 20): Scope sạch apps/api; Không đổi mock flags; Giữ test count; Môi trường Windows pnpm hoisted; Evidence đầy đủ)*
 
 21 | Phase 5 | `powershell apps/mobile/scripts/qa/gate.ps1 -SkipSmoke` | - | - | `week4_features.test.ts`, `PostCard.tsx` | PASS (S6b bookmark toggle, S6c settings/logout, 49/49 tests passed, 2.4MB export)
+22 | Phase 6 | `powershell apps/mobile/scripts/qa/e2e.ps1` | - | - | `e2e.ps1` | PASS (Chạy đủ 10/10 bước E2E trên w4-rc1, lưu 10 ảnh evidence)
 
 ---
 

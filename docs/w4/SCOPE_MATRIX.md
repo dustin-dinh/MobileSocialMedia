@@ -76,8 +76,8 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
 - **Mô tả:** Đóng gói bản RC, gắn tag `w4-rc1`, chạy full 10 bước E2E tự động qua script `e2e.ps1`.
 - **Thành phần liên quan:** `scripts/qa/e2e.ps1`, Git tag `w4-rc1`.
 - **Phase thực hiện:** Phase 6
-- **Trạng thái:** NOT_STARTED
-- **Tiêu chí nghiệm thu:** Chạy trọn vẹn 10 bước E2E có bằng chứng rõ ràng.
+- **Trạng thái:** COMPLETED
+- **Tiêu chí nghiệm thu:** Chạy trọn vẹn 10 bước E2E có bằng chứng rõ ràng (10 ảnh chụp adb screencap `e2e-step-01..10.png`). Exit code 0.
 
 ### S8: Tài Liệu Hướng Dẫn & Đóng Gói Demo
 - **Mô tả:** Soạn thảo User Guide, Demo Script, quay video demo `demo-app.mp4`, Slide outline, Report, Known issues, Handoff Dev B.
