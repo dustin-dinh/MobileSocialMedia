@@ -30,10 +30,10 @@
   - [x] Tạo `docs/AGENT_STATE.md`
   - [x] Kiểm tra Node (v24.19.0), Corepack (0.35.0), pnpm (12.4.1)
   - [x] Kiểm tra đường dẫn OneDrive (Không nằm trong OneDrive: C:\Users\nhatluan\Documents\MobileProject)
-- [ ] **Giai đoạn 2: Sạch môi trường**
-  - [ ] Dừng node processes
-  - [ ] Xóa `node_modules` và `.expo` tại `apps/mobile` đúng cách
-  - [ ] Xác nhận `Test-Path node_modules` là False
+- [x] **Giai đoạn 2: Sạch môi trường**
+  - [x] Dừng node processes
+  - [x] Xóa `node_modules` và `.expo` tại `apps/mobile` đúng cách
+  - [x] Xác nhận `Test-Path node_modules` là False
 - [ ] **Giai đoạn 3: Cấu hình pnpm**
   - [ ] Tạo `apps/mobile/.npmrc` với `node-linker=hoisted`
   - [ ] Sửa `apps/mobile/pnpm-workspace.yaml` (bỏ `set this to true or false`, cấu hình `@parcel/watcher` và `unrs-resolver` thành `true`)
