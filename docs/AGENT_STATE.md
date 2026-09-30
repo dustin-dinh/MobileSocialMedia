@@ -45,14 +45,14 @@
   - [x] `corepack pnpm exec expo install --check` (cảnh báo: expo@57.0.22 -> ~57.0.26, @types/jest@30.0.0 -> 29.5.14, jest@30.5.2 -> ~29.7.0)
   - [x] `corepack pnpm exec tsc --noEmit` (Thành công, 0 lỗi type)
   - [x] `corepack pnpm exec jest` (Thành công: 2 suites passed, 14 tests passed)
-- [ ] **Giai đoạn 6: Chạy Metro + BlueStacks**
-  - [ ] Kiểm tra ADB & kết nối BlueStacks
-  - [ ] Chạy Metro nền theo thứ tự Quy tắc 3
-- [ ] **Giai đoạn 7: Xác nhận runtime & gỡ lỗi**
-  - [ ] App mở màn hình đầu tiên không đỏ
-  - [ ] Terminal không lỗi
-- [ ] **Giai đoạn 8: Báo cáo cuối**
-  - [ ] Tổng kết chat & cập nhật AGENT_STATE.md
+- [x] **Giai đoạn 6: Chạy Metro + BlueStacks**
+  - [x] Kiểm tra ADB & kết nối BlueStacks (`127.0.0.1:5555`, Expo Go v57.0.9)
+  - [x] Chạy Metro nền theo thứ tự Quy tắc 3 (`corepack pnpm exec expo start --android --clear`)
+- [x] **Giai đoạn 7: Xác nhận runtime & gỡ lỗi**
+  - [x] App mở màn hình đầu tiên không đỏ (Hiển thị đầy đủ feed Mobile Social, avatar, post cards, icons)
+  - [x] Terminal không lỗi (Android Bundled 35597ms index.ts - 4242 modules)
+- [x] **Giai đoạn 8: Báo cáo cuối**
+  - [x] Tổng kết chat & cập nhật AGENT_STATE.md
 
 ---
 
@@ -60,18 +60,52 @@
 Format: `Lần N | lệnh | lỗi nguyên văn dòng đầu | nguyên nhân | file đã sửa | kết quả`
 
 Lần 1 | `adb connect 127.0.0.1:5555` | `cannot connect to 127.0.0.1:5555: No connection could be made because the target machine actively refused it. (10061)` | Tiến trình BlueStacks chưa chạy và `bst.enable_adb_access="0"` trong cấu hình BlueStacks | Không sửa file code | Dừng để yêu cầu người dùng bật BlueStacks và Android Debugging
+Lần 2 | `adb connect 127.0.0.1:5555; corepack pnpm exec expo start --android --clear` | Không có lỗi (0 lỗi) | Metro bundle thành công 4242 modules | Không cần sửa code | Thành công tuyệt đối: App khởi động và hiển thị Feed màn hình đầu tiên trên BlueStacks Expo Go không màn hình đỏ
 
 ---
 
 ## 4. Danh sách "Đã thử và thất bại"
-- `adb connect 127.0.0.1:5555` khi BlueStacks chưa chạy / chưa bật ADB trong Settings.
+- `adb connect 127.0.0.1:5555` khi BlueStacks chưa bật ADB trong Settings (đã được người dùng bật và kết nối thành công ở lần 2).
 
 ---
 
 ## 5. Danh sách "Cần người dùng quyết định"
-- Yêu cầu người dùng bật BlueStacks và kích hoạt Android Debugging:
-  1. Mở BlueStacks.
-  2. Vào **Settings > Advanced > bật Android Debugging (Android Debug Bridge)**.
-  3. Kiểm tra cổng ADB hiển thị (mặc định là 5555 hoặc ghi lại số cổng nếu khác).
-  4. Đảm bảo đã cài app **Expo Go** trên BlueStacks hỗ trợ Expo SDK 57.
-  5. Báo lại cho agent sau khi đã mở để tiến hành kết nối adb và khởi động Metro (`expo start --android`).
+- Đã giải quyết: Người dùng đã mở BlueStacks và bật Android Debugging cổng 5555.
+
+---
+
+## 6. Báo cáo cuối (Final Report)
+### 1. Kết quả
+- **Thành công**: App `apps/mobile` đã chạy hoàn hảo trên Expo Go (SDK 57, RN 0.86.3) bên trong BlueStacks, hiển thị đầy đủ màn hình đầu tiên (Feed bài viết với hình ảnh, tương tác, bottom tab navigation) mà **không có màn hình đỏ hay bất kỳ lỗi runtime nào**.
+
+### 2. Danh sách file đã thay đổi và diff
+1. **`apps/mobile/.npmrc`** (Tạo mới):
+   ```ini
+   node-linker=hoisted
+   ```
+   *Lý do:* Cấu hình pnpm sang chế độ hoisted để tránh lỗi symlink/junction trên môi trường Windows với React Native & Metro.
+   *Xác nhận:* Hoàn toàn là file cấu hình package manager, không đổi bất kỳ dòng code logic nào.
+
+2. **`apps/mobile/pnpm-workspace.yaml`**:
+   ```diff
+   +nodeLinker: hoisted
+    allowBuilds:
+   -  '@parcel/watcher': set this to true or false
+   -  unrs-resolver: set this to true or false
+   +  '@parcel/watcher': true
+   +  unrs-resolver: true
+   ```
+   *Lý do:* Cho phép build native binary cần thiết cho pnpm 12.4.1 và metro hoisted.
+   *Xác nhận:* File cấu hình pnpm workspace, không đổi bất kỳ dòng code logic nào.
+
+3. **`docs/AGENT_STATE.md`** (Tạo mới):
+   Theo dõi toàn bộ quá trình thực thi, checklist các giai đoạn, log và kết quả theo Quy tắc 0.
+
+### 3. Những việc người dùng cần lưu ý làm thêm sau này
+- Commit các file cấu hình `apps/mobile/.npmrc`, `apps/mobile/pnpm-workspace.yaml`, và `docs/AGENT_STATE.md` vào Git khi hoàn tất merge.
+- Sửa file `pnpm-workspace.yaml` ở thư mục gốc (`c:\Users\nhatluan\Documents\MobileProject\pnpm-workspace.yaml`) trước khi cài đặt `apps/api` (thay các giá trị `set this to true or false` thành `true` cho `@prisma/engines`, `prisma`, `bcrypt`,...).
+- Đặt lại cờ `BYPASS_AUTH_FOR_TESTING = false` khi tiến hành tích hợp và test luồng xác thực API backend thật.
+
+### 4. Lỗi nhỏ đã biết nhưng chưa sửa (được ghi nhận theo yêu cầu)
+- Một số font phụ (`Nunito_500Medium`, `Nunito_600SemiBold_Italic`, `Nunito_900Black`) chưa được nạp trong danh sách load font ban đầu (hiện fallback mượt mà sang hệ thống hoặc Nunito đã nạp).
+- Warning LogBox màu vàng: `Require cycle: src/theme/index.ts -> src/theme/clay.ts -> src/theme/index.ts` (đây là cảnh báo cycle tham chiếu thông thường của React Native, không gây lỗi crash).
