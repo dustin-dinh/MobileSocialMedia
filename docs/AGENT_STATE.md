@@ -41,10 +41,10 @@
   - [x] Chạy `corepack pnpm install` trong `apps/mobile`
   - [x] Xác nhận `node_modules\.pnpm` không còn là liên kết chính
   - [x] Xác nhận `Test-Path node_modules\expo-font` là True, LinkType không phải Junction
-- [ ] **Giai đoạn 5: Kiểm tra**
-  - [ ] `corepack pnpm exec expo install --check`
-  - [ ] `corepack pnpm exec tsc --noEmit`
-  - [ ] `corepack pnpm exec jest` (chỉ đọc kết quả, không sửa test)
+- [x] **Giai đoạn 5: Kiểm tra**
+  - [x] `corepack pnpm exec expo install --check` (cảnh báo: expo@57.0.22 -> ~57.0.26, @types/jest@30.0.0 -> 29.5.14, jest@30.5.2 -> ~29.7.0)
+  - [x] `corepack pnpm exec tsc --noEmit` (Thành công, 0 lỗi type)
+  - [x] `corepack pnpm exec jest` (Thành công: 2 suites passed, 14 tests passed)
 - [ ] **Giai đoạn 6: Chạy Metro + BlueStacks**
   - [ ] Kiểm tra ADB & kết nối BlueStacks
   - [ ] Chạy Metro nền theo thứ tự Quy tắc 3
