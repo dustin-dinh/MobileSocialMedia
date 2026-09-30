@@ -25,11 +25,11 @@
 ---
 
 ## 2. Checklist các giai đoạn
-- [ ] **Giai đoạn 1: Chuẩn bị**
+- [x] **Giai đoạn 1: Chuẩn bị**
   - [x] Tạo nhánh `fix/run-on-expo-go`
   - [x] Tạo `docs/AGENT_STATE.md`
-  - [ ] Kiểm tra Node, Corepack, pnpm versions
-  - [ ] Kiểm tra đường dẫn OneDrive
+  - [x] Kiểm tra Node (v24.19.0), Corepack (0.35.0), pnpm (12.4.1)
+  - [x] Kiểm tra đường dẫn OneDrive (Không nằm trong OneDrive: C:\Users\nhatluan\Documents\MobileProject)
 - [ ] **Giai đoạn 2: Sạch môi trường**
   - [ ] Dừng node processes
   - [ ] Xóa `node_modules` và `.expo` tại `apps/mobile` đúng cách
