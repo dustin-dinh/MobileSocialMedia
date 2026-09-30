@@ -37,10 +37,10 @@
 - [x] **Giai đoạn 3: Cấu hình pnpm**
   - [x] Tạo `apps/mobile/.npmrc` với `node-linker=hoisted`
   - [x] Sửa `apps/mobile/pnpm-workspace.yaml` (bỏ `set this to true or false`, cấu hình `@parcel/watcher` và `unrs-resolver` thành `true`)
-- [ ] **Giai đoạn 4: Cài đặt**
-  - [ ] Chạy `corepack pnpm install` trong `apps/mobile`
-  - [ ] Xác nhận `node_modules\.pnpm` không còn là liên kết chính
-  - [ ] Xác nhận `Test-Path node_modules\expo-font` là True, LinkType không phải Junction
+- [x] **Giai đoạn 4: Cài đặt**
+  - [x] Chạy `corepack pnpm install` trong `apps/mobile`
+  - [x] Xác nhận `node_modules\.pnpm` không còn là liên kết chính
+  - [x] Xác nhận `Test-Path node_modules\expo-font` là True, LinkType không phải Junction
 - [ ] **Giai đoạn 5: Kiểm tra**
   - [ ] `corepack pnpm exec expo install --check`
   - [ ] `corepack pnpm exec tsc --noEmit`
