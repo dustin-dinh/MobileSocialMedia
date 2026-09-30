@@ -47,7 +47,9 @@ if ($LASTEXITCODE -eq 0) {
 Write-Host "[Gate 2/4] Running Jest Tests (jest __tests__)..." -ForegroundColor Cyan
 $jestOutput = corepack pnpm exec jest __tests__ 2>&1 | Out-String
 if ($LASTEXITCODE -eq 0 -and $jestOutput -match "Test Suites:\s+(\d+)\s+passed,\s+\1\s+total") {
-    $results["Unit Tests (jest)"] = "PASS (14/14 passed)"
+    $testMatch = [regex]::Match($jestOutput, "Tests:\s+(\d+)\s+passed,\s+(\d+)\s+total")
+    $testStr = if ($testMatch.Success) { "$($testMatch.Groups[1].Value)/$($testMatch.Groups[2].Value) passed" } else { "all passed" }
+    $results["Unit Tests (jest)"] = "PASS ($testStr)"
 } else {
     $results["Unit Tests (jest)"] = "FAIL (exit $LASTEXITCODE)"
     $overallPass = $false

@@ -19,7 +19,7 @@ Mọi thay đổi trong code và tài liệu đều phải gắn với ít nhấ
   - `src/features/notifications/screens/NotificationsScreen.tsx`
   - `src/features/notifications/services/notificationService.ts`
 - **Phase thực hiện:** Phase 2
-- **Trạng thái:** NOT_STARTED
+- **Trạng thái:** COMPLETED
 - **Tiêu chí nghiệm thu:** Thực thi đủ 13 test case T3-01..T3-13. Sửa triệt để bug P0/P1 thuộc mobile.
 
 ### S2: Full Regression Toàn bộ MVP

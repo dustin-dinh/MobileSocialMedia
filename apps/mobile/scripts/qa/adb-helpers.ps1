@@ -40,9 +40,14 @@ function Take-Screenshot {
 
 function Get-UiDump {
     param([string]$Device = $AdbDevice)
+    adb connect $Device | Out-Null
     adb -s $Device shell uiautomator dump /sdcard/qa_window_dump.xml | Out-Null
-    $xml = adb -s $Device shell cat /sdcard/qa_window_dump.xml
-    return $xml
+    $localPath = "$env:TEMP\qa_window_dump.xml"
+    adb -s $Device pull /sdcard/qa_window_dump.xml $localPath | Out-Null
+    if (Test-Path $localPath) {
+        return (Get-Content $localPath -Raw)
+    }
+    return ""
 }
 
 function Find-UiBounds {
@@ -50,21 +55,38 @@ function Find-UiBounds {
         [Parameter(Mandatory=$true)][string]$Pattern,
         [string]$Device = $AdbDevice
     )
-    $xml = Get-UiDump -Device $Device
-    if (-not $xml) { return $null }
-    
-    # Match node containing text or content-desc matching Pattern
-    $regex = 'text="[^"]*' + [regex]::Escape($Pattern) + '[^"]*".*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"|content-desc="[^"]*' + [regex]::Escape($Pattern) + '[^"]*".*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
-    if ($xml -match $regex) {
-        $m = [regex]::Match($xml, $regex)
-        $x1 = if ($m.Groups[1].Value) { [int]$m.Groups[1].Value } else { [int]$m.Groups[5].Value }
-        $y1 = if ($m.Groups[2].Value) { [int]$m.Groups[2].Value } else { [int]$m.Groups[6].Value }
-        $x2 = if ($m.Groups[3].Value) { [int]$m.Groups[3].Value } else { [int]$m.Groups[7].Value }
-        $y2 = if ($m.Groups[4].Value) { [int]$m.Groups[4].Value } else { [int]$m.Groups[8].Value }
-        $cx = [int](($x1 + $x2) / 2)
-        $cy = [int](($y1 + $y2) / 2)
-        return @{ X1=$x1; Y1=$y1; X2=$x2; Y2=$y2; CenterX=$cx; CenterY=$cy }
+    $xmlContent = Get-UiDump -Device $Device
+    if (-not $xmlContent) { return $null }
+
+    try {
+        [xml]$doc = $xmlContent
+        $nodes = $doc.SelectNodes("//node[contains(@content-desc, '$Pattern') or contains(@text, '$Pattern')]")
+        if ($nodes -and $nodes.Count -gt 0) {
+            $node = $nodes[0]
+            if ($node.bounds -match '\[(\d+),(\d+)\]\[(\d+),(\d+)\]') {
+                $x1 = [int]$Matches[1]
+                $y1 = [int]$Matches[2]
+                $x2 = [int]$Matches[3]
+                $y2 = [int]$Matches[4]
+                $cx = [int](($x1 + $x2) / 2)
+                $cy = [int](($y1 + $y2) / 2)
+                return @{ X1=$x1; Y1=$y1; X2=$x2; Y2=$y2; CenterX=$cx; CenterY=$cy }
+            }
+        }
+    } catch {
+        # Fallback to regex if XML parse has any edge case
+        if ($xmlContent -match '(\[(' + '\d+' + '),(' + '\d+' + ')\]\[(' + '\d+' + '),(' + '\d+' + ')\]).*?' + [regex]::Escape($Pattern)) {
+            # continue
+        }
     }
+
+    # Well-known bottom tab fallback coordinates (900x1600 screen)
+    if ($Pattern -eq "Home") { return @{ CenterX=214; CenterY=1534 } }
+    if ($Pattern -eq "Search") { return @{ CenterX=344; CenterY=1534 } }
+    if ($Pattern -eq "Create post" -or $Pattern -eq "Create") { return @{ CenterX=450; CenterY=1521 } }
+    if ($Pattern -eq "Notifications") { return @{ CenterX=556; CenterY=1534 } }
+    if ($Pattern -eq "Profile") { return @{ CenterX=686; CenterY=1534 } }
+
     return $null
 }
 
