@@ -9,6 +9,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { StorageService } from '../storage/storage.service';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { v4 as uuidv4 } from 'uuid';
+import Multer from 'multer';
 @Injectable()
 export class PostsService {
     constructor(private readonly prisma: PrismaService,

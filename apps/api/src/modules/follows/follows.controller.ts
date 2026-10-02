@@ -16,7 +16,7 @@ import { FollowsService } from './follows.service';
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class FollowsController {
-    constructor(private readonly followsService: FollowsService) {}
+    constructor(private readonly followsService: FollowsService) { }
 
     @Post(':id/follow')
     async follow(

@@ -19,6 +19,8 @@
     "@nestjs/jwt": "^12.0.2",
     "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.2.5",
+    "@nestjs/websockets": "^11.2.5",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "@supabase/supabase-js": "^2.117.2",
@@ -33,6 +35,7 @@
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.4",
     "uuid": "^14.0.2"
   },
   "devDependencies": {

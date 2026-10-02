@@ -5,11 +5,12 @@ import {
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsQueryDto } from './dto/notifications-query.dto';
-
+import { NotificationsGateway } from "./notifications.gateway";
 @Injectable()
 export class NotificationsService {
     constructor(
         private readonly prisma: PrismaService,
+        private readonly notificationsGateway: NotificationsGateway,
     ) { }
 
     async createLikeNotification(
@@ -21,14 +22,22 @@ export class NotificationsService {
             return;
         }
 
-        return this.prisma.notification.create({
-            data: {
-                type: 'LIKE',
-                actorId,
-                recipientId,
-                postId,
-            },
-        });
+        const notification =
+            await this.prisma.notification.create({
+                data: {
+                    type: 'LIKE',
+                    actorId,
+                    recipientId,
+                    postId,
+                },
+            });
+
+        this.notificationsGateway.emitToUser(
+            recipientId,
+            notification,
+        );
+
+        return notification;
     }
 
     async createCommentNotification(
@@ -41,15 +50,23 @@ export class NotificationsService {
             return;
         }
 
-        return this.prisma.notification.create({
-            data: {
-                type: 'COMMENT',
-                actorId,
-                recipientId,
-                postId,
-                commentId,
-            },
-        });
+        const notification =
+            await this.prisma.notification.create({
+                data: {
+                    type: 'COMMENT',
+                    actorId,
+                    recipientId,
+                    postId,
+                    commentId,
+                },
+            });
+
+        this.notificationsGateway.emitToUser(
+            recipientId,
+            notification,
+        );
+
+        return notification;
     }
 
     async createFollowNotification(
@@ -60,13 +77,21 @@ export class NotificationsService {
             return;
         }
 
-        return this.prisma.notification.create({
-            data: {
-                type: 'FOLLOW',
-                actorId,
-                recipientId,
-            },
-        });
+        const notification =
+            await this.prisma.notification.create({
+                data: {
+                    type: 'FOLLOW',
+                    actorId,
+                    recipientId,
+                },
+            });
+
+        this.notificationsGateway.emitToUser(
+            recipientId,
+            notification,
+        );
+
+        return notification;
     }
 
     async findMyNotifications(
