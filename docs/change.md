@@ -4,8 +4,6 @@
 >
 > Convention: entries are appended at the bottom so history is never rewritten.
 
----
-
 ## 2026-09-13 10:33 +07:00 - Dev A / Codex
 
 ### Task
@@ -563,3 +561,128 @@ Diagnose and fix the Mobile Splash screen remaining visible after session bootst
 ### Scope
 
 - No Backend source, API contract, database, environment file, dependency, or remote Git state was changed.
+
+---
+
+## 2026-09-30 +07:00 - Codex
+
+### Task
+
+Audit the current `apps/api` Backend and `apps/mobile` Frontend, then create durable Vietnamese technical context for future AI work.
+
+### Changed
+
+- Added `docs/apps-context.md`, describing the verified structure, runtime, database models, confirmed Auth contract, Mobile navigation/session/network layers, each current social feature, mock boundaries, and integration cautions.
+- Explicitly recorded that the social Mobile screens are implemented against in-memory mocks, the Backend has only Auth/current-user routes, and `BYPASS_AUTH_FOR_TESTING` is currently enabled.
+
+### Files
+
+- `docs/apps-context.md`
+- `docs/change.md`
+
+### Validation
+
+- Read repository rules, project summary, change history, current API/Mobile source, Prisma schema/migrations, manifests, and the confirmed Auth contract.
+- Confirmed the Backend controller set contains only Auth and Users controllers; social routes named by Mobile are future integration paths, not confirmed endpoints.
+
+### Notes
+
+- This is documentation-only; no application code, API contract, database schema, migration, dependency, or environment value was changed.
+
+---
+
+## 2026-10-02 +07:00 - Codex
+
+### Task
+
+Re-audit `apps/api` and `apps/mobile` and create current Vietnamese technical context for AI continuation.
+
+### Changed
+
+- Added `docs/apps-context.md` with the verified current structure and responsibilities of both applications.
+- Documented the newly present Backend posts/feed/storage/likes code, database models and migrations, its current integration blockers, and the mismatch with Mobile shapes.
+- Documented Mobile navigation, session/auth state, shared HTTP layer, each social UI feature, mock boundaries, and the active Auth bypass flag.
+
+### Files
+
+- `docs/apps-context.md`
+- `docs/change.md`
+
+### Validation
+
+- Read repository rules, summary, change log, API/Mobile source, Prisma schema/migrations, manifests, and all current module controllers/services.
+- Inspected the live source tree without modifying application, schema, migration, dependency, or environment files.
+
+### Notes
+
+- The document intentionally distinguishes confirmed working Auth behavior from uncommitted/in-progress social Backend code and Mobile mocks.
+
+---
+
+## 2026-10-02 14:14 +07:00 - Copilot
+
+### Task
+
+Continue the Day 5 Follow refactor and Notification integration using `AGENT_DAY5_FOLLOW_REFACTOR_NOTIFICATION.md`.
+
+### Changed
+
+- Made Follow and Like creation concurrency-safe with `createMany({ skipDuplicates: true })`; notifications are created only when the interaction row is newly inserted.
+- Confirmed Follow API ownership is in `FollowsModule`, with no remaining Follow routes or methods in Users modules.
+- Confirmed notification creation covers Like, root Comment, Reply, and Follow, and `NotificationsService` suppresses self-action notifications.
+
+### Files
+
+- `apps/api/src/modules/follows/follows.service.ts`
+- `apps/api/src/modules/likes/likes.service.ts`
+- `docs/change.md`
+
+### Validation
+
+- `pnpm typecheck` passed in `apps/api`.
+- `pnpm build` passed in `apps/api`.
+- Follow/Like/Comment/Reply/Notifications API E2E passed with 13 assertions on the configured test database.
+
+### Notes
+
+- No schema or migration change was made for the Follow refactor.
+- E2E created dedicated test users and a post in the configured test database; those fixtures remain there.
+
+---
+
+## 2026-10-02 14:58 +07:00 - Copilot
+
+### Task
+
+Complete Day 6 notification API behavior and verify the Day 5 notification integrations. Realtime transport was explicitly deferred by the user for this run.
+
+### Changed
+
+- Added `NotificationsQueryDto` with page/limit transformation, defaults, and validation.
+- Added per-recipient `unreadCount` to the notification list response.
+- Restricted mark-read results to `{ id, readAt }` and returned the updated count from mark-all-read.
+- Documented the notification list, mark-read, and mark-all-read API contract.
+- Verified the existing Follow, Like, Comment, Reply, and Notification module wiring and behavior; no schema or migration change was needed.
+
+### Files
+
+- `apps/api/src/modules/notifications/dto/notifications-query.dto.ts`
+- `apps/api/src/modules/notifications/notifications.controller.ts`
+- `apps/api/src/modules/notifications/notifications.service.ts`
+- `docs/api-contract.md`
+- `docs/change.md`
+
+### Validation
+
+- `pnpm typecheck` passed in `apps/api`.
+- `pnpm build` passed in `apps/api`.
+- `pnpm exec prisma migrate status` reported the database schema is up to date.
+- Day 6 API E2E passed with 19 assertions, including recipient isolation, self-actions, duplicate interactions, pagination validation, unread counts, and read endpoints.
+- Confirmed actual list response contains current-user notification data and pagination metadata, mark-read returns only `id` and `readAt`, and mark-all-read returns `updatedCount`.
+
+### Notes
+
+- No realtime gateway/client was added, as requested.
+- No database schema or migration changes were made. The existing Notification migration is applied and the database reports all migrations up to date.
+- E2E left its dedicated User/Post/Like/Follow/Comment/Notification test fixtures in the configured test database; no reset or cleanup was performed.
+- The Mobile Notifications screen still uses its existing mock service; REST screen integration and realtime delivery remain separate follow-up work.
