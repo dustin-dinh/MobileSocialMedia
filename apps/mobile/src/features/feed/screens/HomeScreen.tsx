@@ -2,12 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CommentModal } from '../../comment/components/CommentModal';
+import { ClayText } from '../../../components/ui/ClayText';
+import { fontFamilies } from '../../../theme/typography';
 import { FeedEmptyState } from '../components/FeedEmptyState';
 import { PostCard } from '../components/PostCard';
 import { feedColors, feedSpacing } from '../feedTheme';
@@ -16,6 +20,7 @@ import { feedService } from '../services/feedService';
 import type { Post } from '../types';
 
 export function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -154,12 +159,22 @@ export function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <ClayText variant="title" style={styles.headerTitle}>
+          Mobile Social
+        </ClayText>
+      </View>
+
       <FlatList
         contentContainerStyle={posts.length === 0 ? styles.emptyContainer : styles.listContent}
         data={posts}
         keyExtractor={keyExtractor}
         ListEmptyComponent={FeedEmptyState}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             colors={[feedColors.primary]}
@@ -168,7 +183,6 @@ export function HomeScreen() {
             tintColor={feedColors.primary}
           />
         }
-        removeClippedSubviews
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
         style={styles.list}
@@ -196,12 +210,29 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flexGrow: 1,
+    paddingBottom: 96,
+  },
+  header: {
+    alignItems: 'center',
+    backgroundColor: feedColors.background,
+    borderBottomColor: feedColors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    color: feedColors.text,
+    fontSize: 24,
+    fontFamily: fontFamilies.extraBold,
+    letterSpacing: -0.4,
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: feedSpacing.cardGap,
+    paddingBottom: 96,
     paddingTop: feedSpacing.cardGap / 2,
   },
 });

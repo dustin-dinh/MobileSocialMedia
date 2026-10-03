@@ -1,15 +1,19 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { feedColors } from '../feedTheme';
+import { clayColors } from '../../../theme/colors';
+import { ClayEmoji } from '../../../components/icons/ClayEmoji';
+import { ClayText } from '../../../components/ui/ClayText';
 
 export function FeedEmptyState() {
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>📭</Text>
-      <Text style={styles.title}>Your feed is empty</Text>
-      <Text style={styles.subtitle}>
+      <ClayEmoji name="sparkles" size={68} />
+      <ClayText variant="heading" style={styles.title}>
+        Your feed is empty
+      </ClayText>
+      <ClayText variant="body" style={styles.subtitle}>
         Follow people and topics you're interested in to fill your feed with great content.
-      </Text>
+      </ClayText>
     </View>
   );
 }
@@ -22,21 +26,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 80,
   },
-  emoji: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
   subtitle: {
-    color: feedColors.caption,
-    fontSize: 15,
-    lineHeight: 22,
+    color: clayColors.caption,
     marginTop: 8,
     textAlign: 'center',
   },
   title: {
-    color: feedColors.text,
-    fontSize: 20,
-    fontWeight: '700',
+    color: clayColors.text,
+    marginTop: 16,
     textAlign: 'center',
   },
 });

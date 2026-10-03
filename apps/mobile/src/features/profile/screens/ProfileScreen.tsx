@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import type { MainTabParamList } from '../../../navigation/types';
@@ -26,6 +28,7 @@ import type { UserProfile } from '../types';
 type ProfileScreenProps = BottomTabScreenProps<MainTabParamList, 'Profile'>;
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const insets = useSafeAreaInsets();
   const { user } = useAuthSession();
   const isMountedRef = useRef(true);
 
@@ -214,13 +217,18 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <FlatList
-        contentContainerStyle={posts.length === 0 ? styles.emptyContent : styles.listContent}
+        contentContainerStyle={[
+          posts.length === 0 ? styles.emptyContent : styles.listContent,
+          { paddingBottom: 100 },
+        ]}
         data={posts}
+        initialNumToRender={6}
         keyExtractor={keyExtractor}
         ListEmptyComponent={renderEmpty}
         ListHeaderComponent={renderHeader}
+        maxToRenderPerBatch={6}
         refreshControl={
           <RefreshControl
             colors={[profileColors.primary]}
@@ -229,10 +237,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             tintColor={profileColors.primary}
           />
         }
-        removeClippedSubviews
+        removeClippedSubviews={Platform.OS === 'android'}
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
         style={styles.list}
+        windowSize={7}
       />
 
       <EditProfileModal
@@ -272,3 +281,4 @@ const styles = StyleSheet.create({
     paddingBottom: feedSpacing.cardGap,
   },
 });
+

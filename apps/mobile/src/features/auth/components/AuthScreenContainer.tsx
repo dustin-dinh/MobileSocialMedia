@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { authColors, authRadii } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions } from '../../../theme/spacing';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
 import { AuthBrand } from './AuthBrand';
 
 type AuthScreenContainerProps = {
@@ -37,12 +40,22 @@ export function AuthScreenContainer({
           <View style={styles.content}>
             <AuthBrand />
             <View style={styles.heading}>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>{subtitle}</Text>
+              <ClayText variant="title" style={styles.title}>
+                {title}
+              </ClayText>
+              <ClayText variant="body" style={styles.subtitle}>
+                {subtitle}
+              </ClayText>
             </View>
-            <View style={styles.card}>{children}</View>
+
+            <ClaySurface variant="card" style={styles.card}>
+              {children}
+            </ClaySurface>
+
             <View style={styles.footer}>
-              <Text style={styles.footerPrompt}>{footerPrompt}</Text>
+              <ClayText variant="body" style={styles.footerPrompt}>
+                {footerPrompt}
+              </ClayText>
               <Pressable
                 accessibilityLabel={footerActionLabel}
                 accessibilityRole="button"
@@ -50,7 +63,9 @@ export function AuthScreenContainer({
                 onPress={onFooterAction}
                 style={styles.footerAction}
               >
-                <Text style={styles.footerActionText}>{footerActionLabel}</Text>
+                <ClayText variant="button" style={styles.footerActionText}>
+                  {footerActionLabel}
+                </ClayText>
               </Pressable>
             </View>
           </View>
@@ -62,17 +77,8 @@ export function AuthScreenContainer({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: authColors.surface,
-    borderColor: authColors.border,
-    borderRadius: authRadii.card,
-    borderWidth: 1,
-    elevation: 2,
     marginTop: 28,
-    padding: 20,
-    shadowColor: '#101828',
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    padding: 24,
   },
   content: {
     alignSelf: 'center',
@@ -87,49 +93,40 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   footerAction: {
-    minHeight: 44,
+    minHeight: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    marginLeft: 4,
-    paddingHorizontal: 4,
+    marginLeft: 6,
+    paddingHorizontal: 6,
   },
   footerActionText: {
-    color: authColors.primary,
-    fontSize: 14,
-    fontWeight: '700',
+    color: clayColors.primary,
   },
   footerPrompt: {
-    color: authColors.mutedText,
-    fontSize: 14,
+    color: clayColors.caption,
   },
   heading: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 28,
   },
   keyboardAvoider: {
     flex: 1,
   },
   safeArea: {
-    backgroundColor: authColors.background,
+    backgroundColor: clayColors.canvas,
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 32,
   },
   subtitle: {
-    color: authColors.mutedText,
-    fontSize: 15,
-    lineHeight: 22,
+    color: clayColors.caption,
     marginTop: 8,
     textAlign: 'center',
   },
   title: {
-    color: authColors.title,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.4,
     textAlign: 'center',
   },
 });

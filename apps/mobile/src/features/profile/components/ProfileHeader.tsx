@@ -1,15 +1,16 @@
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
-  Image,
-  Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
 import { useAuthSession } from '../../auth/authSession';
 import { useAuthSubmission } from '../../auth/hooks/useAuthSubmission';
+import { ClayButton } from '../../../components/ui/ClayButton';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
 import { profileColors, profileRadii } from '../profileTheme';
 import type { UserProfile } from '../types';
 
@@ -27,13 +28,22 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
     .slice(0, 2)
     .toUpperCase();
 
-  if (profile.avatarUrl) {
-    return <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />;
-  }
-
   return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarInitials}>{initials}</Text>
+    <View style={styles.avatarHalo}>
+      {profile.avatarUrl ? (
+        <ExpoImage
+          source={{ uri: profile.avatarUrl }}
+          style={styles.avatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback]}>
+          <ClayText variant="title" style={styles.avatarInitials}>
+            {initials}
+          </ClayText>
+        </View>
+      )}
     </View>
   );
 }
@@ -48,8 +58,12 @@ function StatItem({ label, value }: { label: string; value: number }) {
 
   return (
     <View style={styles.statItem}>
-      <Text style={styles.statValue}>{formatted}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <ClayText variant="heading" style={styles.statValue}>
+        {formatted}
+      </ClayText>
+      <ClayText variant="caption" style={styles.statLabel}>
+        {label}
+      </ClayText>
     </View>
   );
 }
@@ -78,60 +92,56 @@ export function ProfileHeader({ onEditProfile, profile }: ProfileHeaderProps) {
       {/* ── Avatar + Info ──────────────────────────────────── */}
       <View style={styles.topSection}>
         <ProfileAvatar profile={profile} />
-        <Text style={styles.displayName} numberOfLines={1}>
+        <ClayText variant="title" style={styles.displayName} numberOfLines={1}>
           {displayName}
-        </Text>
-        <Text style={styles.username}>@{profile.username}</Text>
+        </ClayText>
+        <ClayText variant="meta" style={styles.username}>
+          @{profile.username}
+        </ClayText>
         {profile.bio ? (
-          <Text style={styles.bio} numberOfLines={3}>
+          <ClayText variant="body" style={styles.bio} numberOfLines={3}>
             {profile.bio}
-          </Text>
+          </ClayText>
         ) : null}
       </View>
 
       {/* ── Stats bar ──────────────────────────────────────── */}
-      <View style={styles.statsBar}>
-        <StatItem label="Posts" value={profile.postsCount} />
+      <ClaySurface variant="raised" style={styles.statsBar}>
+        <StatItem label="Bài viết" value={profile.postsCount} />
         <View style={styles.statDivider} />
-        <StatItem label="Followers" value={profile.followersCount} />
+        <StatItem label="Người theo dõi" value={profile.followersCount} />
         <View style={styles.statDivider} />
-        <StatItem label="Following" value={profile.followingCount} />
-      </View>
+        <StatItem label="Đang theo dõi" value={profile.followingCount} />
+      </ClaySurface>
 
       {/* ── Action buttons ─────────────────────────────────── */}
       <View style={styles.actionsRow}>
-        <Pressable
+        <ClayButton
+          accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
           onPress={onEditProfile}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.editButton,
-            pressed && styles.editButtonPressed,
-          ]}
-        >
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </Pressable>
+          size="md"
+          style={styles.actionButton}
+          title="Chỉnh sửa hồ sơ"
+          variant="primary"
+        />
 
-        <Pressable
-          onPress={handleSignOut}
+        <ClayButton
+          accessibilityLabel="Đăng xuất khỏi tài khoản"
           disabled={isSubmitting}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.logoutButton,
-            pressed && !isSubmitting ? styles.logoutButtonPressed : undefined,
-            isSubmitting ? styles.buttonDisabled : undefined,
-          ]}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color={profileColors.danger} size="small" />
-          ) : (
-            <Text style={styles.logoutButtonText}>Log out</Text>
-          )}
-        </Pressable>
+          loading={isSubmitting}
+          onPress={handleSignOut}
+          size="md"
+          style={styles.actionButton}
+          title="Đăng xuất"
+          variant="secondary"
+        />
       </View>
 
       {/* ── Section divider ────────────────────────────────── */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Posts</Text>
+        <ClayText variant="heading" style={styles.sectionTitle}>
+          Bài viết
+        </ClayText>
       </View>
     </View>
   );
@@ -143,16 +153,11 @@ export function ProfileHeader({ onEditProfile, profile }: ProfileHeaderProps) {
 
 const styles = StyleSheet.create({
   actionButton: {
-    alignItems: 'center',
-    borderRadius: profileRadii.button,
     flex: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-    paddingHorizontal: 16,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 20,
     paddingTop: 16,
   },
@@ -163,58 +168,31 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: profileColors.primary,
+    backgroundColor: profileColors.surfaceWell,
     justifyContent: 'center',
   },
+  avatarHalo: {
+    borderColor: profileColors.surfaceWell,
+    borderRadius: (AVATAR_SIZE + 8) / 2,
+    borderWidth: 3,
+    padding: 2,
+  },
   avatarInitials: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
+    color: profileColors.primary,
   },
   bio: {
     color: profileColors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
     paddingHorizontal: 32,
     textAlign: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
   container: {
-    backgroundColor: profileColors.surface,
+    backgroundColor: profileColors.canvas,
     paddingBottom: 4,
   },
   displayName: {
     color: profileColors.text,
-    fontSize: 22,
-    fontWeight: '800',
     marginTop: 12,
-  },
-  editButton: {
-    backgroundColor: profileColors.primary,
-  },
-  editButtonPressed: {
-    backgroundColor: profileColors.primaryPressed,
-  },
-  editButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  logoutButton: {
-    backgroundColor: profileColors.surface,
-    borderColor: profileColors.border,
-    borderWidth: 1,
-  },
-  logoutButtonPressed: {
-    backgroundColor: profileColors.background,
-  },
-  logoutButtonText: {
-    color: profileColors.danger,
-    fontSize: 15,
-    fontWeight: '600',
   },
   sectionHeader: {
     borderBottomColor: profileColors.border,
@@ -225,8 +203,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: profileColors.text,
-    fontSize: 17,
-    fontWeight: '700',
   },
   statDivider: {
     backgroundColor: profileColors.border,
@@ -239,18 +215,13 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     color: profileColors.caption,
-    fontSize: 13,
     marginTop: 2,
   },
   statValue: {
     color: profileColors.text,
-    fontSize: 18,
-    fontWeight: '800',
   },
   statsBar: {
     alignItems: 'center',
-    backgroundColor: profileColors.background,
-    borderRadius: profileRadii.card,
     flexDirection: 'row',
     marginHorizontal: 20,
     marginTop: 16,
@@ -263,7 +234,7 @@ const styles = StyleSheet.create({
   },
   username: {
     color: profileColors.caption,
-    fontSize: 15,
     marginTop: 2,
   },
 });
+

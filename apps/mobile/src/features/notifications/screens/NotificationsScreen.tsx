@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { NotificationItem } from '../components/NotificationItem';
 import { NotificationSkeleton } from '../components/NotificationSkeleton';
 import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import { notificationService } from '../services/notificationService';
+import { ClayText } from '../../../components/ui/ClayText';
 import type { AppNotification } from '../types';
 
 type FilterTab = 'all' | 'unread';
@@ -170,17 +171,19 @@ export function NotificationsScreen() {
       {/* ── Top Header ────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={styles.titleWrap}>
-          <Text style={styles.headerTitle}>Thông báo</Text>
+          <ClayText variant="title" style={styles.headerTitle}>Thông báo</ClayText>
           {unreadCount > 0 ? (
             <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              <ClayText variant="meta" style={styles.unreadBadgeText}>{unreadCount}</ClayText>
             </View>
           ) : null}
         </View>
 
         <Pressable
+          accessibilityLabel="Đọc tất cả thông báo"
+          accessibilityRole="button"
           disabled={!hasUnread || isMarkingAll}
-          hitSlop={8}
+          hitSlop={12}
           onPress={handleMarkAllAsRead}
           style={({ pressed }) => [
             styles.markAllButton,
@@ -190,14 +193,15 @@ export function NotificationsScreen() {
           {isMarkingAll ? (
             <ActivityIndicator size="small" color={notificationsColors.primary} />
           ) : (
-            <Text
+            <ClayText
+              variant="caption"
               style={[
                 styles.markAllText,
                 !hasUnread && styles.markAllTextDisabled,
               ]}
             >
               Đọc tất cả
-            </Text>
+            </ClayText>
           )}
         </Pressable>
       </View>
@@ -205,49 +209,60 @@ export function NotificationsScreen() {
       {/* ── Filter Pills ──────────────────────────────────── */}
       <View style={styles.pillsContainer}>
         <Pressable
+          accessibilityLabel={`Tất cả thông báo, ${notifications.length} mục`}
+          accessibilityRole="button"
           onPress={() => setActiveTab('all')}
           style={[
             styles.pill,
             activeTab === 'all' ? styles.pillActive : styles.pillInactive,
           ]}
         >
-          <Text
+          <ClayText
+            variant="caption"
             style={[
               styles.pillText,
               activeTab === 'all' ? styles.pillTextActive : styles.pillTextInactive,
             ]}
           >
             Tất cả ({notifications.length})
-          </Text>
+          </ClayText>
         </Pressable>
 
         <Pressable
+          accessibilityLabel={`Thông báo chưa đọc, ${unreadCount} mục`}
+          accessibilityRole="button"
           onPress={() => setActiveTab('unread')}
           style={[
             styles.pill,
             activeTab === 'unread' ? styles.pillActive : styles.pillInactive,
           ]}
         >
-          <Text
+          <ClayText
+            variant="caption"
             style={[
               styles.pillText,
               activeTab === 'unread' ? styles.pillTextActive : styles.pillTextInactive,
             ]}
           >
             Chưa đọc ({unreadCount})
-          </Text>
+          </ClayText>
         </Pressable>
       </View>
 
       {/* ── Notifications List ────────────────────────────── */}
       <FlatList
-        contentContainerStyle={
+        contentContainerStyle={[
           displayedNotifications.length === 0
             ? styles.emptyListContent
-            : styles.listContent
-        }
+            : styles.listContent,
+          { paddingBottom: 100 },
+        ]}
         data={isLoading ? [] : displayedNotifications}
         keyExtractor={(item) => item.id}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListEmptyComponent={
           isLoading ? (
             <NotificationSkeleton />
@@ -288,36 +303,38 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: notificationsColors.surface,
+    backgroundColor: notificationsColors.canvas,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
   headerTitle: {
     color: notificationsColors.text,
+    fontFamily: 'Nunito_800ExtraBold',
     fontSize: 24,
-    fontWeight: '800',
     letterSpacing: -0.4,
   },
   list: {
-    backgroundColor: notificationsColors.surface,
+    backgroundColor: notificationsColors.canvas,
     flex: 1,
   },
   listContent: {
     paddingBottom: 24,
   },
   markAllButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 12,
   },
   markAllButtonPressed: {
     opacity: 0.7,
   },
   markAllText: {
     color: notificationsColors.primary,
+    fontFamily: 'Nunito_700Bold',
     fontSize: 14,
-    fontWeight: '600',
   },
   markAllTextDisabled: {
     color: notificationsColors.caption,
@@ -325,38 +342,41 @@ const styles = StyleSheet.create({
   },
   pill: {
     borderRadius: notificationsRadii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
   pillActive: {
-    backgroundColor: notificationsColors.pillActiveBg,
+    backgroundColor: notificationsColors.primary,
   },
   pillInactive: {
-    backgroundColor: notificationsColors.pillInactiveBg,
-    borderColor: notificationsColors.pillInactiveBorder,
-    borderWidth: 1,
+    backgroundColor: notificationsColors.surface,
+    borderColor: notificationsColors.border,
+    borderWidth: 1.5,
   },
   pillText: {
+    fontFamily: 'Nunito_700Bold',
     fontSize: 13,
-    fontWeight: '600',
   },
   pillTextActive: {
-    color: notificationsColors.pillActiveText,
+    color: notificationsColors.onPrimary,
   },
   pillTextInactive: {
-    color: notificationsColors.pillInactiveText,
+    color: notificationsColors.textSecondary,
   },
   pillsContainer: {
-    backgroundColor: notificationsColors.surface,
+    backgroundColor: notificationsColors.canvas,
     borderBottomColor: notificationsColors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 12,
+    gap: 10,
+    paddingBottom: 14,
     paddingHorizontal: 16,
   },
   screen: {
-    backgroundColor: notificationsColors.surface,
+    backgroundColor: notificationsColors.canvas,
     flex: 1,
   },
   titleWrap: {
@@ -364,17 +384,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   unreadBadge: {
+    alignItems: 'center',
     backgroundColor: notificationsColors.primary,
-    borderRadius: 10,
+    borderRadius: 12,
+    justifyContent: 'center',
     marginLeft: 8,
-    minWidth: 20,
+    minWidth: 22,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   unreadBadgeText: {
-    color: '#FFFFFF',
+    color: notificationsColors.onPrimary,
+    fontFamily: 'Nunito_800ExtraBold',
     fontSize: 11,
-    fontWeight: '800',
     textAlign: 'center',
   },
 });

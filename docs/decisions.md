@@ -269,3 +269,239 @@ This follows the React Navigation authentication-flow guidance to render Splash 
 - `apps/mobile/src/navigation/RootNavigator.tsx`
 - `apps/mobile/src/navigation/AuthNavigator.tsx`
 - `apps/mobile/src/navigation/types.ts`
+
+## DEC-010 - Establish Claymorphism Foundation (Deep Pink & Vanilla)
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+The mobile application interface is being restyled to a soft, tactile Claymorphism aesthetic (deep pink brand accents + soothing vanilla backgrounds). The design requires strict WCAG AA contrast compliance, zero usage of pure `#FFFFFF` / `#000000` for background/text, reliable 3D shadows on React Native 0.86 with Android fallbacks, Nunito typography, and unified icon/emoji systems.
+
+### Decision
+
+1. Established centralized theme tokens under `src/theme/`:
+   - `colors.ts`: canvas `#F5E8D5`, surface `#FBEFDD`, surfaceHigh `#FFF5E6`, surfaceWell `#EFDFC9`, primary `#CC2F6E`, primaryPressed `#A82459`, primarySoft `#F6CADB`, onPrimary `#FFF5E6`, text `#4A2A35`, textSecondary `#6E4B57`, border `#E6D2BA`, liked `#E0457B`, saved `#E3A02E`, success `#4E9F7D`, error `#C8413B`, errorBg `#F8D9D3`.
+   - Tuned caption token from `#85606C` to `#7E5763` to ensure WCAG AA >= 4.5:1 on canvas `#F5E8D5` (measured 4.72:1).
+2. Provided dual-layer `boxShadow` with multi-platform fallback in `clay.ts`: outer soft dark shadow + top-left light shadow, with inner highlight simulated via top-lip border for consistent appearance on Android and BlueStacks.
+3. Created presentation primitives in `src/components/ui/`: `ClaySurface`, `ClayButton`, `ClayInput`, and `ClayText`. All buttons enforce `minTouchTarget >= 44px` and mandatory `accessibilityLabel`.
+4. Centralized icons in `ClayIcon` (wrapping `phosphor-react-native`) and 3D emojis in `ClayEmoji` with PNG assets sourced from Microsoft Fluent UI Emoji repository (MIT License, https://github.com/microsoft/fluentui-emoji).
+5. Retargeted all six feature theme files (`authTheme.ts`, `commentTheme.ts`, `feedTheme.ts`, `notificationsTheme.ts`, `profileTheme.ts`, `searchTheme.ts`) to central theme tokens while strictly preserving all existing exported identifiers.
+
+### Consequences
+
+- All UI components inherit consistent clay elevation, colors, and typography.
+- Existing business logic and services remain 100% untouched.
+- Screen imports of existing theme files continue to function without breakage.
+
+### Related Files
+
+- `apps/mobile/src/theme/*`
+- `apps/mobile/src/components/ui/*`
+- `apps/mobile/src/components/icons/*`
+- `apps/mobile/src/features/*/`
+- `apps/mobile/src/App.tsx`
+
+## DEC-011 - Floating Clay Pill Tab Bar & Synchronized Screen Headers
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+The application navigation chrome previously used default React Navigation styling: a native unstyled bottom tab bar without icons, and a default native header on Home while all other screens hid the header. The Claymorphism restyle requires an organic, floating pill tab bar with Phosphor icons, a raised center action button, and cohesive screen headers.
+
+### Decision
+
+1. Created `ClayTabBar.tsx` implementing a floating `ClaySurface` pill (`borderRadius: 999`, bottom inset via `useSafeAreaInsets()`).
+2. Configured Phosphor icons for each tab: `House` (Home), `MagnifyingGlass` (Search), `Plus` (Create), `Bell` (Notifications), and `User` (Profile). Inactive tabs use `duotone` weight with caption color; active tabs use `fill` weight with primary pink color.
+3. Designed the center Create tab as an elevated circular button (`54x54`, `ClaySurface` raisedPrimary with `Plus` icon) for clear visual hierarchy.
+4. Set `headerShown: false` globally on `MainTabNavigator` and integrated a synchronized custom Clay header in `HomeScreen` with `ClayText` title, safe-area top inset, and vanilla background matching Search and Notifications.
+
+### Consequences
+
+- Tab bar floats gracefully across different screen aspect ratios and gesture navigation bars.
+- Home header layout is visually unified with all other tabs.
+
+### Related Files
+
+- `apps/mobile/src/navigation/ClayTabBar.tsx`
+- `apps/mobile/src/navigation/MainTabNavigator.tsx`
+- `apps/mobile/src/features/feed/screens/HomeScreen.tsx`
+
+## DEC-012 - Claymorphism Feed & Post Presentation
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+Feed posts in `PostCard` previously used standard card styling with hardcoded black drop shadows, Unicode characters (`♥`, `♡`, `💬`, `↗`, `★`, `☆`, `•••`) for interactive actions, and system fonts. The feed empty state rendered an unstyled Unicode emoji `📭`.
+
+### Decision
+
+1. Converted `PostCard` to use a `ClaySurface` card container (`borderRadius: 28`) on a soft vanilla background.
+2. Sourced action icons exclusively from `ClayIcon` with Phosphor primitives (`Heart`, `ChatCircle`, `ShareNetwork`, `BookmarkSimple`, `DotsThree`). Active like/bookmark states toggle between `fill` and `duotone` weights with custom semantic tokens (`liked` `#E0457B`, `saved` `#E3A02E`).
+3. Replaced raw Unicode `📭` in `FeedEmptyState` with `ClayEmoji` rendering the 3D Fluent `sparkles_3d.png` asset.
+4. Enforced >= 44px accessible touch areas and explicit accessibility labels on all post action buttons.
+
+### Consequences
+
+- Eliminates all Unicode/emoji character icons from the feed.
+- Action row provides tactile spring feedback while keeping feed data logic, like toggling, and comment navigation intact.
+
+### Related Files
+
+- `apps/mobile/src/features/feed/components/PostCard.tsx`
+- `apps/mobile/src/features/feed/components/FeedEmptyState.tsx`
+- `apps/mobile/src/features/feed/screens/HomeScreen.tsx`
+
+## DEC-013 - Claymorphism Create Post & Comment System Presentation
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+Creating posts and viewing/adding comments previously used unstyled text inputs, raw Unicode characters (`✕`, `🖼`, `↑`, `💬`, `♥`, `♡`), and generic modal backgrounds. They required restyling into inset clay wells and raised clay sheets with Phosphor iconography.
+
+### Decision
+
+1. In `CreateScreen`, wrapped the text input in an inset `ClaySurface` (`surfaceWell` background with reversed inner shadows), replaced toolbar icons with Phosphor `Image` and `X`, and modernized the submit button with `ClayButton`.
+2. In `CommentModal`, styled the bottom sheet with `ClaySurface` modal variant, applied a warm dark berry backdrop (`rgba(74,42,53,0.45)`), restyled empty comments with 3D `speech_balloon_3d.png` via `ClayEmoji`, and used Phosphor `ArrowUp` for submission.
+3. In `CommentItem`, replaced Unicode `♥`/`♡` with `ClayIcon name="Heart"`, integrated clay avatar halos, and set touch targets >= 44px.
+
+### Consequences
+
+- All interactive controls now provide tactile inset/raised depth while keeping event dispatching (`feedEvents.emit`), image picking, and comment mutations unchanged.
+
+### Related Files
+
+- `apps/mobile/src/features/post/screens/CreateScreen.tsx`
+- `apps/mobile/src/features/comment/components/CommentModal.tsx`
+- `apps/mobile/src/features/comment/components/CommentItem.tsx`
+
+## DEC-014 - Claymorphism Search & Notifications System Presentation
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+Search and Notifications screens featured generic flat gray styling, hardcoded hex values (`#EEF2F6`, `#E2E8F0`, `#3B82F6`, `#FFFFFF`), and raw Unicode characters for icons and states (`🔍`, `♥`, `💬`, `👤`, `✨`, `🔔`).
+
+### Decision
+
+1. In `SearchScreen`, upgraded the search field to an inset `ClaySurface` with Phosphor `MagnifyingGlass` and clear button `X`.
+2. In `UserSearchCard`, converted avatar halos and follow buttons to `ClayButton` with >= 44px touch targets.
+3. In `SearchSkeleton` and `NotificationSkeleton`, unified bone placeholders into warm vanilla/pink tokens (`surfaceWell` and `border`) with zero raw gray hexes.
+4. In `SearchEmptyState` and `NotificationEmptyState`, replaced Unicode emojis with 3D Fluent `magnifying_glass`, `sparkles`, and `bell` assets via `ClayEmoji`.
+5. In `NotificationItem`, replaced Unicode badges with Phosphor `Heart`, `ChatCircle`, and `User` through `ClayIcon`, converted unread rows to `surfaceUnread` (`surfaceHigh`), and styled the follow back button with >= 44px touch area.
+6. In `NotificationsScreen`, added safe-area padding and 100px bottom clearance to prevent floating tab bar occlusion.
+
+### Consequences
+
+- Completely eliminates legacy hexes and Unicode icons across Search and Notifications.
+- All touch targets comply with WCAG accessibility guidelines.
+
+### Related Files
+
+- `apps/mobile/src/features/search/screens/SearchScreen.tsx`
+- `apps/mobile/src/features/search/components/UserSearchCard.tsx`
+- `apps/mobile/src/features/search/components/SearchSkeleton.tsx`
+- `apps/mobile/src/features/search/components/SearchEmptyState.tsx`
+- `apps/mobile/src/features/notifications/screens/NotificationsScreen.tsx`
+- `apps/mobile/src/features/notifications/components/NotificationItem.tsx`
+- `apps/mobile/src/features/notifications/components/NotificationSkeleton.tsx`
+- `apps/mobile/src/features/notifications/components/NotificationEmptyState.tsx`
+
+## DEC-015 - Claymorphism Profile & Modals Presentation
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+The Profile experience (`ProfileScreen`, `ProfileHeader`, `EditProfileModal`, `ProfileEmptyPosts`) utilized flat standard controls, unstyled inputs, raw Unicode emojis (`✍️`), and lacked proper clearance for the floating pill tab bar.
+
+### Decision
+
+1. In `ProfileHeader`, enclosed the 96px avatar with a 3-layer clay halo, converted the stats bar into a raised `ClaySurface`, and replaced buttons with `ClayButton` ensuring >= 44px hit areas.
+2. In `EditProfileModal`, styled the bottom sheet with `ClaySurface` modal variant, applied a warm berry backdrop (`rgba(74,42,53,0.45)`), and converted text inputs to inset `ClaySurface` wells with Nunito typography.
+3. In `ProfileEmptyPosts`, replaced raw Unicode `✍️` with 3D `memo_3d.png` via `ClayEmoji` and action trigger with `ClayButton`.
+4. In `ProfileScreen`, integrated safe-area top insets and 100px bottom list clearance to prevent floating tab bar occlusion.
+
+### Consequences
+
+- All Profile surfaces now share the consistent Claymorphism aesthetic without hardcoded gray/white hexes.
+- All interactive controls adhere to WCAG >= 44px touch targets and full accessibility labels.
+
+### Related Files
+
+- `apps/mobile/src/features/profile/screens/ProfileScreen.tsx`
+- `apps/mobile/src/features/profile/components/ProfileHeader.tsx`
+- `apps/mobile/src/features/profile/components/EditProfileModal.tsx`
+- `apps/mobile/src/features/profile/components/ProfileEmptyPosts.tsx`
+
+## DEC-016 - Multi-Palette Architecture, Tab Bar Clipping, and Render Performance Optimization
+
+Date: 2026-09-30
+
+Status: Accepted
+
+### Context
+
+Following the initial Claymorphism restyle, three visual issues and potential performance bottlenecks required resolution:
+1. Need for multiple swappable palettes (`blush`, `paper`, `ink`) with a single switchable constant.
+2. A subtle, flat horizontal white streak appeared above the floating pill tab bar.
+3. Custom fonts (`Nunito`) silently fell back to system Roboto on Android when coupled with `fontWeight`.
+4. Render performance in deep FlatLists needed optimization through shadow tier reduction (`full` vs `lite`), component memoization, and batching.
+
+### Decision
+
+1. **Multi-Palette Structure:**
+   - Consolidated palettes in `src/theme/palettes.ts` with identical token schemas across `blush`, `paper`, and `ink`.
+   - Used a runtime `Proxy` in `src/theme/colors.ts` accessing `ACTIVE_PALETTE` to eliminate circular dependency deadlocks with typography.
+   - For paper and ink palettes, permitted `#FFFFFF` exclusively for `surface`, `surfaceHigh`, `onPrimary`, and `tabBarBg`. Pure `#000000` remains forbidden across all palettes.
+2. **Tab Bar White Streak Elimination:**
+   - Identified that the 2px fallback top-highlight lip in `ClaySurface.tsx` lacked container border-radius clipping and projected past the 32px pill radius.
+   - Disabled the highlight lip entirely on `pill` and `lite` variants; enclosed it inside an inner container with `overflow: 'hidden'` and `borderRadius: radius` for standard cards/modals.
+3. **Android Font Resolution:**
+   - Removed all `fontWeight` pairings with custom font families.
+   - Extended `ClayText` with a `weight` prop directly resolving specific family variants (`Nunito_400Regular`, `Nunito_600SemiBold`, `Nunito_700Bold`, `Nunito_800ExtraBold`).
+4. **Render Performance:**
+   - Established `full` (up to 4 shadow layers) for primary landmarks and `lite` (<= 2 layers with Android elevation 2) for all FlatList items (`PostCard`, `CommentItem`, `NotificationItem`, `UserSearchCard`, skeletons).
+   - Wrapped list items in `React.memo` with stable callbacks (`useCallback`) and static stylesheets.
+   - Adopted `expo-image` with `cachePolicy="memory-disk"` and constrained dimensions.
+   - Added batching controls (`initialNumToRender={6}`, `maxToRenderPerBatch={6}`, `windowSize={7}`) across all FlatLists.
+   - Added `apps/mobile/__tests__/perf.test.tsx` using `React.Profiler` to verify zero re-renders of memoized items during unrelated parent updates.
+
+### Consequences
+
+- Developers can toggle between 3 polished palettes by editing a single line in `src/theme/index.ts`.
+- Tab bar pill renders an organic curved outline with zero white artifact bleed.
+- Android devices resolve Nunito bold weights natively without font fallback.
+- FlatList scrolling overhead and GPU layer pressure are significantly curtailed.
+
+### Related Files
+
+- `apps/mobile/src/theme/palettes.ts`
+- `apps/mobile/src/theme/index.ts`
+- `apps/mobile/src/theme/colors.ts`
+- `apps/mobile/src/components/ui/ClaySurface.tsx`
+- `apps/mobile/src/components/ui/ClayText.tsx`
+- `apps/mobile/src/features/feed/components/PostCard.tsx`
+- `apps/mobile/scripts/verify-ui.mjs`
+- `apps/mobile/__tests__/perf.test.tsx`
+- `docs/perf-notes.md`
+- `docs/change.md`
+- `docs/decisions.md`
+
+

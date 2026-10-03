@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ClayEmoji } from '../../../components/icons/ClayEmoji';
+import { ClayText } from '../../../components/ui/ClayText';
 import { notificationsColors } from '../notificationsTheme';
 
 type NotificationEmptyStateProps = {
@@ -11,17 +13,19 @@ export function NotificationEmptyState({ activeTab }: NotificationEmptyStateProp
 
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>{isUnreadTab ? '✨' : '🔔'}</Text>
-      <Text style={styles.title}>
+      <View style={styles.emojiWrap}>
+        <ClayEmoji name={isUnreadTab ? 'sparkles' : 'bell'} size={56} />
+      </View>
+      <ClayText variant="heading" style={styles.title}>
         {isUnreadTab
           ? 'Bạn đã đọc hết thông báo!'
           : 'Chưa có thông báo nào'}
-      </Text>
-      <Text style={styles.subtitle}>
+      </ClayText>
+      <ClayText variant="body" style={styles.subtitle}>
         {isUnreadTab
           ? 'Không có thông báo mới nào chưa đọc. Hãy thư giãn nhé!'
           : 'Khi có người thích, bình luận hoặc theo dõi bạn, thông báo sẽ hiển thị ở đây.'}
-      </Text>
+      </ClayText>
     </View>
   );
 }
@@ -33,21 +37,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 70,
   },
-  emoji: {
-    fontSize: 42,
-    marginBottom: 12,
+  emojiWrap: {
+    alignItems: 'center',
+    backgroundColor: notificationsColors.surfaceWell,
+    borderRadius: 44,
+    height: 88,
+    justifyContent: 'center',
+    marginBottom: 20,
+    width: 88,
   },
   subtitle: {
     color: notificationsColors.caption,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
+    marginTop: 8,
     textAlign: 'center',
   },
   title: {
     color: notificationsColors.text,
-    fontSize: 17,
-    fontWeight: '700',
     textAlign: 'center',
   },
 });
+

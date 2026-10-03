@@ -1,6 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-
-import { authColors, authRadii } from '../authTheme';
+import { ClayButton } from '../../../components/ui/ClayButton';
 
 type PrimaryButtonProps = {
   accessibilityLabel?: string;
@@ -17,48 +15,15 @@ export function PrimaryButton({
   label,
   onPress,
 }: PrimaryButtonProps) {
-  const isDisabled = disabled || isLoading;
-
   return (
-    <Pressable
+    <ClayButton
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityRole="button"
-      accessibilityState={{ busy: isLoading, disabled: isDisabled }}
-      disabled={isDisabled}
+      variant="primary"
+      label={label}
+      isLoading={isLoading}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        pressed && !isDisabled ? styles.buttonPressed : undefined,
-        isDisabled ? styles.buttonDisabled : undefined,
-      ]}
-    >
-      {isLoading ? (
-        <ActivityIndicator color={authColors.primaryText} />
-      ) : (
-        <Text style={styles.label}>{label}</Text>
-      )}
-    </Pressable>
+      style={{ minHeight: 52, width: '100%' }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    backgroundColor: authColors.primary,
-    borderRadius: authRadii.control,
-    justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: 20,
-  },
-  buttonDisabled: {
-    opacity: 0.55,
-  },
-  buttonPressed: {
-    backgroundColor: authColors.primaryPressed,
-  },
-  label: {
-    color: authColors.primaryText,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});

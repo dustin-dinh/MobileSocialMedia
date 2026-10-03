@@ -53,7 +53,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - API base configuration is isolated in `apps/mobile/src/config/api.ts`, while JSON HTTP behavior and normalized transport errors are shared under `apps/mobile/src/services/`.
 - The Auth service boundary and submission-state hook live under `apps/mobile/src/features/auth/`; they call only the confirmed Register, Login, Current User, and Logout API contract.
 - Expo SecureStore keeps the access token device-local, while the Auth session provider owns token restoration, validation, and authenticated navigation. Session startup is bounded so an unreachable local API cannot leave Splash running indefinitely.
-- Home, Search, Create, and Notifications remain navigation-only placeholders. Profile exposes the authenticated username and the confirmed Logout action.
+- The UI presentation follows a complete Claymorphism design system (deep pink `#CC2F6E` + soft vanilla `#F5E8D5`), with floating clay pill navigation chrome, raised cards, inset input wells, Phosphor iconography (`ClayIcon`), 3D Fluent emoji assets (`ClayEmoji`), and Nunito typography across all screens (Splash, Login, Register, Home, Search, Create, Notifications, Profile).
 
 ## Current Tech Stack
 
@@ -65,6 +65,7 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 - React Navigation 7.3.18 with native-stack 7.18.10 and bottom-tabs 7.18.18
 - Expo-compatible `react-native-screens` 4.26.2 and `react-native-safe-area-context` 5.7.0
 - Expo SecureStore 57.0.4 for device-local access-token storage
+- Iconography & UI: `react-native-svg` 15.15.4, `phosphor-react-native` 3.0.6, `expo-font` 57.0.4, `@expo-google-fonts/nunito` 0.4.2
 - `@expo/ngrok` 4.1.0 as a development-only Expo tunnel fallback
 - NestJS 11 + TypeScript for the backend in `apps/api/`
 - Prisma 7 with the PostgreSQL adapter and Supabase PostgreSQL
@@ -90,14 +91,13 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 
 ## Current Project Status
 
-- `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation.
+- `apps/mobile/` is a runnable managed Expo + React Native + TypeScript application with a typed React Navigation foundation and a complete Claymorphism design system.
 - The app has an Expo entry point, package manifest, app configuration, TypeScript configuration, navigation configuration, and pnpm lockfile.
-- Splash has presentation-only UI, while Login and Register have keyboard-safe local forms with client-side validation and password visibility controls.
+- Splash, Login, and Register feature full Claymorphism styling with keyboard-safe forms, client-side validation, password visibility toggles, and vanilla/pink tones.
 - Auth integration uses the confirmed public base URL, shared JSON HTTP client with bounded requests, server error messages, and feature-owned service mapping.
 - Login persists only `data.accessToken` in Expo SecureStore, validates it through `GET /api/users/me`, and transitions to the authenticated tab navigator. Logout calls `POST /api/auth/logout` and clears local state/token.
 - `apps/api/` contains the NestJS + Prisma + Supabase implementation, an applied User migration, and Register/Login/Current User/Logout endpoints. It reads an ignored local `.env`; Dev A does not change its API, schema, migration, or database contents.
-- Home, Search, Create, and Notifications remain navigation-only placeholders; Profile is only the minimal authenticated Logout surface, not a full profile feature.
-- No Week 2 social-feature behavior has been added.
+- Home, Search, Create, Notifications, and Profile screens are fully styled with Claymorphism surfaces, Phosphor iconography, and 3D emoji feedback states, preserving all service logic and mock data switches.
 - Static TypeScript, frozen-lockfile, Expo configuration, and Android JavaScript bundle validation have passed.
 - BlueStacks with Expo Go SDK 57 has been manually verified. LAN is preferred for local testing, with Expo tunnel available as an intermittent fallback through the development-only `@expo/ngrok` dependency.
 - Local Expo Go APK downloads are ignored and remain outside version control.
@@ -105,12 +105,13 @@ Register -> Login -> Profile -> Search User -> Follow User -> Create Post -> Fee
 ### Week 1 Mobile Status
 
 - Mobile foundation: Complete.
-- Navigation: Complete.
-- Auth UI: Complete.
+- Navigation: Complete with custom ClayTabBar.
+- Auth UI: Complete with Claymorphism.
 - Auth client foundation: Complete.
 - Real Auth API integration: Complete.
 - Session persistence: Complete with Expo SecureStore.
 - Authenticated navigation: Complete.
+- Full UI Claymorphism Restyle: Complete across all features.
 
 ## Current Sprint
 

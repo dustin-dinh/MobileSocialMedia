@@ -49,7 +49,7 @@ export function NotificationSkeleton() {
 
 const styles = StyleSheet.create({
   avatarSkeleton: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: notificationsColors.surfaceWell,
     borderRadius: 22,
     height: 44,
     width: 44,
@@ -62,20 +62,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   line1: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: notificationsColors.surfaceWell,
     borderRadius: 4,
     height: 14,
     width: '80%',
   },
   line2: {
-    backgroundColor: '#EEF2F6',
+    backgroundColor: notificationsColors.border,
     borderRadius: 4,
     height: 10,
     marginTop: 6,
     width: '40%',
   },
   rightSkeleton: {
-    backgroundColor: '#EEF2F6',
+    backgroundColor: notificationsColors.surfaceWell,
     borderRadius: notificationsRadii.postThumb,
     height: 40,
     width: 40,

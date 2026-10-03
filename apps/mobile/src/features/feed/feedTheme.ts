@@ -1,42 +1,25 @@
-/**
- * Design tokens for the Feed feature.
- *
- * Palette is derived from the auth theme (`authTheme.ts`) so the app feels
- * visually cohesive, with additional surface/text tones specific to the feed.
- */
+import { clayColors } from '../../theme/colors';
+import { clayRadii, claySpacing } from '../../theme/spacing';
+
 export const feedColors = {
-  /** Feed background behind the card list. */
-  background: '#F4F7FB',
-  /** Card borders / hairline dividers. */
-  border: '#E8ECF2',
-  /** Muted secondary text (timestamps, meta info). */
-  caption: '#667085',
-  /** Destructive / error red (unused in feed but kept for parity). */
-  error: '#B42318',
-  /** Active "liked" heart colour. */
-  liked: '#EF4444',
-  /** Primary brand accent. */
-  primary: '#2563EB',
-  /** Active "saved" bookmark colour. */
-  saved: '#F59E0B',
-  /** Card surface colour. */
-  surface: '#FFFFFF',
-  /** Primary heading text. */
-  text: '#172033',
-  /** Secondary body text. */
-  textSecondary: '#4B5563',
+  background: clayColors.canvas,
+  border: clayColors.border,
+  caption: clayColors.caption,
+  error: clayColors.error,
+  liked: clayColors.liked,
+  primary: clayColors.primary,
+  saved: clayColors.saved,
+  surface: clayColors.surface,
+  text: clayColors.text,
+  textSecondary: clayColors.textSecondary,
 } as const;
 
 export const feedRadii = {
-  /** Outer card radius. */
-  card: 16,
-  /** Media / avatar radius. */
-  media: 12,
+  card: clayRadii.card,
+  media: 20,
 } as const;
 
 export const feedSpacing = {
-  /** Standard horizontal padding inside a card. */
-  cardPadding: 16,
-  /** Gap between cards in the list. */
-  cardGap: 12,
+  cardPadding: claySpacing.base,
+  cardGap: claySpacing.md,
 } as const;

@@ -1,15 +1,24 @@
-import { StyleSheet, Text, View } from 'react-native';
-
-import { authColors, authRadii } from '../authTheme';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
+import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayText } from '../../../components/ui/ClayText';
 
 export function AuthBrand() {
   return (
     <View style={styles.container}>
-      <View accessible={false} style={styles.mark}>
-        <Text style={styles.markText}>MS</Text>
-      </View>
-      <Text style={styles.name}>Mobile Social</Text>
-      <Text style={styles.tagline}>Share moments. Stay connected.</Text>
+      <ClaySurface variant="raisedPrimary" borderRadius={26} style={styles.mark}>
+        <ClayText variant="title" style={styles.markText}>
+          MS
+        </ClayText>
+      </ClaySurface>
+      <ClayText variant="title" style={styles.name}>
+        Mobile Social
+      </ClayText>
+      <ClayText variant="caption" style={styles.tagline}>
+        Share moments. Stay connected.
+      </ClayText>
     </View>
   );
 }
@@ -20,27 +29,22 @@ const styles = StyleSheet.create({
   },
   mark: {
     alignItems: 'center',
-    backgroundColor: authColors.primary,
-    borderRadius: authRadii.mark,
-    height: 72,
+    height: 76,
     justifyContent: 'center',
-    width: 72,
+    width: 76,
   },
   markText: {
-    color: authColors.primaryText,
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    color: clayColors.onPrimary,
+    fontSize: 24,
+    fontFamily: fontFamilies.extraBold,
+    letterSpacing: 1,
   },
   name: {
-    color: authColors.title,
-    fontSize: 22,
-    fontWeight: '800',
     marginTop: 14,
+    textAlign: 'center',
   },
   tagline: {
-    color: authColors.mutedText,
-    fontSize: 14,
     marginTop: 4,
+    textAlign: 'center',
   },
 });

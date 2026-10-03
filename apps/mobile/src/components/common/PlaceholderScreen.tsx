@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ClayText } from '../ui/ClayText';
+import { clayColors } from '../../theme';
 
 type PlaceholderScreenProps = {
   children?: ReactNode;
@@ -16,8 +19,14 @@ export function PlaceholderScreen({
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-        {description ? <Text style={styles.description}>{description}</Text> : null}
+        <ClayText variant="title" style={styles.title}>
+          {title}
+        </ClayText>
+        {description ? (
+          <ClayText variant="body" style={styles.description}>
+            {description}
+          </ClayText>
+        ) : null}
         {children ? <View style={styles.actions}>{children}</View> : null}
       </View>
     </SafeAreaView>
@@ -35,19 +44,17 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   description: {
-    color: '#4B5563',
-    fontSize: 16,
+    color: clayColors.caption,
     marginTop: 12,
     textAlign: 'center',
   },
   safeArea: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: clayColors.canvas,
     flex: 1,
   },
   title: {
-    color: '#111827',
-    fontSize: 24,
-    fontWeight: '700',
+    color: clayColors.text,
     textAlign: 'center',
   },
 });
+

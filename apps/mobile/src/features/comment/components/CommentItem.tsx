@@ -1,15 +1,18 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import {
   Animated,
-  Image,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
-import { commentColors, commentRadii } from '../commentTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions } from '../../../theme/spacing';
+import { fontFamilies } from '../../../theme/typography';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { PostComment } from '../types';
 
 const AVATAR_SIZE = 36;
@@ -24,13 +27,22 @@ function CommentAuthorAvatar({ author }: { author: PostComment['author'] }) {
     .slice(0, 2)
     .toUpperCase();
 
-  if (author.avatarUrl) {
-    return <Image source={{ uri: author.avatarUrl }} style={styles.avatar} />;
-  }
-
   return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarInitials}>{initials || '?'}</Text>
+    <View style={styles.avatarHalo}>
+      {author.avatarUrl ? (
+        <Image
+          source={{ uri: author.avatarUrl }}
+          style={styles.avatar}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback]}>
+          <ClayText variant="caption" style={styles.avatarInitials}>
+            {initials || '?'}
+          </ClayText>
+        </View>
+      )}
     </View>
   );
 }
@@ -40,7 +52,14 @@ export type CommentItemProps = {
   onToggleLike: (comment: PostComment) => void;
 };
 
-export function CommentItem({ comment, onToggleLike }: CommentItemProps) {
+/**
+ * CommentItem component (memoized, lite clay tier)
+ * Uses lightweight flat row with subtle border divider (zero extra shadow layers).
+ */
+export const CommentItem = memo(function CommentItem({
+  comment,
+  onToggleLike,
+}: CommentItemProps) {
   const heartScale = useRef(new Animated.Value(1)).current;
 
   const handleLikePress = useCallback(() => {
@@ -70,50 +89,57 @@ export function CommentItem({ comment, onToggleLike }: CommentItemProps) {
       {/* ── Center: Author Meta & Content ───────────────────── */}
       <View style={styles.contentWrap}>
         <View style={styles.metaRow}>
-          <Text style={styles.displayName} numberOfLines={1}>
+          <ClayText variant="caption" style={styles.displayName} numberOfLines={1}>
             {displayName}
-          </Text>
-          <Text style={styles.username} numberOfLines={1}>
+          </ClayText>
+          <ClayText variant="meta" style={styles.username} numberOfLines={1}>
             @{comment.author.username}
-          </Text>
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.timeAgo}>{formatTimeAgo(comment.createdAt)}</Text>
+          </ClayText>
+          <ClayText variant="meta" style={styles.dot}>
+            ·
+          </ClayText>
+          <ClayText variant="meta" style={styles.timeAgo}>
+            {formatTimeAgo(comment.createdAt)}
+          </ClayText>
         </View>
 
-        <Text style={styles.commentText}>{comment.content}</Text>
+        <ClayText variant="body" style={styles.commentText}>
+          {comment.content}
+        </ClayText>
       </View>
 
       {/* ── Right: Like button ──────────────────────────────── */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={comment.isLiked ? 'Unlike comment' : 'Like comment'}
         hitSlop={10}
         onPress={handleLikePress}
         style={styles.likeButton}
       >
         <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-          <Text
-            style={[
-              styles.heartIcon,
-              comment.isLiked ? styles.heartLiked : styles.heartUnliked,
-            ]}
-          >
-            {comment.isLiked ? '♥' : '♡'}
-          </Text>
+          <ClayIcon
+            name="Heart"
+            size={18}
+            weight={comment.isLiked ? 'fill' : 'duotone'}
+            color={comment.isLiked ? clayColors.liked : clayColors.caption}
+          />
         </Animated.View>
 
         {comment.likesCount > 0 ? (
-          <Text
+          <ClayText
+            variant="meta"
             style={[
               styles.likesCount,
               comment.isLiked ? styles.likesCountLiked : undefined,
             ]}
           >
             {comment.likesCount}
-          </Text>
+          </ClayText>
         ) : null}
       </Pressable>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   avatar: {
@@ -123,19 +149,33 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: '#3B82F6',
+    backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
   },
+  avatarHalo: {
+    borderRadius: (AVATAR_SIZE + 2) / 2,
+    borderWidth: 1.5,
+    borderColor: clayColors.surfaceHigh,
+  },
   avatarInitials: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    color: clayColors.primary,
+    fontSize: 12,
+    fontFamily: fontFamilies.extraBold,
   },
   commentText: {
-    color: commentColors.text,
+    color: clayColors.text,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 3,
+  },
+  container: {
+    alignItems: 'flex-start',
+    backgroundColor: clayColors.surface,
+    borderBottomColor: clayColors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   contentWrap: {
     flex: 1,
@@ -143,39 +183,29 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   displayName: {
-    color: commentColors.text,
+    color: clayColors.text,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fontFamilies.bold,
     maxWidth: 120,
   },
   dot: {
-    color: commentColors.caption,
-    fontSize: 13,
+    color: clayColors.caption,
     marginHorizontal: 3,
-  },
-  heartIcon: {
-    fontSize: 16,
-  },
-  heartLiked: {
-    color: commentColors.liked,
-  },
-  heartUnliked: {
-    color: commentColors.unliked,
   },
   likeButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 28,
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
     paddingTop: 2,
   },
   likesCount: {
-    color: commentColors.caption,
-    fontSize: 11,
-    fontWeight: '600',
+    color: clayColors.caption,
     marginTop: 2,
   },
   likesCountLiked: {
-    color: commentColors.liked,
+    color: clayColors.liked,
+    fontFamily: fontFamilies.bold,
   },
   metaRow: {
     alignItems: 'center',
@@ -183,22 +213,11 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap',
   },
   timeAgo: {
-    color: commentColors.caption,
-    fontSize: 12,
+    color: clayColors.caption,
   },
   username: {
-    color: commentColors.caption,
-    fontSize: 13,
+    color: clayColors.caption,
     marginLeft: 4,
     maxWidth: 90,
-  },
-  container: {
-    alignItems: 'flex-start',
-    backgroundColor: commentColors.surface,
-    borderBottomColor: commentColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
 });

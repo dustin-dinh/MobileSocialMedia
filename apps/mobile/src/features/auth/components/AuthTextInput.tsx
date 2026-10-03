@@ -1,7 +1,11 @@
 import { type RefObject, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, type TextInputProps, View, ViewStyle, Platform } from 'react-native';
 
-import { authColors, authRadii } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayRadii, clayDimensions } from '../../../theme/spacing';
+import { getClayBoxShadow } from '../../../theme/clay';
+import { ClayText } from '../../../components/ui/ClayText';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 
 type AuthTextInputProps = TextInputProps & {
   error?: string;
@@ -27,7 +31,9 @@ export function AuthTextInput({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <ClayText variant="caption" style={styles.label}>
+        {label}
+      </ClayText>
       <View
         style={[
           styles.inputShell,
@@ -47,7 +53,7 @@ export function AuthTextInput({
             setIsFocused(true);
             onFocus?.(event);
           }}
-          placeholderTextColor={authColors.mutedText}
+          placeholderTextColor={clayColors.caption}
           ref={inputRef}
           secureTextEntry={password ? !isPasswordVisible : inputProps.secureTextEntry}
           style={[styles.input, password ? styles.passwordInput : undefined, style]}
@@ -60,14 +66,19 @@ export function AuthTextInput({
             onPress={() => setIsPasswordVisible((visible) => !visible)}
             style={styles.visibilityAction}
           >
-            <Text style={styles.visibilityActionText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
+            <ClayIcon
+              name={isPasswordVisible ? 'EyeClosed' : 'Eye'}
+              size={20}
+              weight="duotone"
+              color={clayColors.primary}
+            />
           </Pressable>
         ) : null}
       </View>
       {error ? (
-        <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+        <ClayText accessibilityLiveRegion="polite" variant="caption" style={styles.errorText}>
           {error}
-        </Text>
+        </ClayText>
       ) : null}
     </View>
   );
@@ -78,38 +89,45 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: authColors.error,
-    fontSize: 13,
-    lineHeight: 18,
+    color: clayColors.error,
     marginTop: 6,
   },
   input: {
-    color: authColors.inputText,
+    color: clayColors.text,
     flex: 1,
-    fontSize: 16,
-    minHeight: 52,
+    fontSize: 15,
+    minHeight: clayDimensions.minTouchTarget + 6,
     paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   inputShell: {
     alignItems: 'center',
-    backgroundColor: authColors.inputBackground,
-    borderColor: authColors.border,
-    borderRadius: authRadii.control,
-    borderWidth: 1,
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.control,
+    borderWidth: 1.5,
+    borderTopColor: clayColors.border,
+    borderLeftColor: clayColors.border,
+    borderRightColor: clayColors.shadowLight,
+    borderBottomColor: clayColors.shadowLight,
     flexDirection: 'row',
-    marginTop: 8,
-  },
+    marginTop: 6,
+    minHeight: clayDimensions.minTouchTarget + 6,
+    boxShadow: getClayBoxShadow('inset'),
+  } as ViewStyle,
   inputShellFocused: {
-    borderColor: authColors.primary,
-    borderWidth: 2,
+    borderTopColor: clayColors.primary,
+    borderLeftColor: clayColors.primary,
+    borderRightColor: clayColors.primarySoft,
+    borderBottomColor: clayColors.primarySoft,
   },
   inputShellInvalid: {
-    borderColor: authColors.error,
+    borderTopColor: clayColors.error,
+    borderLeftColor: clayColors.error,
+    borderRightColor: clayColors.errorBg,
+    borderBottomColor: clayColors.errorBg,
   },
   label: {
-    color: authColors.title,
-    fontSize: 14,
-    fontWeight: '700',
+    color: clayColors.text,
   },
   passwordInput: {
     paddingRight: 4,
@@ -117,12 +135,8 @@ const styles = StyleSheet.create({
   visibilityAction: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: 14,
-  },
-  visibilityActionText: {
-    color: authColors.primary,
-    fontSize: 14,
-    fontWeight: '700',
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
+    paddingHorizontal: 10,
   },
 });

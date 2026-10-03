@@ -48,22 +48,23 @@ export function SearchSkeleton() {
   );
 }
 
+
 const styles = StyleSheet.create({
   avatarSkeleton: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: searchColors.surfaceWell,
     borderRadius: 25,
     height: 50,
     width: 50,
   },
   bioLine: {
-    backgroundColor: '#EEF2F6',
+    backgroundColor: searchColors.border,
     borderRadius: 4,
     height: 10,
     marginTop: 4,
     width: '60%',
   },
   buttonSkeleton: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: searchColors.surfaceWell,
     borderRadius: searchRadii.button,
     height: 34,
     width: 88,
@@ -84,16 +85,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   subtitleLine: {
-    backgroundColor: '#EEF2F6',
+    backgroundColor: searchColors.border,
     borderRadius: 4,
     height: 11,
     marginTop: 6,
     width: '40%',
   },
   titleLine: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: searchColors.surfaceWell,
     borderRadius: 4,
     height: 14,
     width: '70%',
   },
 });
+
