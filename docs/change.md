@@ -998,3 +998,18 @@ Phases A through F: Multi-palette theme system, floating tab bar white streak fi
 
 
 
+## 2026-10-03 17:15 +07:00 - Dev A / Claude Code
+
+### Task
+
+Prepare a proposal document for a Reel module and its recommendation system (plan and feasibility only, no code changes).
+
+### Changed
+
+- Added `docs/reel/Reel_Module_Proposal.pdf` (11 pages, Vietnamese): current project state, Reel scope, upload/view workflows, rule-based recommendation design, proposed tables and API, feasibility, risks, 6-phase plan, open decisions.
+- The API routes and database tables in the document are proposals awaiting Dev B confirmation; `docs/api-contract.md`, `apps/api/`, and `apps/mobile/` were not modified.
+
+### Files
+
+- `docs/reel/Reel_Module_Proposal.pdf`
+- `docs/change.md`
