@@ -4,7 +4,12 @@ import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
-
+import { PostsModule } from './modules/posts/posts.module';
+import { LikesModule } from './modules/likes/likes.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { SearchModule } from './modules/search/search.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FollowsModule } from './modules/follows/follows.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -13,7 +18,13 @@ import { AuthModule } from './modules/auth/auth.module';
     }),
     PrismaModule,
     UsersModule,
+    PostsModule,
     AuthModule,
+    LikesModule,
+    CommentsModule,
+    SearchModule,
+    NotificationsModule,
+    FollowsModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

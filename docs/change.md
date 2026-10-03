@@ -4,8 +4,6 @@
 >
 > Convention: entries are appended at the bottom so history is never rewritten.
 
----
-
 ## 2026-09-13 10:33 +07:00 - Dev A / Codex
 
 ### Task
