@@ -6,8 +6,6 @@ import {
     Request,
     UnauthorizedException,
     UseGuards,
-    Delete,
-    Post,
 } from "@nestjs/common";
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -55,60 +53,18 @@ export class UsersController {
     }
 
     @Get(':id/posts')
-    async getUserPosts(
-        @Param('id') id: string,
+    @UseGuards(JwtAuthGuard)
+    async findUserPosts(
+        @Request() request: { user: { userId: string } },
+        @Param('id') userId: string,
         @Query() query: FeedQueryDto,
     ) {
         return this.usersService.findUserPosts(
-            id,
-            query.page,
-            query.limit,
-        );
-    }
-
-    @Post(':id/follow')
-    async follow(
-        @Request() request: { user: { userId: string } },
-        @Param('id') id: string,
-    ) {
-        return this.usersService.follow(
+            userId,
             request.user.userId,
-            id,
-        );
-    }
-
-    @Delete(':id/follow')
-    async unfollow(
-        @Request() request: { user: { userId: string } },
-        @Param('id') id: string,
-    ) {
-        return this.usersService.unfollow(
-            request.user.userId,
-            id,
-        );
-    }
-
-    @Get(':id/followers')
-    async getFollowers(
-        @Param('id') id: string,
-        @Query() query: FeedQueryDto,
-    ) {
-        return this.usersService.getFollowers(
-            id,
             query.page,
             query.limit,
         );
     }
 
-    @Get(':id/following')
-    async getFollowing(
-        @Param('id') id: string,
-        @Query() query: FeedQueryDto,
-    ) {
-        return this.usersService.getFollowing(
-            id,
-            query.page,
-            query.limit,
-        );
-    }
 }

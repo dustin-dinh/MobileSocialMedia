@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type CreateUserData = {
@@ -77,14 +77,15 @@ export class UsersService {
         };
     }
     async findUserPosts(
-        userId: string,
+        targetUserId: string,
+        viewerUserId: string,
         page: number,
         limit: number,
     ) {
         const skip = (page - 1) * limit;
 
         const where = {
-            authorId: userId,
+            authorId: targetUserId,
             deletedAt: null,
         };
 
@@ -101,6 +102,7 @@ export class UsersService {
                     content: true,
                     createdAt: true,
                     updatedAt: true,
+
                     author: {
                         select: {
                             id: true,
@@ -109,6 +111,7 @@ export class UsersService {
                             avatarUrl: true,
                         },
                     },
+
                     media: {
                         orderBy: {
                             order: 'asc',
@@ -120,6 +123,13 @@ export class UsersService {
                             order: true,
                         },
                     },
+
+                    _count: {
+                        select: {
+                            likes: true,
+                            comments: true,
+                        },
+                    },
                 },
             }),
 
@@ -128,150 +138,37 @@ export class UsersService {
             }),
         ]);
 
-        return {
-            data: posts,
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-    async follow(currentUserId: string, targetUserId: string) {
-        if (currentUserId === targetUserId) {
-            throw new BadRequestException('Cannot follow yourself');
-        }
-
-        const targetUser = await this.prisma.user.findUnique({
-            where: { id: targetUserId },
-            select: { id: true },
-        });
-
-        if (!targetUser) {
-            throw new NotFoundException('User not found');
-        }
-
-        const existing = await this.prisma.follow.findUnique({
+        const likedPosts = await this.prisma.like.findMany({
             where: {
-                followerId_followingId: {
-                    followerId: currentUserId,
-                    followingId: targetUserId,
+                userId: viewerUserId,
+                postId: {
+                    in: posts.map((post) => post.id),
                 },
+            },
+            select: {
+                postId: true,
             },
         });
 
-        if (existing) {
-            return {
-                data: {
-                    following: true,
-                },
-            };
-        }
+        const likedPostIds = new Set(
+            likedPosts.map((like) => like.postId),
+        );
 
-        await this.prisma.follow.create({
-            data: {
-                followerId: currentUserId,
-                followingId: targetUserId,
-            },
-        });
+        const data = posts.map((post) => ({
+            id: post.id,
+            content: post.content,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            author: post.author,
+            media: post.media,
 
-        return {
-            data: {
-                following: true,
-            },
-        };
-    }
-
-    async unfollow(currentUserId: string, targetUserId: string) {
-        await this.prisma.follow.deleteMany({
-            where: {
-                followerId: currentUserId,
-                followingId: targetUserId,
-            },
-        });
+            likeCount: post._count.likes,
+            commentsCount: post._count.comments,
+            isLiked: likedPostIds.has(post.id),
+        }));
 
         return {
-            data: {
-                following: false,
-            },
-        };
-    }
-    async getFollowers(userId: string, page: number, limit: number) {
-        const skip = (page - 1) * limit;
-
-        const [followers, total] = await Promise.all([
-            this.prisma.follow.findMany({
-                where: {
-                    followingId: userId,
-                },
-                orderBy: {
-                    followerId: 'asc',
-                },
-                skip,
-                take: limit,
-                select: {
-                    follower: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                },
-            }),
-
-            this.prisma.follow.count({
-                where: {
-                    followingId: userId,
-                },
-            }),
-        ]);
-        return {
-            data: followers.map((item) => item.follower),
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-
-    async getFollowing(userId: string, page: number, limit: number) {
-        const skip = (page - 1) * limit;
-
-        const [following, total] = await Promise.all([
-            this.prisma.follow.findMany({
-                where: {
-                    followerId: userId,
-                },
-                orderBy: {
-                    followingId: 'asc',
-                },
-                skip,
-                take: limit,
-                select: {
-                    following: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                },
-            }),
-
-            this.prisma.follow.count({
-                where: {
-                    followerId: userId,
-                },
-            }),
-        ]);
-        return {
-            data: following.map((item) => item.following),
+            data,
             meta: {
                 page,
                 limit,
