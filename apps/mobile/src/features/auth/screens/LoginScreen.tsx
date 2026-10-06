@@ -2,13 +2,16 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, type TextInput } from 'react-native';
 
+import { isGoogleSignInAvailable } from '../../../config/google';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { useAuthSession } from '../authSession';
 import { authColors } from '../authTheme';
+import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
+import { GoogleButton } from '../components/GoogleButton';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
 import {
@@ -32,8 +35,10 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
   });
   const [successMessage, setSuccessMessage] = useState(route.params?.message ?? null);
   const passwordInputRef = useRef<TextInput | null>(null);
-  const { signIn } = useAuthSession();
+  const { signIn, signInWithGoogle } = useAuthSession();
   const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
+
+  const showGoogle = isGoogleSignInAvailable();
 
   const updateField = (field: keyof LoginFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -53,6 +58,12 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
     }
 
     void submit(() => signIn(values));
+  };
+
+  const handleGoogleSignIn = () => {
+    reset();
+    setSuccessMessage(null);
+    void submit(() => signInWithGoogle());
   };
 
   return (
@@ -110,6 +121,16 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
         tone={submissionMessage ? submissionTone : 'info'}
       />
       <PrimaryButton isLoading={isSubmitting} label="Log in" onPress={handleSubmit} />
+      {showGoogle && (
+        <>
+          <AuthDivider />
+          <GoogleButton
+            disabled={isSubmitting}
+            isLoading={isSubmitting}
+            onPress={handleGoogleSignIn}
+          />
+        </>
+      )}
     </AuthScreenContainer>
   );
 }
@@ -125,4 +146,3 @@ const styles = StyleSheet.create({
     color: authColors.primary,
   },
 });
-

@@ -11,6 +11,24 @@ type SearchEmptyStateProps = {
 };
 
 export function SearchEmptyState({ onClear, query }: SearchEmptyStateProps) {
+  // With nothing typed there is nothing to "not find": prompt for a query.
+  if (!query.trim()) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.iconCircle}>
+          <ClayEmoji name="magnifying_glass" size={54} />
+        </View>
+
+        <ClayText variant="heading" style={styles.title}>
+          Tìm kiếm người dùng
+        </ClayText>
+        <ClayText variant="body" style={styles.description}>
+          Nhập username hoặc tên hiển thị để tìm người bạn muốn theo dõi.
+        </ClayText>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>

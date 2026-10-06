@@ -109,3 +109,36 @@ Lần 2 | `adb connect 127.0.0.1:5555; corepack pnpm exec expo start --android -
 ### 4. Lỗi nhỏ đã biết nhưng chưa sửa (được ghi nhận theo yêu cầu)
 - Một số font phụ (`Nunito_500Medium`, `Nunito_600SemiBold_Italic`, `Nunito_900Black`) chưa được nạp trong danh sách load font ban đầu (hiện fallback mượt mà sang hệ thống hoặc Nunito đã nạp).
 - Warning LogBox màu vàng: `Require cycle: src/theme/index.ts -> src/theme/clay.ts -> src/theme/index.ts` (đây là cảnh báo cycle tham chiếu thông thường của React Native, không gây lỗi crash).
+
+---
+
+## 7. Hướng dẫn chạy Dev Client & Google Sign-In (Mobile + Backend)
+
+### 7.1 Biến môi trường cần thiết
+- **Backend (`apps/api/.env`)**:
+  ```env
+  GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+  ```
+- **Mobile (`apps/mobile/.env.local` hoặc `apps/mobile/.env`)**:
+  ```env
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+  # Để bật kết nối live API và Google Sign-In:
+  EXPO_PUBLIC_USE_MOCK=false
+  ```
+
+### 7.2 Lệnh chạy Development Client (thay cho Expo Go do có native module)
+Do `@react-native-google-signin/google-signin` chứa native code, ứng dụng cần chạy qua Expo Development Client (`expo-dev-client`) thay vì Expo Go tiêu chuẩn:
+
+1. **Build & cài đặt Dev Client lên Android (BlueStacks / máy thật)**:
+   ```powershell
+   cd apps/mobile
+   corepack pnpm exec expo run:android
+   ```
+   *(Yêu cầu đã cài Android SDK và adb đã kết nối thiết bị/BlueStacks. BlueStacks phải có Google Play Services và đã đăng nhập tài khoản Google).*
+
+2. **Chạy Metro bundler sau khi đã cài dev client**:
+   ```powershell
+   cd apps/mobile
+   corepack pnpm exec expo start --dev-client
+   ```
+

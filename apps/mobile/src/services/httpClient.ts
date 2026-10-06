@@ -13,7 +13,25 @@ export type JsonRequestOptions<TBody> = {
   timeoutMs?: number;
 };
 
+export type FormRequestOptions = Omit<JsonRequestOptions<never>, 'body'> & {
+  form: FormData;
+};
+
 const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
+/** Uploads carry image bytes, so they get a longer budget than JSON calls. */
+const DEFAULT_UPLOAD_TIMEOUT_MS = 30_000;
+
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/**
+ * Register a callback fired whenever the API answers 401. The auth session
+ * uses it to drop back to the Login screen when the JWT has expired.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
 
 type RequestSignal = {
   cleanup: () => void;
@@ -102,7 +120,7 @@ function getResponseMessage(payload: unknown, fallbackMessage: string): string {
 }
 
 async function request<TBody = undefined>(
-  options: JsonRequestOptions<TBody>,
+  options: JsonRequestOptions<TBody> & { form?: FormData },
 ): Promise<unknown | undefined> {
   let requestUrl: string;
 
@@ -133,7 +151,7 @@ async function request<TBody = undefined>(
 
   const requestSignal = createRequestSignal(
     options.signal,
-    options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    options.timeoutMs ?? (options.form ? DEFAULT_UPLOAD_TIMEOUT_MS : DEFAULT_REQUEST_TIMEOUT_MS),
   );
   let response: Response;
   let payload: unknown | undefined;
@@ -146,10 +164,10 @@ async function request<TBody = undefined>(
       ...options.headers,
     };
     console.log(`\n📡 [HTTP REQUEST] ${options.method} ${requestUrl}`);
-    console.log('   [Headers]:', JSON.stringify(requestHeaders, null, 2));
 
     response = await fetch(requestUrl, {
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      // For multipart uploads fetch sets Content-Type (with the boundary) itself.
+      body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       headers: requestHeaders,
       method: options.method,
       signal: requestSignal.signal,
@@ -186,6 +204,8 @@ async function request<TBody = undefined>(
       } catch {
         // Best-effort cleanup; the auth layer will handle the rest.
       }
+
+      unauthorizedHandler?.();
     }
 
     const fallbackMessage =
@@ -222,7 +242,21 @@ async function requestVoid<TBody = undefined>(options: JsonRequestOptions<TBody>
   await request(options);
 }
 
+async function requestForm<TResponse>(options: FormRequestOptions): Promise<TResponse> {
+  const payload = await request(options);
+
+  if (payload === undefined) {
+    throw new ApiError({
+      kind: 'unknown',
+      message: 'The server returned an unexpected response.',
+    });
+  }
+
+  return payload as TResponse;
+}
+
 export const httpClient = {
+  requestForm,
   requestJson,
   requestVoid,
 } as const;

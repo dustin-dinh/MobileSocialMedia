@@ -103,6 +103,29 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
     return unsubscribe;
   }, []);
 
+  // ── Listen for postDeleted events to remove deleted posts ───────────
+  useEffect(() => {
+    const unsubscribe = feedEvents.on('postDeleted', ({ postId }) => {
+      setPosts((current) => current.filter((p) => p.id !== postId));
+      setProfile((current) =>
+        current ? { ...current, postsCount: Math.max(0, current.postsCount - 1) } : current,
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // ── Listen for postUpdated events to sync updated posts ─────────────
+  useEffect(() => {
+    const unsubscribe = feedEvents.on('postUpdated', (updatedPost) => {
+      setPosts((current) =>
+        current.map((p) => (p.id === updatedPost.id ? updatedPost : p)),
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
   // ── Pull-to-refresh ───────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

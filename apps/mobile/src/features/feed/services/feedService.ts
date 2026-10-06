@@ -1,17 +1,16 @@
 /**
  * Feed service — data-access layer for the post feed.
  *
- * During development (before Dev B ships the `/posts/feed` endpoint), calls
- * automatically fall back to local mock data after a simulated network delay.
- * Once the endpoint is live, remove the `USE_MOCK_FEED` flag.
+ * Talks to `GET /posts/feed` and `POST|DELETE /posts/:id/like`. When
+ * `USE_MOCK_API` is on, it serves local mock data after a simulated delay.
  */
-import { ApiError } from '../../../services/apiError';
+import { USE_MOCK_API } from '../../../config/runtime';
 import { httpClient } from '../../../services/httpClient';
 import { MOCK_POSTS } from '../mockData';
 import type { FeedResponse, Post } from '../types';
+import { mapApiPostList, setPostSavedLocally, type ApiPostListResponse } from './postMapper';
 
-/** Flip this to `false` once the real endpoint is available. */
-const USE_MOCK_FEED = true;
+const USE_MOCK_FEED = USE_MOCK_API;
 
 /** Simulated network latency for the mock path (ms). */
 const MOCK_DELAY_MS = 600;
@@ -53,28 +52,16 @@ export const feedService = {
       return getMockFeed(page, limit);
     }
 
-    try {
-      return await httpClient.requestJson<FeedResponse>({
-        method: 'GET',
-        path: `posts/feed?page=${page}&limit=${limit}`,
-      });
-    } catch (error) {
-      // Graceful fallback: if the endpoint doesn't exist yet (404) or the
-      // server is down, return mock data so the UI remains testable.
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        console.warn('⚠️ Feed endpoint unavailable – falling back to mock data.');
+    const response = await httpClient.requestJson<ApiPostListResponse>({
+      method: 'GET',
+      path: `posts/feed?page=${page}&limit=${limit}`,
+    });
 
-        return getMockFeed(page, limit);
-      }
-
-      throw error;
-    }
+    return mapApiPostList(response);
   },
 
   /**
    * Toggle the like status of a post. Returns the updated post.
-   *
-   * Stub implementation: flips the value locally until the endpoint exists.
    */
   async toggleLike(post: Post): Promise<Post> {
     if (USE_MOCK_FEED) {
@@ -114,12 +101,9 @@ export const feedService = {
       };
     }
 
-    const method = post.isSaved ? 'DELETE' : 'POST';
-
-    await httpClient.requestVoid({
-      method,
-      path: `posts/${post.id}/save`,
-    });
+    // The backend has no bookmark endpoint yet, so the flag is kept in
+    // memory for this app session and re-applied when posts are reloaded.
+    setPostSavedLocally(post.id, !post.isSaved);
 
     return {
       ...post,

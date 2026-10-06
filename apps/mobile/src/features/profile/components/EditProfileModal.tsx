@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +13,7 @@ import {
 
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
+import { ApiError } from '../../../services/apiError';
 import { profileColors, profileRadii } from '../profileTheme';
 import type { UserProfile } from '../types';
 
@@ -61,6 +63,10 @@ export function EditProfileModal({
       onClose();
     } catch (error) {
       console.error('Failed to update profile:', error);
+      Alert.alert(
+        'Lỗi',
+        error instanceof ApiError ? error.message : 'Không thể cập nhật hồ sơ. Vui lòng thử lại.',
+      );
     } finally {
       setIsSaving(false);
     }
@@ -70,7 +76,6 @@ export function EditProfileModal({
     <Modal
       animationType="slide"
       onRequestClose={onClose}
-      presentationStyle="pageSheet"
       transparent
       visible={visible}
     >

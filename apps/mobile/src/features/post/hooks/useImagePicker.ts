@@ -15,6 +15,10 @@ export type SelectedImage = {
   width: number;
   /** Original height in pixels (if available). */
   height: number;
+  /** File name reported by the picker, used for the upload. */
+  fileName?: string | null;
+  /** MIME type reported by the picker, used for the upload. */
+  mimeType?: string | null;
 };
 
 const MAX_IMAGES = 4;
@@ -76,6 +80,8 @@ export function useImagePicker(): UseImagePickerReturn {
           uri: asset.uri,
           width: asset.width,
           height: asset.height,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
         }));
 
       setImages((current) => [...current, ...newImages].slice(0, MAX_IMAGES));

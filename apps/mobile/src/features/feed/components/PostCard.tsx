@@ -18,6 +18,14 @@ import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { Post, PostMedia } from '../types';
+import { useAuthSession } from '../../auth/authSession';
+import { PostOptionsModal } from '../../post/components/PostOptionsModal';
+import { SharePostModal } from '../../post/components/SharePostModal';
+import { EditPostModal } from '../../post/components/EditPostModal';
+import { DeletePostModal } from '../../post/components/DeletePostModal';
+import { PostPrivacyModal } from '../../post/components/PostPrivacyModal';
+import { postService } from '../../post/services/postService';
+import { feedEvents } from '../feedEvents';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -139,7 +147,17 @@ export const PostCard = memo(function PostCard({
   onToggleSave,
   post,
 }: PostCardProps) {
+  const { user } = useAuthSession();
   const likeScale = useRef(new Animated.Value(1)).current;
+
+  // ── Modal states ───────────────────────────────────────────────────
+  const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+
+  const isAuthor = Boolean(user && user.id === post.author.id);
 
   const handleLike = useCallback(() => {
     Animated.sequence([
@@ -164,6 +182,13 @@ export const PostCard = memo(function PostCard({
 
   const displayName = post.author.displayName ?? post.author.username;
 
+  const privacyIconName =
+    post.privacy === 'FRIENDS'
+      ? 'Users'
+      : post.privacy === 'ONLY_ME'
+        ? 'LockKey'
+        : 'GlobeSimple';
+
   return (
     <ClaySurface variant="raisedLite" style={styles.card}>
       {/* ── Header ─────────────────────────────────────────── */}
@@ -183,12 +208,26 @@ export const PostCard = memo(function PostCard({
             <ClayText variant="meta" style={styles.timestamp}>
               {formatTimeAgo(post.createdAt)}
             </ClayText>
+            {Boolean(post.privacy) && (
+              <>
+                <ClayText variant="meta" style={styles.dot}>
+                  ·
+                </ClayText>
+                <ClayIcon
+                  name={privacyIconName}
+                  size={12}
+                  weight="bold"
+                  color={clayColors.caption}
+                />
+              </>
+            )}
           </View>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="More options"
           hitSlop={10}
+          onPress={() => setIsOptionsModalOpen(true)}
           style={styles.moreButton}
         >
           <ClayIcon name="DotsThree" size={22} weight="bold" color={clayColors.caption} />
@@ -202,7 +241,7 @@ export const PostCard = memo(function PostCard({
         </ClayText>
       )}
 
-      {/* ── Media ──────────────────────────────────────────── */}
+      {/* ── Media ──────────────────────────────────── */}
       {post.media.length > 0 && (
         <View style={styles.mediaContainer}>
           <MediaGrid items={post.media} />
@@ -255,6 +294,7 @@ export const PostCard = memo(function PostCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Share post"
+            onPress={() => setIsShareModalOpen(true)}
             style={styles.actionButton}
             hitSlop={8}
           >
@@ -277,6 +317,52 @@ export const PostCard = memo(function PostCard({
           />
         </Pressable>
       </View>
+
+      {/* ── Modals ─────────────────────────────────────────── */}
+      <PostOptionsModal
+        isAuthor={isAuthor}
+        isSaved={post.isSaved}
+        onChangePrivacy={() => setIsPrivacyModalOpen(true)}
+        onClose={() => setIsOptionsModalOpen(false)}
+        onDelete={() => setIsDeleteModalOpen(true)}
+        onEdit={() => setIsEditModalOpen(true)}
+        onSave={handleSave}
+        onShare={() => setIsShareModalOpen(true)}
+        post={post}
+        visible={isOptionsModalOpen}
+      />
+
+      <SharePostModal
+        onClose={() => setIsShareModalOpen(false)}
+        post={post}
+        visible={isShareModalOpen}
+      />
+
+      <EditPostModal
+        onClose={() => setIsEditModalOpen(false)}
+        post={post}
+        visible={isEditModalOpen}
+      />
+
+      <DeletePostModal
+        onClose={() => setIsDeleteModalOpen(false)}
+        post={post}
+        visible={isDeleteModalOpen}
+      />
+
+      <PostPrivacyModal
+        currentPrivacy={post.privacy ?? 'PUBLIC'}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        onSelectPrivacy={async (newPrivacy) => {
+          try {
+            const updated = await postService.updatePrivacy(post.id, newPrivacy, post);
+            feedEvents.emitPostUpdated(updated);
+          } catch (error) {
+            console.error('Update privacy failed:', error);
+          }
+        }}
+        visible={isPrivacyModalOpen}
+      />
     </ClaySurface>
   );
 });
@@ -289,33 +375,32 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
-    minHeight: clayDimensions.minTouchTarget,
-    minWidth: clayDimensions.minTouchTarget,
+    height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    minWidth: clayDimensions.minTouchTarget,
+    paddingHorizontal: 8,
   },
   actionCount: {
     color: clayColors.caption,
-    fontSize: 13,
+    fontSize: 12,
+    marginLeft: 4,
   },
   actionCountLiked: {
     color: clayColors.liked,
-    fontFamily: fontFamilies.bold,
   },
   actions: {
     alignItems: 'center',
+    borderTopColor: clayColors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: 10,
-    paddingHorizontal: feedSpacing.cardPadding,
-    paddingTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   actionsLeft: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: 4,
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,
@@ -331,21 +416,20 @@ const styles = StyleSheet.create({
     borderRadius: (AVATAR_SIZE + 4) / 2,
     borderWidth: 2,
     borderColor: clayColors.surfaceHigh,
-    shadowColor: 'rgb(100,60,85)',
+    shadowColor: 'rgb(150,84,96)',
     shadowOffset: { width: 1, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
   },
   avatarInitials: {
-    color: clayColors.primary,
-    fontSize: 15,
-    fontFamily: fontFamilies.extraBold,
+    color: clayColors.caption,
+    fontFamily: fontFamilies.bold,
+    fontSize: 14,
   },
   card: {
-    marginHorizontal: CARD_HORIZONTAL_MARGIN,
-    marginVertical: feedSpacing.cardGap / 2,
-    padding: 0,
+    marginBottom: feedSpacing.cardGap,
+    marginHorizontal: feedSpacing.cardPadding,
     overflow: 'hidden',
   },
   carousel: {

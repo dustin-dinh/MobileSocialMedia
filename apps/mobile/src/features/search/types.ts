@@ -7,7 +7,8 @@ export type SearchedUser = {
   avatarUrl: string | null;
   bio: string | null;
   displayName: string | null;
-  followersCount: number;
+  /** Null when the API does not report a follower total for this user. */
+  followersCount: number | null;
   id: string;
   isFollowing: boolean;
   username: string;

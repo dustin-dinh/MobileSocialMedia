@@ -44,6 +44,15 @@ function getAuthorizationHeaders(accessToken: string): Record<string, string> {
   };
 }
 
+function extractValidAccessToken(response: LoginResponse): string {
+  const rawToken = response.data.accessToken ?? response.data.token;
+  if (!rawToken || typeof rawToken !== 'string' || rawToken.trim() === '' || rawToken === 'undefined') {
+    throw new Error('Invalid or missing authentication token from server');
+  }
+
+  return rawToken.trim();
+}
+
 export const authService = {
   async getCurrentUser(
     accessToken: string,
@@ -70,13 +79,24 @@ export const authService = {
       path: 'auth/login',
     });
 
-    const rawToken = response.data.accessToken ?? response.data.token;
-    if (!rawToken || typeof rawToken !== 'string' || rawToken.trim() === '' || rawToken === 'undefined') {
-      throw new Error('Invalid or missing authentication token from server');
-    }
+    const accessToken = extractValidAccessToken(response);
 
     return {
-      accessToken: rawToken.trim(),
+      accessToken,
+      user: response.data.user,
+    };
+  },
+  async loginWithGoogle(idToken: string): Promise<{ accessToken: string; user: AuthUser }> {
+    const response = await httpClient.requestJson<LoginResponse, { idToken: string }>({
+      body: { idToken },
+      method: 'POST',
+      path: 'auth/google',
+    });
+
+    const accessToken = extractValidAccessToken(response);
+
+    return {
+      accessToken,
       user: response.data.user,
     };
   },

@@ -18,6 +18,7 @@ import { useAuthSession } from '../../auth/authSession';
 import { feedEvents } from '../../feed/feedEvents';
 import { useImagePicker } from '../hooks/useImagePicker';
 import { postService } from '../services/postService';
+import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
 import { clayRadii, clayDimensions } from '../../../theme/spacing';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
@@ -26,6 +27,8 @@ import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { fontFamilies } from '../../../theme/typography';
 import { Image as ExpoImage } from 'expo-image';
+import type { PostPrivacy } from '../../feed/types';
+import { PostPrivacyModal, PrivacyPill } from '../components/PostPrivacyModal';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -111,6 +114,8 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [privacy, setPrivacy] = useState<PostPrivacy>('PUBLIC');
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   const {
     images,
@@ -168,7 +173,9 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
       const newPost = await postService.createPost(
         {
           content: content.trim(),
+          mediaFiles: images,
           mediaUris: images.map((img) => img.uri),
+          privacy,
         },
         user,
       );
@@ -184,7 +191,10 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
       navigation.navigate('Home');
     } catch (error) {
       console.error('Failed to create post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      Alert.alert(
+        'Error',
+        error instanceof ApiError ? error.message : 'Failed to create post. Please try again.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -252,6 +262,12 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
                 @{user.username}
               </ClayText>
             )}
+            <View style={styles.privacyPillWrap}>
+              <PrivacyPill
+                privacy={privacy}
+                onPress={() => setIsPrivacyModalOpen(true)}
+              />
+            </View>
           </View>
         </View>
 
@@ -305,6 +321,13 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           {charCount}/{MAX_CONTENT_LENGTH}
         </ClayText>
       </View>
+
+      <PostPrivacyModal
+        currentPrivacy={privacy}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        onSelectPrivacy={(newPrivacy) => setPrivacy(newPrivacy)}
+        visible={isPrivacyModalOpen}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -331,6 +354,10 @@ const styles = StyleSheet.create({
   },
   authorUsername: {
     marginTop: 1,
+  },
+  privacyPillWrap: {
+    alignItems: 'flex-start',
+    marginTop: 4,
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,

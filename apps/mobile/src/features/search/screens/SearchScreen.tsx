@@ -27,6 +27,11 @@ import { fontFamilies } from '../../../theme/typography';
 import { searchService } from '../services/searchService';
 import type { SearchedUser } from '../types';
 
+/** Adjust a follower total by one, leaving an unknown (null) total untouched. */
+function shiftFollowersCount(count: number | null, delta: 1 | -1): number | null {
+  return count === null ? null : Math.max(0, count + delta);
+}
+
 export function SearchScreen() {
   const insets = useSafeAreaInsets();
 
@@ -87,9 +92,7 @@ export function SearchScreen() {
         if (u.id === userId) {
           return {
             ...u,
-            followersCount: nextFollowing
-              ? u.followersCount + 1
-              : Math.max(0, u.followersCount - 1),
+            followersCount: shiftFollowersCount(u.followersCount, nextFollowing ? 1 : -1),
             isFollowing: nextFollowing,
           };
         }
@@ -117,9 +120,7 @@ export function SearchScreen() {
           if (u.id === userId) {
             return {
               ...u,
-              followersCount: previousFollowing
-                ? u.followersCount + 1
-                : Math.max(0, u.followersCount - 1),
+              followersCount: shiftFollowersCount(u.followersCount, previousFollowing ? 1 : -1),
               isFollowing: previousFollowing,
             };
           }
@@ -144,6 +145,11 @@ export function SearchScreen() {
     }
 
     const hasQuery = debouncedQuery.trim().length > 0;
+
+    // The empty state already prompts for a query when there are no suggestions.
+    if (!hasQuery && users.length === 0) {
+      return null;
+    }
 
     return (
       <View style={styles.sectionHeader}>

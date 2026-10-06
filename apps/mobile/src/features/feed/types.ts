@@ -26,6 +26,9 @@ export type PostMedia = {
   url: string;
 };
 
+/** Post privacy levels. */
+export type PostPrivacy = 'PUBLIC' | 'FRIENDS' | 'ONLY_ME';
+
 /** A single post as returned by the API. */
 export type Post = {
   author: PostAuthor;
@@ -37,6 +40,7 @@ export type Post = {
   isSaved: boolean;
   likesCount: number;
   media: PostMedia[];
+  privacy?: PostPrivacy;
 };
 
 /** Paginated feed response shape from `GET /posts/feed`. */

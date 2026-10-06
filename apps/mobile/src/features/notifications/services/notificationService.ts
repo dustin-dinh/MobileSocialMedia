@@ -1,15 +1,28 @@
 /**
  * Notification service — data-access layer for user notifications.
  *
- * Provides realistic mock notifications across LIKE, COMMENT, and FOLLOW types,
- * and seamlessly switches to REST API endpoints (`GET /notifications`,
- * `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`) when ready.
+ * Talks to `GET /notifications`, `PATCH /notifications/:id/read` and
+ * `PATCH /notifications/read-all`. When `USE_MOCK_API` is on, it serves
+ * realistic mock notifications across LIKE, COMMENT, and FOLLOW types.
  */
-import { ApiError } from '../../../services/apiError';
+import { USE_MOCK_API } from '../../../config/runtime';
+import { followApi } from '../../../services/followApi';
 import { httpClient } from '../../../services/httpClient';
-import type { AppNotification, NotificationsResponse } from '../types';
+import type { AppNotification, NotificationActor, NotificationType } from '../types';
 
-const USE_MOCK = true;
+const USE_MOCK = USE_MOCK_API;
+
+const NOTIFICATIONS_PAGE_SIZE = 50;
+
+type ApiNotification = {
+  actor: NotificationActor;
+  comment: { id: string } | null;
+  createdAt: string;
+  id: string;
+  post: { id: string } | null;
+  readAt: string | null;
+  type: NotificationType;
+};
 const MOCK_DELAY_MS = 350;
 
 function delay(ms: number): Promise<void> {
@@ -137,21 +150,26 @@ export const notificationService = {
       return [...mockNotifications];
     }
 
-    try {
-      const response = await httpClient.requestJson<NotificationsResponse>({
+    const [response, followingIds] = await Promise.all([
+      httpClient.requestJson<{ data: ApiNotification[] }>({
         method: 'GET',
-        path: 'notifications',
-      });
+        path: `notifications?page=1&limit=${NOTIFICATIONS_PAGE_SIZE}`,
+      }),
+      followApi.getMyFollowingIds(),
+    ]);
 
-      return response.data;
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        console.warn('⚠️ Notifications endpoint unavailable – using mock data.');
-        return [...mockNotifications];
-      }
-
-      throw error;
-    }
+    // The API returns ids only for the related post/comment, so the list
+    // shows the actor and the action without a post preview.
+    return response.data.map((notification) => ({
+      actor: notification.actor,
+      createdAt: notification.createdAt,
+      id: notification.id,
+      isFollowingBack:
+        notification.type === 'FOLLOW' ? followingIds.has(notification.actor.id) : undefined,
+      isRead: notification.readAt !== null,
+      postId: notification.post?.id,
+      type: notification.type,
+    }));
   },
 
   /**
@@ -166,21 +184,10 @@ export const notificationService = {
       return;
     }
 
-    try {
-      await httpClient.requestVoid({
-        method: 'PATCH',
-        path: `notifications/${notificationId}/read`,
-      });
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        mockNotifications = mockNotifications.map((n) =>
-          n.id === notificationId ? { ...n, isRead: true } : n,
-        );
-        return;
-      }
-
-      throw error;
-    }
+    await httpClient.requestVoid({
+      method: 'PATCH',
+      path: `notifications/${notificationId}/read`,
+    });
   },
 
   /**
@@ -193,19 +200,10 @@ export const notificationService = {
       return;
     }
 
-    try {
-      await httpClient.requestVoid({
-        method: 'PATCH',
-        path: 'notifications/read-all',
-      });
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        mockNotifications = mockNotifications.map((n) => ({ ...n, isRead: true }));
-        return;
-      }
-
-      throw error;
-    }
+    await httpClient.requestVoid({
+      method: 'PATCH',
+      path: 'notifications/read-all',
+    });
   },
 
   /**
@@ -224,21 +222,12 @@ export const notificationService = {
       return next;
     }
 
-    const method = currentlyFollowing ? 'DELETE' : 'POST';
-
-    try {
-      await httpClient.requestVoid({
-        method,
-        path: `users/${actorId}/follow`,
-      });
-
-      return !currentlyFollowing;
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        return !currentlyFollowing;
-      }
-
-      throw error;
+    if (currentlyFollowing) {
+      await followApi.unfollow(actorId);
+    } else {
+      await followApi.follow(actorId);
     }
+
+    return !currentlyFollowing;
   },
 } as const;

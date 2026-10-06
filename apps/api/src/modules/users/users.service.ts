@@ -4,7 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 type CreateUserData = {
     username: string;
     email: string;
-    passwordHash: string;
+    passwordHash?: string | null;
+    googleId?: string | null;
+    displayName?: string | null;
+    avatarUrl?: string | null;
 };
 
 @Injectable()
@@ -31,9 +34,32 @@ export class UsersService {
         });
     }
 
+    async findByGoogleId(googleId: string) {
+        return this.prisma.user.findUnique({
+            where: { googleId },
+        });
+    }
+
+    async linkGoogle(userId: string, googleId: string) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                googleId,
+                passwordHash: null,
+            },
+        });
+    }
+
     async create(data: CreateUserData) {
         return this.prisma.user.create({
-            data,
+            data: {
+                username: data.username,
+                email: data.email,
+                passwordHash: data.passwordHash ?? null,
+                googleId: data.googleId ?? null,
+                displayName: data.displayName ?? null,
+                avatarUrl: data.avatarUrl ?? null,
+            },
         });
     }
 

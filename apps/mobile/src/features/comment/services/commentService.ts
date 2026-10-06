@@ -1,15 +1,54 @@
 /**
  * Comment service — data-access layer for post comments.
  *
- * Provides mock data for local development and falls back smoothly
- * to real backend endpoints (`GET /posts/:id/comments`, `POST /posts/:id/comments`,
- * `POST/DELETE /comments/:id/like`).
+ * Talks to `GET /posts/:id/comments` and `POST /posts/:id/comments`. When
+ * `USE_MOCK_API` is on, it serves an in-memory mock store instead.
  */
-import { ApiError } from '../../../services/apiError';
+import { USE_MOCK_API } from '../../../config/runtime';
 import { httpClient } from '../../../services/httpClient';
-import type { CommentAuthor, CommentsResponse, CreateCommentPayload, PostComment } from '../types';
+import type { CommentAuthor, CreateCommentPayload, PostComment } from '../types';
 
-const USE_MOCK = true;
+const USE_MOCK = USE_MOCK_API;
+
+const COMMENTS_PAGE_SIZE = 50;
+
+/**
+ * Comment as returned by the API. The list endpoint names the writer
+ * `author`; the create endpoint names it `user`.
+ */
+type ApiComment = {
+  author?: CommentAuthor;
+  content: string;
+  createdAt: string;
+  id: string;
+  user?: CommentAuthor;
+};
+
+/**
+ * Comment likes have no backend endpoint yet, so they live in memory for the
+ * current app session only.
+ */
+const locallyLikedCommentIds = new Set<string>();
+
+function mapApiComment(comment: ApiComment, postId: string, fallbackAuthor?: CommentAuthor): PostComment {
+  const author = comment.author ?? comment.user ?? fallbackAuthor;
+
+  if (!author) {
+    throw new Error('Comment response is missing its author.');
+  }
+
+  const isLiked = locallyLikedCommentIds.has(comment.id);
+
+  return {
+    author,
+    content: comment.content,
+    createdAt: comment.createdAt,
+    id: comment.id,
+    isLiked,
+    likesCount: isLiked ? 1 : 0,
+    postId,
+  };
+}
 const MOCK_DELAY_MS = 350;
 
 function delay(ms: number): Promise<void> {
@@ -130,22 +169,12 @@ export const commentService = {
       return [...getMockCommentsForPost(postId)];
     }
 
-    try {
-      const response = await httpClient.requestJson<CommentsResponse>({
-        method: 'GET',
-        path: `posts/${postId}/comments`,
-      });
+    const response = await httpClient.requestJson<{ data: ApiComment[] }>({
+      method: 'GET',
+      path: `posts/${postId}/comments?page=1&limit=${COMMENTS_PAGE_SIZE}`,
+    });
 
-      return response.data;
-    } catch (error) {
-      // Fallback on 404 or network error
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        console.warn('⚠️ Comment endpoint not ready – using mock comments.');
-        return [...getMockCommentsForPost(postId)];
-      }
-
-      throw error;
-    }
+    return response.data.map((comment) => mapApiComment(comment, postId));
   },
 
   /**
@@ -175,36 +204,13 @@ export const commentService = {
       return newComment;
     }
 
-    try {
-      const response = await httpClient.requestJson<{ data: PostComment }, CreateCommentPayload>({
-        body: { content: content.trim() },
-        method: 'POST',
-        path: `posts/${postId}/comments`,
-      });
+    const response = await httpClient.requestJson<{ data: ApiComment }, CreateCommentPayload>({
+      body: { content: content.trim() },
+      method: 'POST',
+      path: `posts/${postId}/comments`,
+    });
 
-      return response.data;
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        console.warn('⚠️ POST comment endpoint not ready – fallback to mock success.');
-
-        const fallbackComment: PostComment = {
-          author,
-          content: content.trim(),
-          createdAt: new Date().toISOString(),
-          id: `cmt-${Date.now()}`,
-          isLiked: false,
-          likesCount: 0,
-          postId,
-        };
-
-        const existing = getMockCommentsForPost(postId);
-        mockCommentsStore.set(postId, [fallbackComment, ...existing]);
-
-        return fallbackComment;
-      }
-
-      throw error;
-    }
+    return mapApiComment(response.data, postId, author);
   },
 
   /**
@@ -219,21 +225,12 @@ export const commentService = {
       return !currentlyLiked;
     }
 
-    const method = currentlyLiked ? 'DELETE' : 'POST';
-
-    try {
-      await httpClient.requestVoid({
-        method,
-        path: `comments/${commentId}/like`,
-      });
-
-      return !currentlyLiked;
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        return !currentlyLiked;
-      }
-
-      throw error;
+    if (currentlyLiked) {
+      locallyLikedCommentIds.delete(commentId);
+    } else {
+      locallyLikedCommentIds.add(commentId);
     }
+
+    return !currentlyLiked;
   },
 } as const;

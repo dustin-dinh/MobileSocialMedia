@@ -12,6 +12,13 @@ export function getActivePaletteName(): PaletteName {
   return activePaletteName;
 }
 
+export const googleBrandColors = {
+  blue: '#4285F4',
+  green: '#34A853',
+  red: '#EA4335',
+  yellow: '#FBBC05',
+} as const;
+
 export const clayColors: ColorPalette = new Proxy({} as ColorPalette, {
   get(_target, prop: string | symbol) {
     if (typeof prop === 'string') {

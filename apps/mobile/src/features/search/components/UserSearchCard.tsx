@@ -128,9 +128,11 @@ export const UserSearchCard = memo(function UserSearchCard({
 
         <ClayText variant="meta" style={styles.username} numberOfLines={1}>
           @{user.username}
-          <ClayText variant="meta" style={styles.followersText}>
-            {' '}• {formatCount(user.followersCount)} followers
-          </ClayText>
+          {user.followersCount !== null ? (
+            <ClayText variant="meta" style={styles.followersText}>
+              {' '}• {formatCount(user.followersCount)} followers
+            </ClayText>
+          ) : null}
         </ClayText>
 
         {user.bio ? (

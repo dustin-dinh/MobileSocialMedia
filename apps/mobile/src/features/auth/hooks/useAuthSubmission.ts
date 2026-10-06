@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { ApiError } from '../../../services/apiError';
+import { GoogleSignInError } from '../services/googleSignIn';
 
 export type AuthSubmissionState = 'error' | 'idle' | 'submitting';
 export type AuthSubmissionTone = 'error' | 'info';
@@ -11,6 +12,14 @@ type SubmissionMessage = {
 };
 
 function getSubmissionMessage(error: unknown): SubmissionMessage {
+  if (error instanceof GoogleSignInError) {
+    if (error.code === 'play_services_unavailable') {
+      return { text: 'Google Play Services is unavailable on this device.', tone: 'error' };
+    }
+
+    return { text: error.message || 'Something went wrong. Please try again.', tone: 'error' };
+  }
+
   if (error instanceof ApiError) {
     switch (error.kind) {
       case 'configuration':
@@ -58,6 +67,14 @@ export function useAuthSubmission() {
       setSubmissionState('idle');
       return result;
     } catch (error) {
+      if (error instanceof GoogleSignInError) {
+        if (error.code === 'cancelled' || error.code === 'in_progress') {
+          setSubmissionState('idle');
+          setSubmissionMessage(null);
+          return undefined;
+        }
+      }
+
       setSubmissionMessage(getSubmissionMessage(error));
       setSubmissionState('error');
       return undefined;

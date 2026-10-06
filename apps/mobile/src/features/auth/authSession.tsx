@@ -1,9 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { USE_MOCK_API } from '../../config/runtime';
 import { ApiError } from '../../services/apiError';
+import { followApi } from '../../services/followApi';
+import { setUnauthorizedHandler } from '../../services/httpClient';
+import { notificationSocket } from '../notifications/services/notificationSocket';
 import { authService, type AuthUser } from './services/authService';
 import { authTokenStorage } from './services/authTokenStorage';
+import { googleSignIn } from './services/googleSignIn';
 import type { LoginFormValues, RegisterFormValues } from './validation';
 
 type AuthSession = {
@@ -26,6 +31,8 @@ type AuthSessionContextValue = {
   register: (values: RegisterFormValues) => Promise<AuthUser>;
   /** Sign in with email + password. Persists the token in SecureStore. */
   signIn: (values: LoginFormValues) => Promise<void>;
+  /** Sign in with Google idToken. Persists the token in SecureStore. */
+  signInWithGoogle: () => Promise<void>;
   /** Sign out: calls the API, clears storage and resets state. */
   signOut: () => Promise<void>;
   /** The authenticated user profile, or null when signed out. */
@@ -35,8 +42,8 @@ type AuthSessionContextValue = {
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 const SESSION_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
-// Set to true to bypass login and jump straight to MainTabNavigator for UI testing.
-export const BYPASS_AUTH_FOR_TESTING = true;
+// Mock mode bypasses login and jumps straight to MainTabNavigator for UI testing.
+export const BYPASS_AUTH_FOR_TESTING = USE_MOCK_API;
 
 const MOCK_TEST_USER: AuthUser = {
   avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&h=160&fit=crop&crop=face',
@@ -60,16 +67,47 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     setSession(null);
   }, []);
 
-  const signIn = useCallback(async (values: LoginFormValues) => {
-    const loginResult = await authService.login(values);
+  // An expired or rejected JWT sends the user back to Login instead of
+  // leaving every screen failing silently.
+  useEffect(() => {
+    if (BYPASS_AUTH_FOR_TESTING) {
+      return;
+    }
 
-    await authTokenStorage.save(loginResult.accessToken);
+    setUnauthorizedHandler(() => {
+      setSession(null);
+    });
+
+    return () => {
+      setUnauthorizedHandler(null);
+    };
+  }, []);
+
+  // Per-session resources: cached follow state and the realtime channel.
+  const sessionAccessToken = session?.accessToken ?? null;
+
+  useEffect(() => {
+    if (BYPASS_AUTH_FOR_TESTING || !sessionAccessToken) {
+      return;
+    }
+
+    followApi.clearCache();
+    notificationSocket.connect(sessionAccessToken);
+
+    return () => {
+      notificationSocket.disconnect();
+      followApi.clearCache();
+    };
+  }, [sessionAccessToken]);
+
+  const finishSignIn = useCallback(async (accessToken: string) => {
+    await authTokenStorage.save(accessToken);
 
     try {
-      const user = await authService.getCurrentUser(loginResult.accessToken);
+      const user = await authService.getCurrentUser(accessToken);
 
       setSession({
-        accessToken: loginResult.accessToken,
+        accessToken,
         user,
       });
     } catch (error) {
@@ -83,6 +121,20 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
       throw error;
     }
   }, []);
+
+  const signIn = useCallback(
+    async (values: LoginFormValues) => {
+      const loginResult = await authService.login(values);
+      await finishSignIn(loginResult.accessToken);
+    },
+    [finishSignIn],
+  );
+
+  const signInWithGoogle = useCallback(async () => {
+    const { idToken } = await googleSignIn.signIn();
+    const loginResult = await authService.loginWithGoogle(idToken);
+    await finishSignIn(loginResult.accessToken);
+  }, [finishSignIn]);
 
   const register = useCallback(async (values: RegisterFormValues): Promise<AuthUser> => {
     return authService.register(values);
@@ -99,6 +151,12 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
       if (!(error instanceof ApiError && error.kind === 'unauthorized')) {
         throw error;
       }
+    }
+
+    try {
+      await googleSignIn.signOut();
+    } catch {
+      // Best-effort cleanup, ignore error
     }
 
     await clearSession();
@@ -172,10 +230,11 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
       isBootstrapping,
       register,
       signIn,
+      signInWithGoogle,
       signOut,
       user: session?.user ?? null,
     }),
-    [isBootstrapping, register, session, signIn, signOut],
+    [isBootstrapping, register, session, signIn, signInWithGoogle, signOut],
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;

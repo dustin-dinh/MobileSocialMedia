@@ -17,6 +17,8 @@ import type { Post } from './types';
 type FeedEventMap = {
   commentAdded: { commentsCount: number; postId: string };
   postCreated: Post;
+  postDeleted: { postId: string };
+  postUpdated: Post;
 };
 
 type Listener<T> = (payload: T) => void;
@@ -58,4 +60,13 @@ function emit<K extends keyof FeedEventMap>(event: K, payload: FeedEventMap[K]):
   }
 }
 
-export const feedEvents = { emit, on } as const;
+export const feedEvents = {
+  emit,
+  emitCommentAdded: (postId: string, commentsCount: number) =>
+    emit('commentAdded', { commentsCount, postId }),
+  emitPostCreated: (post: Post) => emit('postCreated', post),
+  emitPostDeleted: (postId: string) => emit('postDeleted', { postId }),
+  emitPostUpdated: (post: Post) => emit('postUpdated', post),
+  on,
+} as const;
+

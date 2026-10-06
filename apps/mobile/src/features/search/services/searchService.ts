@@ -1,15 +1,19 @@
 /**
  * Search service — data-access layer for user search & follow/unfollow.
  *
- * Uses mock data while Dev B builds `GET /users/search?q=...` and
- * `POST /users/:id/follow` + `DELETE /users/:id/follow`.
- * Flip `USE_MOCK` to false once endpoints are available.
+ * Talks to `GET /users/search?q=...` and `POST|DELETE /users/:id/follow`.
+ * When `USE_MOCK_API` is on, it serves local mock users instead.
  */
-import { ApiError } from '../../../services/apiError';
+import { USE_MOCK_API } from '../../../config/runtime';
+import { followApi } from '../../../services/followApi';
 import { httpClient } from '../../../services/httpClient';
-import type { SearchedUser, SearchUsersResponse } from '../types';
+import type { SearchedUser } from '../types';
 
-const USE_MOCK = true;
+const USE_MOCK = USE_MOCK_API;
+
+const SEARCH_PAGE_SIZE = 20;
+
+type ApiSearchedUser = Pick<SearchedUser, 'avatarUrl' | 'displayName' | 'id' | 'username'>;
 const MOCK_DELAY_MS = 400;
 
 function delay(ms: number): Promise<void> {
@@ -108,23 +112,32 @@ export const searchService = {
       return filterMockUsers(query);
     }
 
-    try {
-      const response = await httpClient.requestJson<SearchUsersResponse>({
-        method: 'GET',
-        path: `users/search?q=${encodeURIComponent(query.trim())}`,
-      });
+    const trimmedQuery = query.trim();
 
-      return response.data;
-    } catch (error) {
-      // Fallback to mock on 404 / network error during development.
-      if (error instanceof ApiError && (error.status === 404 || error.kind === 'network')) {
-        console.warn('⚠️ Search endpoint unavailable – falling back to mock data.');
-
-        return filterMockUsers(query);
-      }
-
-      throw error;
+    // The API rejects an empty `q`, and it has no "suggested users" endpoint.
+    if (!trimmedQuery) {
+      return [];
     }
+
+    const [response, followingIds, currentUserId] = await Promise.all([
+      httpClient.requestJson<{ data: ApiSearchedUser[] }>({
+        method: 'GET',
+        path: `users/search?q=${encodeURIComponent(trimmedQuery)}&page=1&limit=${SEARCH_PAGE_SIZE}`,
+      }),
+      followApi.getMyFollowingIds(),
+      followApi.getCurrentUserId(),
+    ]);
+
+    // The search response carries neither bio, follower totals nor follow
+    // state; the follow state is derived from the signed-in user's own list.
+    return response.data
+      .filter((user) => user.id !== currentUserId)
+      .map((user) => ({
+        ...user,
+        bio: null,
+        followersCount: null,
+        isFollowing: followingIds.has(user.id),
+      }));
   },
 
   /**
@@ -142,12 +155,11 @@ export const searchService = {
       return !currentlyFollowing;
     }
 
-    const method = currentlyFollowing ? 'DELETE' : 'POST';
-
-    await httpClient.requestVoid({
-      method,
-      path: `users/${userId}/follow`,
-    });
+    if (currentlyFollowing) {
+      await followApi.unfollow(userId);
+    } else {
+      await followApi.follow(userId);
+    }
 
     return !currentlyFollowing;
   },

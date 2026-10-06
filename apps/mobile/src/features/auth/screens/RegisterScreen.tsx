@@ -2,10 +2,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 
+import { isGoogleSignInAvailable } from '../../../config/google';
 import type { AuthStackParamList } from '../../../navigation/types';
+import { useAuthSession } from '../authSession';
+import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
+import { GoogleButton } from '../components/GoogleButton';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
 import { authService } from '../services/authService';
@@ -30,7 +34,10 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const emailInputRef = useRef<TextInput | null>(null);
   const passwordInputRef = useRef<TextInput | null>(null);
   const confirmPasswordInputRef = useRef<TextInput | null>(null);
+  const { signInWithGoogle } = useAuthSession();
   const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
+
+  const showGoogle = isGoogleSignInAvailable();
 
   const updateField = (field: keyof RegisterFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -56,6 +63,11 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         });
       }
     });
+  };
+
+  const handleGoogleSignIn = () => {
+    reset();
+    void submit(() => signInWithGoogle());
   };
 
   return (
@@ -130,6 +142,16 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       />
       <FormMessage message={submissionMessage} tone={submissionTone} />
       <PrimaryButton isLoading={isSubmitting} label="Create account" onPress={handleSubmit} />
+      {showGoogle && (
+        <>
+          <AuthDivider />
+          <GoogleButton
+            disabled={isSubmitting}
+            isLoading={isSubmitting}
+            onPress={handleGoogleSignIn}
+          />
+        </>
+      )}
     </AuthScreenContainer>
   );
 }

@@ -13,6 +13,7 @@ import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -28,6 +29,12 @@ export class AuthController {
     @Post('login')
     login(@Body() dto: LoginDto) {
         return this.authService.login(dto);
+    }
+
+    @Post('google')
+    @HttpCode(HttpStatus.OK)
+    loginWithGoogle(@Body() dto: GoogleLoginDto) {
+        return this.authService.loginWithGoogle(dto);
     }
     @UseGuards(JwtAuthGuard)
     @Post("logout")

@@ -83,6 +83,41 @@ Success: `201 Created` (the current NestJS controller uses the framework default
 
 Errors: `400` invalid input; `401` invalid email or password.
 
+## Google Login
+
+- Method: `POST`
+- Path: `/auth/google`
+- Authentication: none
+
+Request body:
+
+~~~json
+{
+  "idToken": "Google-issued-id-token"
+}
+~~~
+
+Success: `200 OK`
+
+~~~json
+{
+  "data": {
+    "accessToken": "JWT",
+    "user": {
+      "id": "uuid",
+      "username": "capt_01",
+      "email": "capt@example.com",
+      "displayName": "Captain",
+      "bio": null,
+      "avatarUrl": "https://lh3.googleusercontent.com/..."
+    }
+  }
+}
+~~~
+
+Errors: `400` invalid input / missing idToken; `401` invalid Google token.
+
+
 ## Current user
 
 - Method: `GET`

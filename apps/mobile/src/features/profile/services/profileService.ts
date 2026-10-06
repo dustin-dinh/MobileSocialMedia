@@ -1,16 +1,25 @@
 /**
  * Profile service — data-access layer for user profiles and user posts.
  *
- * Uses mock data while the backend endpoints are being built by Dev B.
- * Flip `USE_MOCK` to false once `GET /users/:id/profile` and
- * `GET /users/:id/posts` are available.
+ * Talks to `GET /users/:id` and `GET /users/:id/posts`. When `USE_MOCK_API`
+ * is on, it builds a mock profile from the signed-in user instead.
  */
+import { USE_MOCK_API } from '../../../config/runtime';
+import { ApiError } from '../../../services/apiError';
+import { followApi } from '../../../services/followApi';
+import { httpClient } from '../../../services/httpClient';
 import type { AuthUser } from '../../auth/services/authService';
 import { MOCK_POSTS } from '../../feed/mockData';
+import { mapApiPostList, type ApiPostListResponse } from '../../feed/services/postMapper';
 import type { Post } from '../../feed/types';
 import type { UpdateProfilePayload, UserPostsResponse, UserProfile } from '../types';
 
-const USE_MOCK = true;
+const USE_MOCK = USE_MOCK_API;
+
+type ApiUserProfile = Pick<
+  UserProfile,
+  'avatarUrl' | 'bio' | 'displayName' | 'id' | 'postsCount' | 'username'
+>;
 const MOCK_DELAY_MS = 500;
 
 function delay(ms: number): Promise<void> {
@@ -63,10 +72,23 @@ export const profileService = {
       return buildMockProfile(user);
     }
 
-    // Future: httpClient.requestJson<{ data: UserProfile }>({ method: 'GET', path: 'users/me/profile' });
-    await delay(MOCK_DELAY_MS);
+    // The profile endpoint has no follower/following totals, so they are read
+    // from the follow list endpoints.
+    const [response, followersCount, followingCount] = await Promise.all([
+      httpClient.requestJson<{ data: ApiUserProfile }>({
+        method: 'GET',
+        path: `users/${user.id}`,
+      }),
+      followApi.getFollowersCount(user.id),
+      followApi.getFollowingCount(user.id),
+    ]);
 
-    return buildMockProfile(user);
+    return {
+      ...response.data,
+      followersCount,
+      followingCount,
+      isFollowing: false,
+    };
   },
 
   /**
@@ -90,15 +112,12 @@ export const profileService = {
       };
     }
 
-    // Future: httpClient.requestJson<UserPostsResponse>({ method: 'GET', path: `users/${userId}/posts?page=${page}&limit=${limit}` });
-    await delay(MOCK_DELAY_MS);
+    const response = await httpClient.requestJson<ApiPostListResponse>({
+      method: 'GET',
+      path: `users/${user.id}/posts?page=${page}&limit=${limit}`,
+    });
 
-    const allPosts = buildMockUserPosts(user);
-
-    return {
-      data: allPosts,
-      meta: { hasMore: false, page: 1, totalCount: allPosts.length },
-    };
+    return mapApiPostList(response);
   },
 
   /**
@@ -121,16 +140,12 @@ export const profileService = {
       return buildMockProfile(updated);
     }
 
-    // Future: httpClient.requestJson<{ data: UserProfile }>({ method: 'PATCH', path: 'users/me', body: payload });
-    await delay(800);
-
-    const updated: AuthUser = {
-      ...user,
-      displayName: payload.displayName ?? user.displayName,
-      bio: payload.bio ?? user.bio,
-      avatarUrl: payload.avatarUrl ?? user.avatarUrl,
-    };
-
-    return buildMockProfile(updated);
+    // The backend has no profile-update endpoint yet. Fail visibly rather
+    // than pretend the change was saved.
+    throw new ApiError({
+      kind: 'server',
+      message: 'Máy chủ chưa hỗ trợ cập nhật hồ sơ.',
+      status: 501,
+    });
   },
 } as const;

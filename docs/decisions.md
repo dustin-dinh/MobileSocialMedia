@@ -504,4 +504,91 @@ Following the initial Claymorphism restyle, three visual issues and potential pe
 - `docs/change.md`
 - `docs/decisions.md`
 
+## DEC-017 - One runtime switch between the live API and mock data
 
+Date: 2026-10-03
+
+Status: Accepted
+
+### Context
+
+Each Mobile service carried its own hard-coded `USE_MOCK = true` flag and the auth session had `BYPASS_AUTH_FOR_TESTING = true`. The backend on `main` now serves the Week 2-3 endpoints, but the Jest suite and the adb QA scripts depend on mock mode.
+
+### Decision
+
+`src/config/runtime.ts` exports `USE_MOCK_API`, read from `EXPO_PUBLIC_USE_MOCK`. It defaults to the live API. All service flags and `BYPASS_AUTH_FOR_TESTING` derive from it. `jest.config.js` forces mock mode unless `LIVE_API=1`. Live code paths no longer fall back to mock data when a request fails.
+
+### Consequences
+
+- Running the app needs a reachable backend and a real account; set `EXPO_PUBLIC_USE_MOCK=true` in `.env.local` (and restart Expo) to get the previous offline behaviour, e.g. for `scripts/qa/*.ps1`.
+- Features without a backend endpoint (bookmark, comment like) are session-local; edit profile reports an error.
+- `verify-ui.mjs` Rule H compares logic files with a pre-integration snapshot and will keep failing until that baseline is refreshed.
+
+### Related Files
+
+- `apps/mobile/src/config/runtime.ts`
+- `apps/mobile/src/features/*/services/*.ts`
+- `apps/mobile/src/features/auth/authSession.tsx`
+- `apps/mobile/jest.config.js`
+
+## DEC-018 - Register SearchModule before UsersModule in the API
+
+Date: 2026-10-03
+
+Status: Proposed (changed by Dev A's agent, pending Dev B review)
+
+### Context
+
+`SearchController` (`GET users/search`) and `UsersController` (`GET users/:id`) share the `users` prefix. With `UsersModule` imported first, Express matched `users/:id` for the path `users/search`, so search always answered `404 User not found`.
+
+### Decision
+
+Import `SearchModule` ahead of `UsersModule` in `apps/api/src/app.module.ts`. No route, DTO, schema or response shape changed.
+
+### Consequences
+
+- `GET /api/users/search?q=...` returns results; `GET /api/users/:id` is unaffected.
+- Module import order is now significant for these two modules. Moving the search handler into `UsersController` above `:id` would remove that dependency; left for Dev B to decide.
+
+### Related Files
+
+- `apps/api/src/app.module.ts`
+
+## DEC-019 - Google Sign-In via Native Dev Client, Schema Nullable PasswordHash, and Account Linking Policy
+
+Date: 2026-10-06
+
+Status: Accepted
+
+### Context
+
+To support Google Sign-In with standard mobile user experience, the mobile application authenticates via Google ID token verified on the NestJS backend.
+Native Google Sign-In requires native code from `@react-native-google-signin/google-signin`, which cannot run inside vanilla Expo Go.
+Additionally, Google-authenticated accounts do not possess a password upon creation, and email registration currently does not verify email ownership.
+
+### Decision
+
+1. **Development Build (expo-dev-client)**: Transition the development runtime from Expo Go to an Expo development build (expo-dev-client) on Android/BlueStacks with Google Play Services. Native Google Sign-In is isolated behind a lazy-loaded service wrapper (googleSignIn.ts) so mock test runs and Jest continue to pass without native bridge crashes.
+2. **Database Schema**: Make User.passwordHash nullable in Prisma and add googleId String? @unique. Traditional password login strictly checks for non-null passwordHash before crypt.compare, preventing null dereference and rejecting blank password logins.
+3. **Account Linking Policy (D2)**: When a Google account email matches an existing local user with email_verified = true, link googleId and set passwordHash = null. This eliminates pre-hijacking attacks where an attacker pre-registers an unverified email to intercept a future Google sign-in. The legitimate user logs in via Google and can re-establish a password via Forgot Password.
+
+### Consequences
+
+- POST /api/auth/google accepts { idToken } and returns { data: { accessToken, user } }.
+- Running on device/emulator requires a development build (
+px expo run:android or EAS build) with configured GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.
+- Mock mode (EXPO_PUBLIC_USE_MOCK=true) hides the Google button and bypasses authentication seamlessly.
+
+### Related Files
+
+- `apps/api/prisma/schema.prisma`
+- `apps/api/prisma/migrations/20261006111500_add_google_login/migration.sql`
+- `apps/api/src/modules/auth/google-verifier.service.ts`
+- `apps/api/src/modules/auth/auth.service.ts`
+- `apps/api/src/modules/auth/auth.controller.ts`
+- `apps/mobile/src/features/auth/services/googleSignIn.ts`
+- `apps/mobile/src/features/auth/components/GoogleButton.tsx`
+- `apps/mobile/src/features/auth/screens/LoginScreen.tsx`
+- `apps/mobile/src/features/auth/screens/RegisterScreen.tsx`
+- `docs/api-contract.md`
+- `docs/decisions.md`

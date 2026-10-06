@@ -1011,3 +1011,285 @@ Prepare a proposal document for a Reel module and its recommendation system (pla
 
 - `docs/reel/Reel_Module_Proposal.pdf`
 - `docs/change.md`
+
+## 2026-10-03 19:10 +07:00 - Dev A / Claude Code
+
+### Task
+
+Connect the Mobile app to the live NestJS API from `main` (Week 2-3 endpoints + realtime notifications) and verify every integrated feature against a running backend.
+
+### Changed
+
+1. **Live/mock switch.** Added `src/config/runtime.ts` (`USE_MOCK_API`, driven by `EXPO_PUBLIC_USE_MOCK`). The app now uses the live API by default; every per-service `USE_MOCK*` flag and `BYPASS_AUTH_FOR_TESTING` read this one switch. Jest sets it to `true` in `jest.config.js`, so the unit suite still runs offline on mock data.
+2. **HTTP client.** Added `requestForm` (multipart upload, 30s timeout) and `setUnauthorizedHandler`; a 401 now signs the user out to Login instead of leaving screens failing. Removed the request-header log line because it printed the JWT.
+3. **Services mapped to the real response shapes** (no more silent fallback to mock data on 404/network errors):
+   - Feed / user posts: `likeCount` -> `likesCount`, lower-case media `type`, nullable `content`, `meta.totalPages` -> `hasMore` (`feed/services/postMapper.ts`).
+   - Create Post: `POST /posts` as multipart with repeated `images` field; server error message shown in the alert.
+   - Comments: `GET|POST /posts/:id/comments` (create returns the writer as `user`, list as `author`).
+   - Search / follow: `GET /users/search`, `POST|DELETE /users/:id/follow`; `isFollowing` derived from the signed-in user's following list (`services/followApi.ts`), self filtered out, empty query returns no rows.
+   - Notifications: `GET /notifications`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`; `readAt` -> `isRead`, follow-back state derived from the following list.
+   - Profile: `GET /users/:id`, `GET /users/:id/posts`, follower/following totals from the follow list `meta.total`.
+4. **Realtime.** Added `socket.io-client` and `notifications/services/notificationSocket.ts`; the auth session connects after login and disconnects on logout, and the Notifications screen reloads on `notification:new` and on reconnect.
+5. **UI adjustments required by the real data:** follower count hidden in search cards when unknown, search shows a prompt instead of "no results" for an empty query, Edit Profile shows the error instead of failing silently.
+6. **Backend (one change, needs Dev B review):** `apps/api/src/app.module.ts` now imports `SearchModule` before `UsersModule`. Before this, `GET /api/users/search` was captured by `GET /api/users/:id` and always returned `404 User not found`.
+7. **Live test suite.** Added `__tests__/live/liveApi.test.ts` (18 tests driving the real Mobile services with two throwaway accounts) and `__tests__/live/nodeFetch.ts`. Skipped unless `LIVE_API=1`.
+
+### Not available on the backend (Mobile behaviour)
+
+- Bookmark/save and comment-like: no endpoint. Kept in memory for the current app session only.
+- Edit profile (`PATCH /users/me`): no endpoint. The modal shows "Máy chủ chưa hỗ trợ cập nhật hồ sơ."
+- Forgot password / verify code: no endpoint. `passwordResetService` is unchanged and still uses its own mock flag.
+- Delete/edit post, reply UI, post previews inside notifications, suggested users: not present on one side or the other; unchanged.
+
+### Validation
+
+- `tsc --noEmit`: pass.
+- `jest` (mock mode): 79/79 pass. `verifyCode.test.tsx` timed out once on a cold cache (`--no-cache`) and passed on every warm run; that file was not modified.
+- `LIVE_API=1 jest __tests__/live` against a local backend on port 3100 and the shared dev database: 18/18 pass (auth, create text post, feed, follow/unfollow, search, like, comment, profile totals, notifications incl. mark read, realtime `notification:new`, logout).
+- `expo export --platform android`: bundle builds.
+- `node scripts/verify-ui.mjs`: Rules A-G and I-M pass. Rule H fails by design: it compares logic files with the `C:/tmp/ui-baseline` snapshot from the UI restyle, and it was already failing before this change (`navigation/types.ts`, `auth/validation.ts`).
+- Not verified: image upload (local backend ran with a placeholder `SUPABASE_SERVICE_ROLE_KEY`), and on-device behaviour (no emulator was running).
+- The live runs created test accounts named `qa_int_*` and `qa_live_*` with a few posts/comments in the shared dev database.
+
+### Files
+
+- `apps/mobile/src/config/runtime.ts`
+- `apps/mobile/src/services/httpClient.ts`
+- `apps/mobile/src/services/followApi.ts`
+- `apps/mobile/src/features/auth/authSession.tsx`
+- `apps/mobile/src/features/feed/services/feedService.ts`
+- `apps/mobile/src/features/feed/services/postMapper.ts`
+- `apps/mobile/src/features/post/services/postService.ts`
+- `apps/mobile/src/features/post/hooks/useImagePicker.ts`
+- `apps/mobile/src/features/post/screens/CreateScreen.tsx`
+- `apps/mobile/src/features/comment/services/commentService.ts`
+- `apps/mobile/src/features/search/services/searchService.ts`
+- `apps/mobile/src/features/search/types.ts`
+- `apps/mobile/src/features/search/screens/SearchScreen.tsx`
+- `apps/mobile/src/features/search/components/UserSearchCard.tsx`
+- `apps/mobile/src/features/search/components/SearchEmptyState.tsx`
+- `apps/mobile/src/features/notifications/services/notificationService.ts`
+- `apps/mobile/src/features/notifications/services/notificationSocket.ts`
+- `apps/mobile/src/features/notifications/screens/NotificationsScreen.tsx`
+- `apps/mobile/src/features/profile/services/profileService.ts`
+- `apps/mobile/src/features/profile/components/EditProfileModal.tsx`
+- `apps/mobile/__tests__/live/liveApi.test.ts`
+- `apps/mobile/__tests__/live/nodeFetch.ts`
+- `apps/mobile/jest.config.js`
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/api/src/app.module.ts`
+- `docs/change.md`
+- `docs/decisions.md`
+
+## 2026-10-03 19:50 +07:00 - Dev A / Claude Code
+
+### Task
+
+Fix the LogBox warning "Modal with 'pageSheet' presentation style and 'transparent' value is not supported."
+
+### Changed
+
+- `EditProfileModal` passed both `presentationStyle="pageSheet"` and `transparent` to `Modal`. React Native only supports `transparent` with `overFullScreen`. The modal is built as a bottom sheet over its own translucent backdrop, so `transparent` is the intended behaviour; removed `presentationStyle`, which lets React Native default to `overFullScreen` (same as `CommentModal`).
+
+### Validation
+
+- `tsc --noEmit` pass; `jest` 79/79 pass; no `presentationStyle` prop remains in `src/`.
+- Not re-checked on a device.
+
+### Files
+
+- `apps/mobile/src/features/profile/components/EditProfileModal.tsx`
+- `docs/change.md`
+
+## 2026-10-03 20:25 +07:00 - Dev A / Claude Code
+
+### Task
+
+Fix "Unable to reach the server" when creating a post with an image.
+
+### Changed
+
+- Root cause (from the Metro log): `Error: Unsupported FormDataPart implementation`. Expo SDK 57 `fetch` does not accept React Native's legacy `{ uri, name, type }` file descriptor, so the request failed while its body was being built and never left the device; the HTTP client reported it as a network error.
+- `postService` now builds each image part as `{ name, type, bytes() }`, reading the file through `File` from `expo-file-system` (the shape Expo's multipart encoder supports). Added `expo-file-system` (~57.0.7, already bundled with Expo) as a declared dependency.
+- Default extension for images with an unknown file name is now `.jpg`.
+- Added `__tests__/postUpload.test.ts`: runs the part through Expo's own `convertFormDataAsync`, and pins that the legacy descriptor is what it rejects.
+
+### Validation
+
+- `tsc --noEmit` pass; `jest` 82/82 pass.
+- Backend restarted with the real `SUPABASE_*` values from `apps/api/.env`: a multipart `POST /api/posts` with a PNG returned 201 and the public URL served the identical bytes (test account `qa_upload_*`).
+- Not yet confirmed on a device: reading the picked image with `File.bytes()` inside Expo Go.
+
+### Files
+
+- `apps/mobile/src/features/post/services/postService.ts`
+- `apps/mobile/__tests__/postUpload.test.ts`
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-06 - Reel final spec and plan
+
+### Task
+
+Merge `Reel_Module_Proposal.pdf` and the 4-week video/recommendation roadmap into one final spec and workflow plan, checked against the current code.
+
+### Changed
+
+- Added `docs/reel/REEL_FINAL_SPEC_AND_PLAN.md` (documentation only; no code, schema or API changed). All APIs/tables in it are proposals pending Dev B review.
+
+### Files
+
+- `docs/reel/REEL_FINAL_SPEC_AND_PLAN.md`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-06 - Google login plan
+
+### Task
+
+Plan Google Sign-In (mobile + backend) against the current auth code.
+
+### Changed
+
+- Added `docs/google-login/GOOGLE_LOGIN_PLAN.md` (documentation only; no code, schema or API changed). The endpoint and schema changes in it are proposals.
+
+### Files
+
+- `docs/google-login/GOOGLE_LOGIN_PLAN.md`
+- `docs/change.md`
+
+---
+
+## 2026-10-06 - Google Sign-In implementation (Backend + Mobile)
+
+### Task
+
+Implement "Sign in with Google" across backend (`apps/api`) and mobile (`apps/mobile`) according to the approved specification `docs/google-login/GOOGLE_LOGIN_PLAN.md` and decisions D1–D6.
+
+### Changed
+
+- **Backend (`apps/api`)**:
+  - Added dependency `google-auth-library`.
+  - Added `GOOGLE_WEB_CLIENT_ID=` to `apps/api/.env.example`.
+  - Updated Prisma schema: `passwordHash String?`, `googleId String? @unique`.
+  - Created and deployed migration `20261006111500_add_google_login`, ran `prisma generate`.
+  - `users.service.ts`: Added `findByGoogleId(googleId)` and `linkGoogle(userId, googleId)` (sets `googleId` and `passwordHash = null` per D2). Made `passwordHash`, `googleId`, `displayName`, `avatarUrl` optional in `create`.
+  - Added `google-login.dto.ts` with `idToken` validation.
+  - Added `google-verifier.service.ts` verifying ID token via `OAuth2Client` and `GOOGLE_WEB_CLIENT_ID`.
+  - `auth.service.ts`: Implemented `loginWithGoogle` with token verification, email linking (D2), new user provisioning with username sanitization and collision retry (D3-D5), and safe null guard in `login` preventing `bcrypt.compare` crash (D6).
+  - Added `POST /api/auth/google` endpoint in `auth.controller.ts` and registered `GoogleVerifierService` in `auth.module.ts`.
+  - Documented endpoint in `docs/api-contract.md`.
+
+- **Mobile (`apps/mobile`)**:
+  - Installed `expo-dev-client` and `@react-native-google-signin/google-signin`.
+  - Updated `app.json`: added `"scheme": "mobilesocial"`, `"android.package": "com.mobilesocial.app"`, and `@react-native-google-signin/google-signin` plugin.
+  - Added `src/config/google.ts` with `getGoogleWebClientId` and `isGoogleSignInAvailable()`.
+  - Added official Google 4-color palette tokens to `src/theme/colors.ts` (`googleBrandColors`) adhering to Rule A.
+  - Added `src/features/auth/services/googleSignIn.ts` using lazy-required native module with `GoogleSignInError` normalization.
+  - Updated `authService.ts`: Added `loginWithGoogle` and extracted `extractValidAccessToken`.
+  - Updated `authSession.tsx`: Added `signInWithGoogle`, factored out `finishSignIn`, and added best-effort `googleSignIn.signOut()`.
+  - Updated `useAuthSubmission.ts`: Handled `GoogleSignInError` ('cancelled' resets silently, 'play_services_unavailable' alerts user).
+  - Created `GoogleLogo.tsx` (official 20x20 SVG), `GoogleButton.tsx` (`ClayButton variant="secondary"`, minHeight 52, 100% width), and `AuthDivider.tsx`.
+  - Updated `LoginScreen.tsx` & `RegisterScreen.tsx`: Render `AuthDivider` + `GoogleButton` directly below PrimaryButton when `isGoogleSignInAvailable()` is true.
+  - Added architectural record `DEC-019` in `docs/decisions.md`.
+
+### Validation
+
+- Backend: `corepack pnpm exec tsc --noEmit` passed with 0 errors; `prisma validate` passed.
+- Mobile: `corepack pnpm exec tsc --noEmit` passed with 0 errors.
+- Mobile: `corepack pnpm exec jest` passed 9/9 suites, 82/82 tests.
+- Mobile: `node scripts/verify-ui.mjs` passed Rules A–G and I–M (Rule H is expected baseline failure per DEC-017).
+
+### Files
+
+- `apps/api/package.json`
+- `apps/api/pnpm-lock.yaml`
+- `apps/api/.env.example`
+- `apps/api/prisma/schema.prisma`
+- `apps/api/prisma/migrations/20261006111500_add_google_login/migration.sql`
+- `apps/api/src/modules/users/users.service.ts`
+- `apps/api/src/modules/auth/dto/google-login.dto.ts`
+- `apps/api/src/modules/auth/google-verifier.service.ts`
+- `apps/api/src/modules/auth/auth.service.ts`
+- `apps/api/src/modules/auth/auth.controller.ts`
+- `apps/api/src/modules/auth/auth.module.ts`
+- `apps/mobile/package.json`
+- `apps/mobile/pnpm-lock.yaml`
+- `apps/mobile/app.json`
+- `apps/mobile/src/theme/colors.ts`
+- `apps/mobile/src/config/google.ts`
+- `apps/mobile/src/features/auth/services/googleSignIn.ts`
+- `apps/mobile/src/features/auth/services/authService.ts`
+- `apps/mobile/src/features/auth/authSession.tsx`
+- `apps/mobile/src/features/auth/hooks/useAuthSubmission.ts`
+- `apps/mobile/src/features/auth/components/GoogleLogo.tsx`
+- `apps/mobile/src/features/auth/components/GoogleButton.tsx`
+- `apps/mobile/src/features/auth/components/AuthDivider.tsx`
+- `apps/mobile/src/features/auth/screens/LoginScreen.tsx`
+- `apps/mobile/src/features/auth/screens/RegisterScreen.tsx`
+- `docs/api-contract.md`
+- `docs/decisions.md`
+- `docs/change.md`
+
+---
+
+## 2026-10-06 - Post Features UI (5 features: More Options, Share, Privacy, Edit, Delete)
+
+### Task
+
+Build UI for 5 post management features in `apps/mobile` (Luân - Dev A):
+1. More options modal (`PostOptionsModal.tsx`): Author actions (edit, change privacy, delete) vs viewer actions (share, bookmark, hide, report).
+2. Share post bottom sheet (`SharePostModal.tsx`): Preview card, copy link, repost to feed, direct message, system share.
+3. Post privacy selector (`PostPrivacyModal.tsx` & `PrivacyPill`): PUBLIC, FRIENDS, ONLY_ME options, integrated into creation and post cards.
+4. Edit post modal (`EditPostModal.tsx`): Header with save action, author info with privacy pill, multiline text input (max 500 chars), existing media preview, real-time feed event emission.
+5. Delete post confirmation dialog (`DeletePostModal.tsx`): Custom Clay confirmation dialog with error badge, destructive button, real-time feed removal.
+
+### Changed
+
+- **UI Components (`apps/mobile/src/features/post/components/`)**:
+  - `PostPrivacyModal.tsx`: Bottom sheet modal with options (Public, Friends, Only me) and reusable `PrivacyPill` component.
+  - `PostOptionsModal.tsx`: Bottom sheet action menu conditionally showing author vs non-author actions.
+  - `SharePostModal.tsx`: Share bottom sheet with post preview, copy link feedback, repost, and system share.
+  - `EditPostModal.tsx`: Modal for editing post content and privacy with character counter and validation.
+  - `DeletePostModal.tsx`: Centered Clay confirmation dialog with warning icon and destructive action.
+- **Icon Registry (`apps/mobile/src/components/icons/ClayIcon.tsx`)**:
+  - Added Phosphor icons: `PencilSimple`, `Trash`, `GlobeSimple`, `Users`, `LockKey`, `LinkSimple`, `Export`, `Flag`, `EyeSlash`, `Repeat`, `WarningCircle`, `Camera`.
+- **Feed & Post Domain**:
+  - `apps/mobile/src/features/feed/types.ts`: Added `PostPrivacy` type and `privacy?: PostPrivacy` to `Post`.
+  - `apps/mobile/src/features/feed/feedEvents.ts`: Added `postDeleted` and `postUpdated` events and helper emitter methods.
+  - `apps/mobile/src/features/post/services/postService.ts`: Added `updatePost`, `deletePost`, and `updatePrivacy` (supporting offline mock and live API).
+  - `apps/mobile/src/features/feed/components/PostCard.tsx`: Connected three-dots button to `PostOptionsModal`, share button to `SharePostModal`, added privacy badge in header meta, and rendered all modals.
+  - `apps/mobile/src/features/post/screens/CreateScreen.tsx`: Added `PrivacyPill` and `PostPrivacyModal` to allow privacy selection upon post creation.
+  - `apps/mobile/src/features/feed/screens/HomeScreen.tsx` & `ProfileScreen.tsx`: Subscribed to `postDeleted` and `postUpdated` for instant feed updates.
+
+### Validation
+
+- `corepack pnpm --filter @mobile-social/mobile exec tsc --noEmit`: PASS (0 errors).
+- `node scripts/verify-ui.mjs`: PASS (Rules A–G, I–M).
+- `corepack pnpm --filter @mobile-social/mobile exec jest`: PASS (9/9 suites, 82 passed tests).
+
+### Files
+
+- `apps/mobile/src/components/icons/ClayIcon.tsx`
+- `apps/mobile/src/features/feed/types.ts`
+- `apps/mobile/src/features/feed/feedEvents.ts`
+- `apps/mobile/src/features/post/services/postService.ts`
+- `apps/mobile/src/features/post/components/PostPrivacyModal.tsx`
+- `apps/mobile/src/features/post/components/PostOptionsModal.tsx`
+- `apps/mobile/src/features/post/components/SharePostModal.tsx`
+- `apps/mobile/src/features/post/components/EditPostModal.tsx`
+- `apps/mobile/src/features/post/components/DeletePostModal.tsx`
+- `apps/mobile/src/features/feed/components/PostCard.tsx`
+- `apps/mobile/src/features/post/screens/CreateScreen.tsx`
+- `apps/mobile/src/features/feed/screens/HomeScreen.tsx`
+- `apps/mobile/src/features/profile/screens/ProfileScreen.tsx`
+- `docs/change.md`
+
+

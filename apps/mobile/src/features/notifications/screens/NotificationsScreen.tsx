@@ -15,6 +15,7 @@ import { NotificationItem } from '../components/NotificationItem';
 import { NotificationSkeleton } from '../components/NotificationSkeleton';
 import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import { notificationService } from '../services/notificationService';
+import { notificationSocket } from '../services/notificationSocket';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AppNotification } from '../types';
 
@@ -45,6 +46,9 @@ export function NotificationsScreen() {
   useEffect(() => {
     void loadNotifications();
   }, [loadNotifications]);
+
+  // Reload when the realtime channel reports a new notification.
+  useEffect(() => notificationSocket.subscribe(() => void loadNotifications()), [loadNotifications]);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
