@@ -71,6 +71,7 @@ export class PostsService {
                 data: {
                     authorId: userId,
                     content: content || null,
+                    privacy: dto.privacy ?? 'PUBLIC',
 
                     media: {
                         create: uploadedFiles.map((file) => ({
@@ -130,6 +131,34 @@ export class PostsService {
             where: {
                 id: postId,
                 deletedAt: null,
+                OR: [
+                    // Công khai: người dùng đăng nhập đều xem được.
+                    {
+                        privacy: 'PUBLIC',
+                    },
+
+                    // Tác giả luôn xem được bài của chính mình.
+                    {
+                        authorId: userId,
+                    },
+
+                    // FRIENDS: phải follow tác giả và tác giả cũng follow lại.
+                    {
+                        privacy: 'FRIENDS',
+                        author: {
+                            followers: {
+                                some: {
+                                    followerId: userId,
+                                },
+                            },
+                            following: {
+                                some: {
+                                    followingId: userId,
+                                },
+                            },
+                        },
+                    },
+                ],
             },
             select: {
                 id: true,
@@ -246,16 +275,20 @@ export class PostsService {
             this.prisma.post.findMany({
                 where: {
                     deletedAt: null,
-
                     OR: [
+                        { privacy: 'PUBLIC' },
+                        { authorId: userId },
                         {
-                            authorId: userId,
-                        },
-                        {
+                            privacy: 'FRIENDS',
                             author: {
                                 followers: {
                                     some: {
                                         followerId: userId,
+                                    },
+                                },
+                                following: {
+                                    some: {
+                                        followingId: userId,
                                     },
                                 },
                             },
@@ -537,7 +570,12 @@ export class PostsService {
                         authorId: userId,
                         deletedAt: null,
                     },
-                    data: { content },
+                    data: {
+                        content,
+                        ...(dto.privacy !== undefined
+                            ? { privacy: dto.privacy }
+                            : {}),
+                    },
                 });
 
                 if (result.count !== 1) {

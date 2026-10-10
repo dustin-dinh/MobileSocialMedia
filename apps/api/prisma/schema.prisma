@@ -41,6 +41,8 @@ model Post {
   notifications Notification[]
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   media         PostMedia[]
+  privacy PostPrivacy @default(PUBLIC)
+
 
   @@index([authorId, createdAt])
 }
@@ -136,3 +138,10 @@ model AuthToken {
   @@index([userId, purpose])
   @@index([expiresAt])
 }
+
+enum PostPrivacy {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+

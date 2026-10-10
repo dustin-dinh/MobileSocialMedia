@@ -1,9 +1,11 @@
-
 import {
+    IsEnum,
     IsOptional,
     IsString,
     MaxLength,
 } from 'class-validator';
+
+import { PostPrivacy } from '../../../generated/prisma/client';
 
 export class UpdatePostDto {
     @IsOptional()
@@ -11,8 +13,11 @@ export class UpdatePostDto {
     @MaxLength(500)
     content?: string;
 
-    // JSON string, ví dụ: ["media_id_1", "media_id_2"]
-    // Chỉ dùng để chỉ định các ảnh cũ cần giữ lại.
-    // Không gửi trường này nghĩa là giữ tất cả ảnh cũ.
+    @IsOptional()
+    @IsEnum(PostPrivacy)
+    privacy?: PostPrivacy;
+
+    @IsOptional()
+    @IsString()
     keepMediaIds?: string;
 }
