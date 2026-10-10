@@ -5,6 +5,7 @@ import {
     HttpStatus,
     Injectable,
     NotFoundException,
+    ConflictException,
 } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -263,127 +264,271 @@ export class PostsService {
             }
         }
     }
-    async getFeed(
-        userId: string,
-        query: FeedQueryDto,
-    ) {
+
+
+    async getFeed(userId: string, query: FeedQueryDto) {
         const page = query.page;
         const limit = query.limit;
         const skip = (page - 1) * limit;
+        const fetchCount = skip + limit;
 
-        const [posts, total] = await Promise.all([
-            this.prisma.post.findMany({
-                where: {
-                    deletedAt: null,
-                    OR: [
-                        { privacy: 'PUBLIC' },
-                        { authorId: userId },
-                        {
-                            privacy: 'FRIENDS',
-                            author: {
-                                followers: {
-                                    some: {
-                                        followerId: userId,
-                                    },
-                                },
-                                following: {
-                                    some: {
-                                        followingId: userId,
-                                    },
-                                },
-                            },
-                        },
-                    ],
-                },
-
-                orderBy: {
-                    createdAt: 'desc',
-                },
-
-                skip,
-                take: limit,
-
-                select: {
-                    id: true,
-                    content: true,
-                    createdAt: true,
-                    updatedAt: true,
-
+        // Quyền xem bài viết thông thường.
+        const postAccessWhere = {
+            deletedAt: null,
+            OR: [
+                { privacy: 'PUBLIC' as const },
+                { authorId: userId },
+                {
+                    privacy: 'FRIENDS' as const,
                     author: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
+                        followers: {
+                            some: { followerId: userId },
+                        },
+                        following: {
+                            some: { followingId: userId },
                         },
                     },
-
-                    media: {
-                        orderBy: {
-                            order: 'asc',
-                        },
-
-                        select: {
-                            id: true,
-                            url: true,
-                            type: true,
-                            order: true,
-                        },
-                    },
-
-                    _count: {
-                        select: {
-                            likes: true,
-                            comments: true,
-                        },
-                    }
                 },
-            }),
+            ],
+        };
 
-            this.prisma.post.count({
-                where: {
-                    deletedAt: null,
-
-                    OR: [
-                        {
-                            authorId: userId,
+        // Hiển thị repost của chính mình và người mình đang follow.
+        // User A follow B => Follow có followerId=A, followingId=B.
+        const repostWhere = {
+            OR: [
+                { userId },
+                {
+                    user: {
+                        followers: {
+                            some: { followerId: userId },
                         },
-                        {
-                            author: {
-                                followers: {
-                                    some: {
-                                        followerId: userId,
+                    },
+                },
+            ],
+        };
+
+        const [posts, totalPosts, reposts, totalReposts] =
+            await Promise.all([
+                this.prisma.post.findMany({
+                    where: postAccessWhere,
+                    orderBy: [
+                        { createdAt: 'desc' },
+                        { id: 'desc' },
+                    ],
+                    take: fetchCount,
+                    select: {
+                        id: true,
+                        content: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        author: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                                avatarUrl: true,
+                            },
+                        },
+                        media: {
+                            orderBy: { order: 'asc' },
+                            select: {
+                                id: true,
+                                url: true,
+                                type: true,
+                                order: true,
+                            },
+                        },
+                        _count: {
+                            select: {
+                                likes: true,
+                                comments: true,
+                            },
+                        },
+                    },
+                }),
+
+                this.prisma.post.count({
+                    where: postAccessWhere,
+                }),
+
+                this.prisma.repost.findMany({
+                    where: repostWhere,
+                    orderBy: [
+                        { createdAt: 'desc' },
+                        { id: 'desc' },
+                    ],
+                    take: fetchCount,
+                    select: {
+                        id: true,
+                        userId: true,
+                        postId: true,
+                        createdAt: true,
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                                avatarUrl: true,
+                            },
+                        },
+                        post: {
+                            select: {
+                                id: true,
+                                authorId: true,
+                                content: true,
+                                createdAt: true,
+                                updatedAt: true,
+                                deletedAt: true,
+                                privacy: true,
+                                author: {
+                                    select: {
+                                        id: true,
+                                        username: true,
+                                        displayName: true,
+                                        avatarUrl: true,
+                                    },
+                                },
+                                media: {
+                                    orderBy: { order: 'asc' },
+                                    select: {
+                                        id: true,
+                                        url: true,
+                                        type: true,
+                                        order: true,
+                                    },
+                                },
+                                _count: {
+                                    select: {
+                                        likes: true,
+                                        comments: true,
                                     },
                                 },
                             },
                         },
+                    },
+                }),
+
+                this.prisma.repost.count({
+                    where: repostWhere,
+                }),
+            ]);
+
+        // Chỉ kiểm tra quyền cho các bài gốc FRIENDS chưa bị xóa.
+        const friendsAuthorIds = [
+            ...new Set(
+                reposts
+                    .filter(
+                        (repost) =>
+                            !repost.post.deletedAt &&
+                            repost.post.privacy === 'FRIENDS' &&
+                            repost.post.authorId !== userId,
+                    )
+                    .map((repost) => repost.post.authorId),
+            ),
+        ];
+
+        // Lấy các quan hệ follow giữa viewer và những tác giả này.
+        // Không cần truy vấn riêng cho từng repost.
+        const followRelations = friendsAuthorIds.length
+            ? await this.prisma.follow.findMany({
+                where: {
+                    OR: [
+                        {
+                            followerId: userId,
+                            followingId: { in: friendsAuthorIds },
+                        },
+                        {
+                            followerId: { in: friendsAuthorIds },
+                            followingId: userId,
+                        },
                     ],
                 },
-            }),
-        ]);
-
-        // Lấy những post mà current user đã like
-        const likedPosts = await this.prisma.like.findMany({
-            where: {
-                userId,
-                postId: {
-                    in: posts.map((post) => post.id),
+                select: {
+                    followerId: true,
+                    followingId: true,
                 },
-            },
-            select: {
-                postId: true,
-            },
-        });
+            })
+            : [];
+
+        const viewerFollows = new Set<string>();
+        const authorsFollowViewer = new Set<string>();
+
+        for (const relation of followRelations) {
+            if (relation.followerId === userId) {
+                viewerFollows.add(relation.followingId);
+            }
+
+            if (relation.followingId === userId) {
+                authorsFollowViewer.add(relation.followerId);
+            }
+        }
+
+        const mutualFollowAuthorIds = new Set(
+            friendsAuthorIds.filter(
+                (authorId) =>
+                    viewerFollows.has(authorId) &&
+                    authorsFollowViewer.has(authorId),
+            ),
+        );
+
+        // Tập ID các bài gốc mà viewer thực sự được xem.
+        const visibleOriginalIds = new Set<string>();
+
+        for (const repost of reposts) {
+            const original = repost.post;
+
+            if (original.deletedAt) {
+                continue;
+            }
+
+            if (
+                original.privacy === 'PUBLIC' ||
+                original.authorId === userId
+            ) {
+                visibleOriginalIds.add(original.id);
+                continue;
+            }
+
+            if (
+                original.privacy === 'FRIENDS' &&
+                mutualFollowAuthorIds.has(original.authorId)
+            ) {
+                visibleOriginalIds.add(original.id);
+            }
+
+            // PRIVATE của người khác không được hiển thị.
+        }
+
+        const visiblePostIds = [
+            ...posts.map((post) => post.id),
+            ...reposts
+                .filter((repost) =>
+                    visibleOriginalIds.has(repost.post.id),
+                )
+                .map((repost) => repost.post.id),
+        ];
+
+        const likedPosts = visiblePostIds.length
+            ? await this.prisma.like.findMany({
+                where: {
+                    userId,
+                    postId: {
+                        in: [...new Set(visiblePostIds)],
+                    },
+                },
+                select: { postId: true },
+            })
+            : [];
 
         const likedPostIds = new Set(
             likedPosts.map((like) => like.postId),
         );
 
-        // Chuẩn hóa response
-        const data = posts.map((post) => ({
+        const postItems = posts.map((post) => ({
+            type: 'POST' as const,
             id: post.id,
-            content: post.content,
             createdAt: post.createdAt,
+            content: post.content,
             updatedAt: post.updatedAt,
             author: post.author,
             media: post.media,
@@ -391,6 +536,52 @@ export class PostsService {
             isLiked: likedPostIds.has(post.id),
             commentsCount: post._count.comments,
         }));
+
+        const repostItems = reposts.map((repost) => {
+            const original = repost.post;
+            const available = visibleOriginalIds.has(original.id);
+
+            return {
+                type: 'REPOST' as const,
+                id: repost.id,
+                createdAt: repost.createdAt,
+                repostedBy: repost.user,
+                originalPost: available
+                    ? {
+                        id: original.id,
+                        available: true,
+                        content: original.content,
+                        createdAt: original.createdAt,
+                        updatedAt: original.updatedAt,
+                        author: original.author,
+                        media: original.media,
+                        likeCount: original._count.likes,
+                        isLiked: likedPostIds.has(original.id),
+                        commentsCount: original._count.comments,
+                    }
+                    : {
+                        id: null,
+                        available: false,
+                        content: null,
+                        author: null,
+                        media: [],
+                        likeCount: null,
+                        isLiked: false,
+                        commentsCount: null,
+                    },
+            };
+        });
+
+        // Ghép hai loại item và dùng ID làm tiêu chí phụ khi trùng thời gian.
+        const allItems = [...postItems, ...repostItems].sort(
+            (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime() ||
+                b.id.localeCompare(a.id),
+        );
+
+        const data = allItems.slice(skip, skip + limit);
+        const total = totalPosts + totalReposts;
 
         return {
             data,
@@ -402,7 +593,6 @@ export class PostsService {
             },
         };
     }
-
 
     private storagePathFromPublicUrl(url: string): string | null {
         try {
@@ -678,4 +868,78 @@ export class PostsService {
             },
         };
     }
+
+    async repost(postId: string, userId: string) {
+        const post = await this.prisma.post.findFirst({
+            where: {
+                id: postId,
+                deletedAt: null,
+                OR: [
+                    { privacy: 'PUBLIC' },
+                    { authorId: userId },
+                    {
+                        privacy: 'FRIENDS',
+                        author: {
+                            followers: {
+                                some: { followerId: userId },
+                            },
+                            following: {
+                                some: { followingId: userId },
+                            },
+                        },
+                    },
+                ],
+            },
+            select: {
+                id: true,
+                authorId: true,
+            },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        if (post.authorId === userId) {
+            throw new ConflictException(
+                'You cannot repost your own post',
+            );
+        }
+
+        // Dùng upsert để tránh tạo repost trùng khi
+        // người dùng gửi yêu cầu nhiều lần.
+        const repost = await this.prisma.repost.upsert({
+            where: {
+                userId_postId: {
+                    userId,
+                    postId,
+                },
+            },
+            create: {
+                userId,
+                postId,
+            },
+            update: {},
+        });
+
+        return {
+            reposted: true,
+            data: repost,
+        };
+    }
+
+    async undoRepost(postId: string, userId: string) {
+        const result = await this.prisma.repost.deleteMany({
+            where: {
+                userId,
+                postId,
+            },
+        });
+
+        return {
+            reposted: false,
+            removed: result.count > 0,
+        };
+    }
+
 }

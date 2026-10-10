@@ -20,6 +20,7 @@ model User {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   posts                 Post[]
+  reposts               Repost[]
   followers             Follow[]       @relation("followers")
   following             Follow[]       @relation("following")
   likes                 Like[]
@@ -42,6 +43,7 @@ model Post {
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   media         PostMedia[]
   privacy PostPrivacy @default(PUBLIC)
+  reposts       Repost[]
 
 
   @@index([authorId, createdAt])
@@ -143,5 +145,20 @@ enum PostPrivacy {
   PUBLIC
   FRIENDS
   PRIVATE
+}
+
+
+model Repost {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
 }
 

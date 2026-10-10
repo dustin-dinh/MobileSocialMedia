@@ -92,5 +92,26 @@ export class PostsController {
         );
     }
 
+    @Post(':id/repost')
+    async repost(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.repost(
+            id,
+            request.user.userId,
+        );
+    }
+
+    @Delete(':id/repost')
+    async undoRepost(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.undoRepost(
+            id,
+            request.user.userId,
+        );
+    }
 
 }
