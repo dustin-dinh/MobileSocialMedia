@@ -14,7 +14,10 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
-
+import { VerifyEmailDto } from "./dto/verify-email.dto";
+import { ResendVerificationDto } from "./dto/resend-verification.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 @Controller('auth')
 export class AuthController {
     constructor(
@@ -41,5 +44,27 @@ export class AuthController {
     @HttpCode(HttpStatus.NO_CONTENT)
     logout(): void {
         return;
+    }
+    @Post("verify-email")
+    @HttpCode(HttpStatus.OK)
+    verifyEmail(@Body() dto: VerifyEmailDto) {
+        return this.authService.verifyEmail(dto);
+    }
+
+    @Post("resend-verification")
+    @HttpCode(HttpStatus.OK)
+    resendVerification(@Body() dto: ResendVerificationDto) {
+        return this.authService.resendVerification(dto);
+    }
+    @Post("forgot-password")
+    @HttpCode(HttpStatus.OK)
+    forgotPassword(@Body() dto: ForgotPasswordDto) {
+        return this.authService.forgotPassword(dto);
+    }
+
+    @Post("reset-password")
+    @HttpCode(HttpStatus.OK)
+    resetPassword(@Body() dto: ResetPasswordDto) {
+        return this.authService.resetPassword(dto);
     }
 }

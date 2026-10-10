@@ -7,42 +7,40 @@ datasource db {
   provider = "postgresql"
 }
 
-// This model is not in Supabase until Dev B explicitly creates and applies a
-// new Prisma migration. Do not use `prisma db push` against the shared database.
-
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
-  passwordHash String?
-  googleId     String?  @unique
-  displayName  String?
-  avatarUrl    String?
-  bio          String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  posts        Post[]
-  followers    Follow[] @relation("followers")
-  following    Follow[] @relation("following")
-  likes        Like[]
-  comments Comment[]
-  notificationsReceived Notification[] @relation("NotificationRecipient")
+  id                    String         @id @default(uuid())
+  username              String         @unique
+  email                 String         @unique
+  passwordHash          String?
+  googleId              String?        @unique
+  emailVerifiedAt       DateTime?
+  displayName           String?
+  avatarUrl             String?
+  bio                   String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  posts                 Post[]
+  followers             Follow[]       @relation("followers")
+  following             Follow[]       @relation("following")
+  likes                 Like[]
+  comments              Comment[]
   notificationsSent     Notification[] @relation("NotificationActor")
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  authTokens            AuthToken[]
 }
 
 model Post {
-  id        String    @id @default(cuid())
-  authorId  String
-  content   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  media  PostMedia[]
-  likes  Like[]
-  comments Comment[]
+  id            String         @id @default(cuid())
+  authorId      String
+  content       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  comments      Comment[]
+  likes         Like[]
   notifications Notification[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media         PostMedia[]
 
   @@index([authorId, createdAt])
 }
@@ -50,11 +48,10 @@ model Post {
 model PostMedia {
   id     String @id @default(cuid())
   postId String
-  url    String
   type   String
   order  Int    @default(0)
-
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url    String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, order])
 }
@@ -63,9 +60,8 @@ model Follow {
   followerId  String
   followingId String
   createdAt   DateTime @default(now())
-
-  follower  User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+  follower    User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
   @@index([followingId])
@@ -75,10 +71,8 @@ model Like {
   userId    String
   postId    String
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, postId])
   @@index([postId])
@@ -86,23 +80,18 @@ model Like {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  postId    String
-  userId    String
-  parentId  String?
+  id            String         @id @default(cuid())
+  content       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  postId        String
+  userId        String
+  parentId      String?
+  parent        Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("CommentReplies")
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifications Notification[]
-
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  parent Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-
-  replies Comment[] @relation("CommentReplies")
 
   @@index([postId, createdAt])
   @@index([parentId])
@@ -110,25 +99,40 @@ model Comment {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  type      String
-  createdAt DateTime @default(now())
-  readAt    DateTime?
-
+  id          String    @id @default(cuid())
+  type        String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
   recipientId String
   actorId     String
-
-  postId    String?
-  commentId String?
-
-recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-
-actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
-
-post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  postId      String?
+  commentId   String?
+  actor       User      @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  comment     Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  post        Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  recipient   User      @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, createdAt])
   @@index([recipientId, readAt])
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model AuthToken {
+  id        String           @id @default(cuid())
+  userId    String
+  tokenHash String           @unique
+  purpose   AuthTokenPurpose
+  attemptCount Int @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
 }
