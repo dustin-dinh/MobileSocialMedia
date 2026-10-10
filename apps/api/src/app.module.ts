@@ -10,6 +10,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { SearchModule } from './modules/search/search.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { FollowsModule } from './modules/follows/follows.module';
+import { MailModule } from "./modules/mail/mail.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,6 +28,7 @@ import { FollowsModule } from './modules/follows/follows.module';
     CommentsModule,
     NotificationsModule,
     FollowsModule,
+    MailModule,
   ],
 })
 export class AppModule { }
