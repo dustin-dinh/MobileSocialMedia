@@ -1494,3 +1494,64 @@ Redesign the Mobile UI: calm, content-first layout (Threads-like) everywhere, ro
 - `apps/mobile/src/features/{feed,post,comment,profile,search,notifications,settings,auth,onboarding,reel}` (screens and components listed in the commit)
 - `apps/mobile/app.json`, `apps/mobile/__tests__/{smoke.test.tsx,clayButton.test.tsx}`
 - `docs/change.md`, `docs/decisions.md`
+
+---
+
+## 2026-10-12 - Google sign-in button was hidden: missing Mobile client ID
+
+### Task
+
+The owner did not see the Google button on the login screen.
+
+### Cause
+
+`isGoogleSignInAvailable()` hides the button unless `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is set. `apps/mobile/.env.local` did not have it (the backend's `GOOGLE_WEB_CLIENT_ID` was set).
+
+### Changed
+
+- `apps/mobile/.env.local` (git-ignored, local only): added `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` with the same web client ID the backend uses. Metro must be restarted to pick it up.
+- `googleSignIn.ts`: when the native module is missing (Expo Go), the error now says that Google Sign-In needs a development build.
+
+### Still open (cross-platform rule 9 and 10)
+
+- Google Sign-In uses a native module: it cannot run in Expo Go on either platform. It needs a development build.
+- Android: an OAuth client of type Android (package `com.mobilesocial.app` + SHA-1 of the build keystore) in Google Cloud.
+- iOS: an OAuth client of type iOS and its `iosUrlScheme` in the `@react-native-google-signin/google-signin` plugin entry of `app.json`; the App Store also requires Sign in with Apple next to it. Neither exists yet.
+
+### Platforms run
+
+Not run on a device: the button's visibility follows from the config check; the sign-in flow itself was not exercised on Android or iPhone.
+
+### Files
+
+- `apps/mobile/src/features/auth/services/googleSignIn.ts`, `docs/change.md` (and the untracked `apps/mobile/.env.local`)
+
+---
+
+## 2026-10-12 - Reels overlay: fade instead of a flat band, readable hashtags
+
+### Task
+
+The owner sent an iPhone screenshot of the Reels pane showing display problems.
+
+### Changed
+
+- `ReelOverlay`: the bottom scrim was a flat translucent box and showed a hard horizontal edge across the video. It is now a top-to-bottom fade (`experimental_backgroundImage` linear gradient, React Native new architecture, no new dependency).
+- Hashtags and mentions in the reel caption were brand pink on a dark video and hard to read; they are white and bold there. `RichText` gained an optional `tokenStyle` prop for this; posts and comments are unchanged.
+
+### Not a bug in the app
+
+- The blue gear button over the title in the screenshot is Expo Go's own tools button on iOS. It is not drawn by the app and does not exist in a development or store build.
+
+### Checks
+
+- `tsc --noEmit` clean, `jest` 95 passed, `verify-ui` unchanged (only rule H, as before).
+
+### Platforms run
+
+- Android emulator (BlueStacks, Expo Go): Reels pane looked at - no hard edge, hashtags readable.
+- iPhone: not run by the agent; the fade uses an experimental style property, so it needs a look on the owner's iPhone.
+
+### Files
+
+- `apps/mobile/src/features/reel/components/ReelOverlay.tsx`, `apps/mobile/src/components/common/RichText.tsx`, `docs/change.md`

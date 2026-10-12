@@ -14,6 +14,8 @@ type RichTextProps = {
   onPressText?: () => void;
   style?: StyleProp<TextStyle>;
   text: string;
+  /** Overrides the hashtag / mention colour, e.g. on top of a video. */
+  tokenStyle?: StyleProp<TextStyle>;
   variant?: ClayTextVariant;
 };
 
@@ -29,6 +31,7 @@ export const RichText = memo(function RichText({
   onPressText,
   style,
   text,
+  tokenStyle,
   variant = 'body',
 }: RichTextProps) {
   const parts = text.split(TOKEN_PATTERN);
@@ -48,7 +51,7 @@ export const RichText = memo(function RichText({
           <ClayText
             key={`${index}-${part}`}
             onPress={handler ? () => handler(part.slice(1)) : undefined}
-            style={styles.token}
+            style={[styles.token, tokenStyle]}
             variant={variant}
           >
             {part}

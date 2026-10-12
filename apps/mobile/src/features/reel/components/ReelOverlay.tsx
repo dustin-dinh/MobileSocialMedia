@@ -157,6 +157,7 @@ export const ReelOverlay = memo(function ReelOverlay({
               onPressText={() => setIsCaptionExpanded((expanded) => !expanded)}
               style={styles.caption}
               text={post.content}
+              tokenStyle={styles.captionToken}
             />
           ) : null}
         </View>
@@ -238,6 +239,11 @@ const styles = StyleSheet.create({
     color: clayColors.onPrimary,
     marginTop: 6,
   },
+  // The brand pink is unreadable on a dark video.
+  captionToken: {
+    color: clayColors.onPrimary,
+    fontFamily: fontFamilies.bold,
+  },
   follow: {
     borderColor: clayColors.onPrimary,
     borderRadius: 8,
@@ -268,9 +274,10 @@ const styles = StyleSheet.create({
     width: clayDimensions.minTouchTarget,
   },
   scrim: {
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
     bottom: 0,
-    height: '38%',
+    // A fade, not a flat box: a flat box shows a hard edge across the video.
+    experimental_backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.6))',
+    height: '45%',
     left: 0,
     position: 'absolute',
     right: 0,

@@ -24,7 +24,8 @@ function getGoogleSigninModule() {
   } catch {
     throw new GoogleSignInError(
       'unknown',
-      'Google Sign-In native module is not available in this environment.',
+      // The native module is missing in Expo Go; it only exists in a development or store build.
+      'Google Sign-In does not work in Expo Go. Install a development build of the app to use it.',
     );
   }
 }
