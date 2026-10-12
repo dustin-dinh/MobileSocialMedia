@@ -1,4 +1,5 @@
 import {
+    Body,
     Controller,
     Delete,
     Get,
@@ -9,9 +10,17 @@ import {
     UseGuards,
 } from '@nestjs/common';
 
-import { LikesService } from './likes.service';
+import { IsIn, IsOptional } from 'class-validator';
+
+import { LikesService, REACTION_TYPES, ReactionType } from './likes.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FeedQueryDto } from '../posts/dto/feed-query.dto';
+
+class ReactDto {
+    @IsOptional()
+    @IsIn(REACTION_TYPES)
+    type?: ReactionType;
+}
 
 @Controller('posts/:id')
 @UseGuards(JwtAuthGuard)
@@ -24,10 +33,12 @@ export class LikesController {
     async like(
         @Request() request: { user: { userId: string } },
         @Param('id') postId: string,
+        @Body() dto: ReactDto,
     ) {
         return this.likesService.like(
             request.user.userId,
             postId,
+            dto?.type,
         );
     }
 

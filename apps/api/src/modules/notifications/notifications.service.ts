@@ -15,6 +15,8 @@ const PUSH_VERBS: Record<string, string> = {
     FOLLOW: 'đã theo dõi bạn',
     REPOST: 'đã đăng lại bài viết của bạn',
     MENTION: 'đã nhắc đến bạn',
+    FOLLOW_REQUEST: 'muốn theo dõi bạn',
+    FOLLOW_ACCEPT: 'đã chấp nhận yêu cầu theo dõi của bạn',
 };
 
 @Injectable()
@@ -26,7 +28,15 @@ export class NotificationsService {
 
     // Mọi loại thông báo đi qua đây: lưu, đẩy realtime qua socket, rồi gửi push.
     async notify(input: {
-        type: 'LIKE' | 'COMMENT' | 'REPLY' | 'FOLLOW' | 'REPOST' | 'MENTION';
+        type:
+            | 'LIKE'
+            | 'COMMENT'
+            | 'REPLY'
+            | 'FOLLOW'
+            | 'REPOST'
+            | 'MENTION'
+            | 'FOLLOW_REQUEST'
+            | 'FOLLOW_ACCEPT';
         actorId: string;
         recipientId: string;
         postId?: string;
@@ -107,9 +117,32 @@ export class NotificationsService {
         commentId: string | null;
         actor: { id: string; username: string; displayName: string | null };
     }) {
+        const name =
+            notification.actor.displayName ?? notification.actor.username;
+
+        await this.pushToUser(
+            notification.recipientId,
+            'MobileSocialMedia',
+            `${name} ${PUSH_VERBS[notification.type] ?? ''}`.trim(),
+            {
+                type: notification.type,
+                postId: notification.postId,
+                commentId: notification.commentId,
+                actorId: notification.actor.id,
+            },
+        );
+    }
+
+    // Gửi push tới mọi thiết bị của một người dùng; lỗi push không bao giờ làm hỏng thao tác chính.
+    async pushToUser(
+        userId: string,
+        title: string,
+        body: string,
+        data: Record<string, unknown>,
+    ) {
         try {
             const devices = await this.prisma.deviceToken.findMany({
-                where: { userId: notification.recipientId },
+                where: { userId },
                 select: { token: true },
             });
 
@@ -117,23 +150,15 @@ export class NotificationsService {
                 return;
             }
 
-            const name =
-                notification.actor.displayName ?? notification.actor.username;
-
             await fetch('https://exp.host/--/api/v2/push/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(
                     devices.map((device) => ({
                         to: device.token,
-                        title: 'MobileSocialMedia',
-                        body: `${name} ${PUSH_VERBS[notification.type] ?? ''}`.trim(),
-                        data: {
-                            type: notification.type,
-                            postId: notification.postId,
-                            commentId: notification.commentId,
-                            actorId: notification.actor.id,
-                        },
+                        title,
+                        body,
+                        data,
                     })),
                 ),
             });

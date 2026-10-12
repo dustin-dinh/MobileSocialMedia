@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+    IsBoolean,
     IsOptional,
     IsString,
     Matches,
@@ -35,4 +36,8 @@ export class UpdateProfileDto {
             'Username can only contain letters, numbers, dots and underscores',
     })
     username?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isPrivate?: boolean;
 }

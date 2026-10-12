@@ -3,8 +3,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { PostDetailScreen } from '../features/feed/screens/PostDetailScreen';
 import { PostLikesScreen } from '../features/feed/screens/PostLikesScreen';
 import { SavedPostsScreen } from '../features/feed/screens/SavedPostsScreen';
+import { ChatScreen } from '../features/messages/screens/ChatScreen';
+import { NewMessageScreen } from '../features/messages/screens/NewMessageScreen';
+import { NotificationsScreen } from '../features/notifications/screens/NotificationsScreen';
 import { FollowListScreen } from '../features/profile/screens/FollowListScreen';
+import { FollowRequestsScreen } from '../features/profile/screens/FollowRequestsScreen';
 import { ReelViewerScreen } from '../features/reel/screens/ReelViewerScreen';
+import { StoryViewerScreen } from '../features/stories/screens/StoryViewerScreen';
+import { StoryViewersScreen } from '../features/stories/screens/StoryViewersScreen';
 import { UserProfileScreen } from '../features/profile/screens/UserProfileScreen';
 import { BlockedUsersScreen } from '../features/settings/screens/BlockedUsersScreen';
 import { ChangePasswordScreen } from '../features/settings/screens/ChangePasswordScreen';
@@ -38,6 +44,12 @@ export function MainStackNavigator() {
         options={{ animation: 'fade_from_bottom' }}
       />
       <Stack.Screen name="FollowList" component={FollowListScreen} />
+      <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="NewMessage" component={NewMessageScreen} />
+      <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="StoryViewers" component={StoryViewersScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

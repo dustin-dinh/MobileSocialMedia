@@ -697,3 +697,38 @@ On 2026-10-12 the Reel backend, video upload for posts (UI and backend) and scre
 - New dependencies: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (API, replacing `@supabase/supabase-js`); `expo-video-thumbnails` (Mobile, poster frame; supported on Android and iOS, loaded on demand).
 - Deleting a post is a soft delete, so its files stay in storage.
 - Production must serve media over HTTPS (iOS blocks plain HTTP outside development).
+
+---
+
+## DEC-023 - Social feature batch: followed-only feed, reactions, private accounts, messages, stories, admin
+
+### Context
+
+On 2026-10-13 the owner asked for the missing "small" and "medium" features from the comparison against a standard social-app checklist, done to the level of existing apps, with messages in their own tab. One additive migration (`20261013090000_add_social_features`) covers all of it.
+
+### Decision
+
+1. **The home feed is "me + people I follow"** again. A new account sees an empty feed with a button to the Search tab (suggestions and trending hashtags).
+2. **Reactions reuse the `Like` table** (`type` column, default `LIKE`): one reaction per user per post, `likeCount` is the total. Lists carry only the viewer's own reaction; the breakdown per type is on the likes screen. A tap is still a plain like, a long press opens the reaction bar.
+3. **Private accounts use a separate `FollowRequest` table**, so no existing follow query changed. Visibility is decided in one place (`visiblePostWhere`): a `PUBLIC` post of a private account is visible to followers only.
+4. **Direct messages are one row per pair** (`Conversation` with `userAId < userBId`) plus `Message`. Read state is a timestamp per side, which gives both the unread count and "seen". Message ids come from the device so a retry is idempotent. Realtime reuses the notifications socket (`message:new`, `message:read`).
+5. **The tab bar stays at five tabs: Messages replaces Notifications**, and notifications open from a bell in the home header (the pattern of Instagram and Facebook). Six tabs would have been too narrow to tap comfortably.
+6. **Stories expire by filter** (`expiresAt > now`); files are uploaded with the same presigned flow as videos. A story is visible to its author and to followers.
+7. **The admin console is one static HTML page served by the API** (`GET /api/admin`) on top of role-guarded JSON routes. No extra project or framework. The role is granted with `scripts/make-admin.cjs`.
+8. **Suspended accounts are refused in `JwtStrategy`** from an in-memory set loaded at start-up and updated by admin actions, so no database query is added to every request.
+
+### Shortcuts taken on purpose (each is marked `shortcut:` in the code)
+
+- Trending hashtags are counted in memory over the 500 newest public posts with a `#`; there is no hashtag table.
+- The ban list lives in one API process. Running several API instances needs Redis or a database check.
+- Expired stories and their files are not deleted (no cleanup job).
+- Messages have no typing indicator, no delete, no group chat; an image opens only inside the bubble.
+- Anyone who is not blocked can message anyone (no message requests).
+- The admin page uses the browser's own confirmation dialog and keeps the token in `sessionStorage`.
+
+### Consequences
+
+- `scripts/qa/e2e.ps1` is further out of date (tab order changed).
+- Push for new messages is sent through the existing Expo push path, which still needs a development build and credentials to be exercised.
+- New notification types `FOLLOW_REQUEST` and `FOLLOW_ACCEPT`.
+- The two live tests that documented the old feed behaviour as expected failures are normal tests again. The two live suites share the seeded accounts and must be run one at a time.

@@ -26,6 +26,7 @@ import { feedSpacing } from '../../feed/feedTheme';
 import { usePostList } from '../../feed/hooks/usePostList';
 import { postKey } from '../../feed/services/postMapper';
 import type { Post } from '../../feed/types';
+import { messageService } from '../../messages/services/messageService';
 import { ReportModal } from '../../report/ReportModal';
 import type { ReportTarget } from '../../report/reportService';
 import { profileColors } from '../profileTheme';
@@ -155,13 +156,23 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
 
     try {
       // `followApi` publishes `followChanged`, which updates the header above.
-      await (profile.isFollowing ? followApi.unfollow(userId) : followApi.follow(userId));
+      // Unfollowing also withdraws a pending request to a private account.
+      await (profile.isFollowing || profile.followRequested
+        ? followApi.unfollow(userId)
+        : followApi.follow(userId));
+
+      // A private account answers with "requested", and unfollowing one hides
+      // its posts: only a fresh profile knows the new state.
+      if (profile.isPrivate) {
+        await loadProfile();
+        void list.refresh();
+      }
     } catch {
       showToast('Không thực hiện được. Vui lòng thử lại.', 'error');
     } finally {
       setIsActionPending(false);
     }
-  }, [profile, userId]);
+  }, [list.refresh, loadProfile, profile, userId]);
 
   const handleSetBlocked = useCallback(
     async (blocked: boolean) => {
@@ -190,9 +201,19 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
     [handleRefresh, navigation, userId],
   );
 
+  const handleMessage = useCallback(async () => {
+    try {
+      const conversation = await messageService.open(userId);
+
+      navigation.open('Chat', { conversationId: conversation.id, peer: conversation.peer });
+    } catch {
+      showToast('Không mở được cuộc trò chuyện. Vui lòng thử lại.', 'error');
+    }
+  }, [navigation, userId]);
+
   // ── Edit own profile ──────────────────────────────────────────────────
   const handleSaveProfile = useCallback(
-    async (data: Pick<UpdateProfilePayload, 'avatar' | 'bio' | 'displayName'>) => {
+    async (data: Pick<UpdateProfilePayload, 'avatar' | 'bio' | 'cover' | 'displayName'>) => {
       if (!user) {
         return;
       }
@@ -205,6 +226,7 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
       updateUser?.({
         avatarUrl: updated.avatarUrl,
         bio: updated.bio,
+        coverUrl: updated.coverUrl,
         displayName: updated.displayName,
       });
       feedEvents.emitProfileUpdated({
@@ -251,6 +273,9 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
   }
 
   const displayName = profile.displayName ?? profile.username;
+  // A private account shows nothing to people who do not follow it yet.
+  const isLocked = Boolean(profile.isPrivate && !isOwn && !profile.isFollowing);
+
   const emptyState = list.isLoading ? (
     <ActivityIndicator color={profileColors.primary} style={styles.listLoading} />
   ) : list.loadFailed ? (
@@ -261,6 +286,8 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
     <ClayText variant="body" style={styles.emptyText}>
       {profile.isBlocked
         ? 'Bạn đã chặn người dùng này.'
+        : isLocked
+          ? 'Đây là tài khoản riêng tư. Theo dõi để xem bài viết của họ.'
         : tab === 'posts'
           ? 'Chưa có bài viết nào.'
           : 'Chưa đăng lại bài viết nào.'}
@@ -292,8 +319,11 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
             isOwn={isOwn}
             onChangeTab={setTab}
             onEditProfile={() => setIsEditModalVisible(true)}
+            onMessage={isOwn || profile.isBlocked ? undefined : handleMessage}
             onOpenSettings={() => navigation.open('Settings')}
-            onPressStat={(type) => navigation.open('FollowList', { type, userId })}
+            onPressStat={
+              isLocked ? undefined : (type) => navigation.open('FollowList', { type, userId })
+            }
             onToggleFollow={handleToggleFollow}
             onUnblock={() => handleSetBlocked(false)}
             profile={profile}

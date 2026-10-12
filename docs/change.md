@@ -1623,3 +1623,48 @@ The owner found the icons dated and asked whether the whole set could be changed
 ### Files
 
 - `apps/mobile/src/components/icons/ClayIcon.tsx`, `apps/mobile/src/navigation/ClayTabBar.tsx`, `apps/mobile/jest.config.js`, `apps/mobile/scripts/verify-ui.mjs`, `apps/mobile/package.json`, `docs/change.md`
+
+---
+
+## 2026-10-13 - Followed-only feed, cover photo, reactions, trending, private accounts, messages, stories, admin console
+
+### Task
+
+Build the "small" and "medium" items from the feature comparison, to the level of existing apps, with messages in their own tab.
+
+### Changed - backend
+
+- Migration `20261013090000_add_social_features` (additive, applied): `User.coverUrl / isPrivate / role / bannedAt`, `Like.type`, `Report.resolvedAt / resolvedById`, new tables `FollowRequest`, `Conversation`, `Message`, `Story`, `StoryView`.
+- Feed limited to own posts and followed authors; `visiblePostWhere` honours private accounts.
+- Reactions on `POST /posts/:id/like`; cover endpoints; `GET /hashtags/trending`; follow requests in `follows`; `FOLLOW_REQUEST` / `FOLLOW_ACCEPT` notifications.
+- New modules `messages`, `stories`, `admin` (JSON routes, `admin.html`, `AdminGuard`), `auth/ban-list.ts`, ban checks at login and in `JwtStrategy`.
+- `NotificationsGateway.emitToUser` takes an event name; `NotificationsService.pushToUser` is reusable.
+- `nest-cli.json` copies `*.html` into the build. `scripts/make-admin.cjs`, `scripts/social-smoke.cjs`.
+
+### Changed - mobile
+
+- Reactions: long-press bar on the like button (`ReactionPicker`, `reactions.ts`), reaction shown per user on the likes screen.
+- Profile: cover photo (header and edit sheet), lock badge, "request sent" state, locked view for private accounts, "Message" button.
+- Settings: "Private account" switch and "Follow requests"; new `FollowRequestsScreen`; two new notification types.
+- Search: trending hashtags when the query is empty. Feed empty state in Vietnamese with a button to find people.
+- Messages: `ConversationsScreen` (new tab with unread badge), `ChatScreen` (realtime, images, "seen", retry), `NewMessageScreen`, `messageService`, `unreadMessages`; the socket service forwards message events.
+- Stories: `StoriesTray` above the feed, `StoryViewerScreen`, `StoryViewersScreen`, `storyService`.
+- Navigation: Messages tab replaces Notifications; notifications open from a bell in the home header and gained a back button.
+
+### Checks
+
+- API: `tsc --noEmit` clean, `nest build` OK. Against the running API with MinIO: `social-smoke.cjs` 74/74, `reels-smoke.cjs` 28/28, `api-smoke.cjs` 72/72.
+- Mobile: `tsc --noEmit` clean, `jest` 95 passed, `verify-ui` unchanged (only rule H, as before). Live suites against the real API, run one at a time: `liveApi` 20/20, `gapLive` 14/14.
+
+### Platforms run
+
+- **Android emulator (BlueStacks, Expo Go), real API + MinIO**: home with stories tray and bell; reaction bar, picking and removing a reaction; Messages tab empty state; receiving messages live from another account (inbox row, unread badges), opening the chat, sending a reply, inbox preview; posting a story, opening the viewer, deleting it through the confirmation dialog.
+- **Admin page in a desktop browser**: login as a seeded admin, dashboard and report list. The action buttons were exercised through the API smoke test, not by clicking.
+- **Not looked at on any device**: cover photo and private-account screens, follow requests, trending section, story of another user, video story, image message, chat with the on-screen keyboard open (BlueStacks shows none), failed-message retry.
+- **iPhone: not run.**
+
+### Files
+
+- `apps/api/prisma/`, `apps/api/src/modules/{admin,messages,stories,auth,follows,likes,notifications,posts,reels,search,users}/`, `apps/api/src/app.module.ts`, `apps/api/nest-cli.json`, `apps/api/scripts/{make-admin,social-smoke,reels-smoke}.cjs`
+- `apps/mobile/src/features/{messages,stories,feed,profile,settings,search,notifications,reel,auth}/`, `apps/mobile/src/components/common/{UserRow,UserListScreen}.tsx`, `apps/mobile/src/navigation/`, `apps/mobile/src/services/followApi.ts`, `apps/mobile/__tests__/live/liveApi.test.ts`
+- `README.md`, `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`

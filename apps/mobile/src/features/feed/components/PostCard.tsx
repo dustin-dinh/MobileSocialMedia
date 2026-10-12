@@ -19,6 +19,8 @@ import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { Post, PostMedia } from '../types';
 import { FeedVideo } from './FeedVideo';
+import { ReactionPicker } from './ReactionPicker';
+import { reactionOf, type ReactionType } from '../reactions';
 import { RichText } from '../../../components/common/RichText';
 import { showToast } from '../../../components/common/toast';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
@@ -213,6 +215,37 @@ export const PostCard = memo(function PostCard({
     onToggleLike?.(post);
   }, [likeScale, onToggleLike, post]);
 
+  // Held like button: pick one of the reactions. Picking the current one removes it.
+  const likeButtonRef = useRef<View>(null);
+  const [reactionAnchor, setReactionAnchor] = useState<{ x: number; y: number } | null>(null);
+
+  const handleReact = useCallback(
+    async (type: ReactionType) => {
+      setReactionAnchor(null);
+
+      const next = post.myReaction === type ? null : type;
+
+      // Every list showing this post updates through the feed event.
+      feedEvents.emitPostUpdated({
+        ...post,
+        isLiked: next !== null,
+        likesCount: post.likesCount + (next !== null ? 1 : 0) - (post.isLiked ? 1 : 0),
+        myReaction: next,
+      });
+
+      try {
+        await feedService.react(post.id, next);
+      } catch {
+        feedEvents.emitPostUpdated(post);
+        showToast('Không gửi được cảm xúc. Vui lòng thử lại.', 'error');
+      }
+    },
+    [post],
+  );
+
+  // The plain heart is LIKE; any other reaction shows its own emoji.
+  const otherReaction = post.myReaction && post.myReaction !== 'LIKE' ? reactionOf(post.myReaction) : null;
+
   const handleSave = useCallback(() => {
     onToggleSave?.(post);
   }, [onToggleSave, post]);
@@ -340,17 +373,29 @@ export const PostCard = memo(function PostCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={post.isLiked ? 'Unlike post' : 'Like post'}
+            accessibilityHint="Nhấn giữ để chọn cảm xúc khác"
+            delayLongPress={280}
+            onLongPress={() =>
+              likeButtonRef.current?.measureInWindow((x, y) => setReactionAnchor({ x, y }))
+            }
             onPress={handleLike}
+            ref={likeButtonRef}
             style={styles.actionButton}
             hitSlop={8}
           >
             <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-              <ClayIcon
-                name="Heart"
-                size={22}
-                weight={post.isLiked ? 'fill' : 'regular'}
-                color={post.isLiked ? clayColors.liked : clayColors.caption}
-              />
+              {otherReaction ? (
+                <ClayText style={styles.reactionEmoji} variant="body">
+                  {otherReaction.emoji}
+                </ClayText>
+              ) : (
+                <ClayIcon
+                  name="Heart"
+                  size={22}
+                  weight={post.isLiked ? 'fill' : 'regular'}
+                  color={post.isLiked ? clayColors.liked : clayColors.caption}
+                />
+              )}
             </Animated.View>
             {post.likesCount > 0 && (
               <ClayText
@@ -412,6 +457,13 @@ export const PostCard = memo(function PostCard({
             <ClayIcon name="ShareNetwork" size={22} weight="regular" color={clayColors.caption} />
           </Pressable>
       </View>
+
+      <ReactionPicker
+        anchor={reactionAnchor}
+        onClose={() => setReactionAnchor(null)}
+        onSelect={handleReact}
+        selected={post.myReaction}
+      />
 
       {/* ── Modals ─────────────────────────────────────────── */}
       <PostOptionsModal
@@ -489,6 +541,10 @@ const styles = StyleSheet.create({
     color: clayColors.caption,
     fontSize: 12,
     marginLeft: 4,
+  },
+  reactionEmoji: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   actionDisabled: {
     opacity: 0.4,

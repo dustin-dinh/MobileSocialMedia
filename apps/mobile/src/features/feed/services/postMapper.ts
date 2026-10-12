@@ -18,6 +18,7 @@ export type ApiPost = {
   isReposted?: boolean;
   isSaved?: boolean;
   likeCount?: number;
+  myReaction?: string | null;
   media: Array<{
     durationMs?: number | null;
     height?: number | null;
@@ -84,6 +85,7 @@ export function mapApiPost(post: ApiPost): Post {
     isReposted: post.isReposted ?? false,
     isSaved: post.isSaved ?? false,
     likesCount: post.likeCount ?? 0,
+    myReaction: (post.myReaction as Post['myReaction']) ?? (post.isLiked ? 'LIKE' : null),
     media: (post.media ?? []).map((item) => ({
       durationMs: item.durationMs ?? undefined,
       height: item.height ?? undefined,

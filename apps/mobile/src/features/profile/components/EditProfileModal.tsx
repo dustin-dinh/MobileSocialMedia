@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
 import { showToast, ToastHost } from '../../../components/common/toast';
@@ -25,7 +26,12 @@ type AvatarChange = UpdateProfilePayload['avatar'];
 type EditProfileModalProps = {
   onClose: () => void;
   /** `avatar` is only present when the picture changed (`null` = removed). */
-  onSave: (data: { avatar?: AvatarChange; bio: string; displayName: string }) => Promise<void>;
+  onSave: (data: {
+    avatar?: AvatarChange;
+    bio: string;
+    cover?: AvatarChange;
+    displayName: string;
+  }) => Promise<void>;
   profile: UserProfile;
   visible: boolean;
 };
@@ -43,6 +49,7 @@ export function EditProfileModal({
   const [bio, setBio] = useState(profile.bio ?? '');
   // undefined = keep the current picture, null = remove it, object = new picture.
   const [avatar, setAvatar] = useState<AvatarChange>(undefined);
+  const [cover, setCover] = useState<AvatarChange>(undefined);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync form when profile changes or modal opens
@@ -51,10 +58,12 @@ export function EditProfileModal({
       setDisplayName(profile.displayName ?? '');
       setBio(profile.bio ?? '');
       setAvatar(undefined);
+      setCover(undefined);
     }
   }, [profile, visible]);
 
   const previewUrl = avatar === undefined ? profile.avatarUrl : (avatar?.uri ?? null);
+  const coverPreviewUrl = cover === undefined ? (profile.coverUrl ?? null) : (cover?.uri ?? null);
 
   const handlePickAvatar = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -78,6 +87,28 @@ export function EditProfileModal({
     }
   }, []);
 
+  const handlePickCover = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      showToast('Hãy cho phép ứng dụng truy cập thư viện ảnh để đổi ảnh bìa.', 'error');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [3, 1],
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+
+      setCover({ fileName: asset.fileName, mimeType: asset.mimeType, uri: asset.uri });
+    }
+  }, []);
+
   const canSave =
     !isSaving &&
     displayName.trim().length > 0 &&
@@ -96,6 +127,7 @@ export function EditProfileModal({
         bio: bio.trim(),
         displayName: displayName.trim(),
         ...(avatar === undefined ? {} : { avatar }),
+        ...(cover === undefined ? {} : { cover }),
       });
       onClose();
     } catch (error) {
@@ -107,7 +139,7 @@ export function EditProfileModal({
     } finally {
       setIsSaving(false);
     }
-  }, [avatar, bio, canSave, displayName, onClose, onSave]);
+  }, [avatar, bio, canSave, cover, displayName, onClose, onSave]);
 
   return (
     <Modal
@@ -178,6 +210,49 @@ export function EditProfileModal({
                     </ClayText>
                   )}
                 </Pressable>
+              </View>
+
+              {/* ── Cover ───────────────────────────────── */}
+              <View style={styles.coverRow}>
+                {coverPreviewUrl ? (
+                  <ExpoImage
+                    contentFit="cover"
+                    source={{ uri: coverPreviewUrl }}
+                    style={styles.coverPreview}
+                  />
+                ) : (
+                  <View style={[styles.coverPreview, styles.coverEmpty]}>
+                    <ClayText variant="meta">Chưa có ảnh bìa</ClayText>
+                  </View>
+                )}
+                <View style={styles.coverActions}>
+                  <Pressable
+                    accessibilityLabel="Chọn ảnh bìa mới"
+                    accessibilityRole="button"
+                    disabled={isSaving}
+                    hitSlop={8}
+                    onPress={handlePickCover}
+                    style={styles.avatarAction}
+                  >
+                    <ClayText variant="caption" style={styles.saveText}>
+                      Đổi ảnh bìa
+                    </ClayText>
+                  </Pressable>
+                  {coverPreviewUrl ? (
+                    <Pressable
+                      accessibilityLabel="Gỡ ảnh bìa"
+                      accessibilityRole="button"
+                      disabled={isSaving}
+                      hitSlop={8}
+                      onPress={() => setCover(null)}
+                      style={styles.avatarAction}
+                    >
+                      <ClayText variant="caption" style={styles.removeAvatarText}>
+                        Gỡ ảnh bìa
+                      </ClayText>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
 
               {/* ── Avatar ──────────────────────────────── */}
@@ -279,6 +354,25 @@ const styles = StyleSheet.create({
   },
   avatarActions: {
     marginLeft: 16,
+  },
+  coverActions: {
+    flexDirection: 'row',
+    gap: 20,
+    marginTop: 4,
+  },
+  coverEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverPreview: {
+    backgroundColor: profileColors.surfaceWell,
+    borderRadius: profileRadii.button,
+    height: 96,
+    width: '100%',
+  },
+  coverRow: {
+    marginBottom: 12,
+    paddingHorizontal: 20,
   },
   avatarRow: {
     alignItems: 'center',

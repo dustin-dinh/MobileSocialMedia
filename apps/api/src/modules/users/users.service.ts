@@ -42,6 +42,9 @@ type MeSource = {
     updatedAt: Date;
     onboardedAt: Date | null;
     passwordHash: string | null;
+    coverUrl: string | null;
+    isPrivate: boolean;
+    role: string;
 };
 
 // Dạng trả về của "tài khoản đang đăng nhập", dùng chung cho login và /users/me.
@@ -57,6 +60,9 @@ export function toMe(user: MeSource) {
         updatedAt: user.updatedAt,
         onboardedAt: user.onboardedAt,
         hasPassword: user.passwordHash !== null,
+        coverUrl: user.coverUrl,
+        isPrivate: user.isPrivate,
+        role: user.role,
     };
 }
 
@@ -122,8 +128,32 @@ export class UsersService {
                     displayName: dto.displayName,
                     bio: dto.bio,
                     username: dto.username,
+                    isPrivate: dto.isPrivate,
                 },
             });
+
+            // Chuyển về công khai: mọi yêu cầu đang chờ được chấp nhận luôn.
+            if (dto.isPrivate === false) {
+                const pending = await this.prisma.followRequest.findMany({
+                    where: { targetId: userId },
+                    select: { requesterId: true },
+                });
+
+                if (pending.length > 0) {
+                    await this.prisma.$transaction([
+                        this.prisma.follow.createMany({
+                            data: pending.map((request) => ({
+                                followerId: request.requesterId,
+                                followingId: userId,
+                            })),
+                            skipDuplicates: true,
+                        }),
+                        this.prisma.followRequest.deleteMany({
+                            where: { targetId: userId },
+                        }),
+                    ]);
+                }
+            }
 
             return { data: toMe(user) };
         } catch (error) {
@@ -135,9 +165,14 @@ export class UsersService {
         }
     }
 
-    // file = null nghĩa là gỡ ảnh đại diện.
-    async setAvatar(userId: string, file: Express.Multer.File | null) {
+    // file = null nghĩa là gỡ ảnh. Dùng chung cho ảnh đại diện và ảnh bìa.
+    async setImage(
+        userId: string,
+        field: 'avatarUrl' | 'coverUrl',
+        file: Express.Multer.File | null,
+    ) {
         let avatarUrl: string | null = null;
+        const folder = field === 'avatarUrl' ? 'avatars' : 'covers';
 
         if (file) {
             if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
@@ -147,7 +182,7 @@ export class UsersService {
             }
 
             if (file.size > 5 * 1024 * 1024) {
-                throw new BadRequestException('Avatar must be <= 5MB');
+                throw new BadRequestException('Image must be <= 5MB');
             }
 
             const extension =
@@ -155,20 +190,20 @@ export class UsersService {
 
             avatarUrl = await this.storageService.upload(
                 file,
-                `avatars/${userId}/${uuidv4()}.${extension}`,
+                `${folder}/${userId}/${uuidv4()}.${extension}`,
             );
         }
 
         const previous = await this.prisma.user.findUnique({
             where: { id: userId },
-            select: { avatarUrl: true },
+            select: { avatarUrl: true, coverUrl: true },
         });
         const user = await this.prisma.user.update({
             where: { id: userId },
-            data: { avatarUrl },
+            data: { [field]: avatarUrl },
         });
 
-        await this.storageService.removeByUrls([previous?.avatarUrl]);
+        await this.storageService.removeByUrls([previous?.[field]]);
 
         return { data: toMe(user) };
     }
@@ -227,8 +262,14 @@ export class UsersService {
                 select: {
                     ...authorSelect,
                     bio: true,
+                    coverUrl: true,
+                    isPrivate: true,
                     createdAt: true,
                     _count: { select: { followers: true, following: true } },
+                    followRequestsReceived: {
+                        where: { requesterId: viewerId },
+                        select: { requesterId: true },
+                    },
                 },
             }),
             this.prisma.block.findMany({
@@ -276,7 +317,11 @@ export class UsersService {
                 postsCount,
                 followersCount: user._count.followers,
                 followingCount: user._count.following,
+                coverUrl: user.coverUrl,
+                isPrivate: user.isPrivate,
                 isFollowing: follows.some((f) => f.followerId === viewerId),
+                // Viewer đã gửi yêu cầu theo dõi tài khoản riêng tư này và đang chờ duyệt.
+                followRequested: user.followRequestsReceived.length > 0,
                 followsYou: follows.some((f) => f.followerId === targetUserId),
                 isBlocked: blocks.length > 0,
             },
@@ -385,6 +430,14 @@ export class UsersService {
                     OR: [
                         { followerId: userId, followingId: targetUserId },
                         { followerId: targetUserId, followingId: userId },
+                    ],
+                },
+            }),
+            this.prisma.followRequest.deleteMany({
+                where: {
+                    OR: [
+                        { requesterId: userId, targetId: targetUserId },
+                        { requesterId: targetUserId, targetId: userId },
                     ],
                 },
             }),

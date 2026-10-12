@@ -13,8 +13,14 @@ import { apiConfig } from '../../../config/api';
 type Listener = () => void;
 
 const NEW_NOTIFICATION_EVENT = 'notification:new';
-
 const listeners = new Set<Listener>();
+
+/** Events whose payload is handed to subscribers as is (direct messages). */
+const FORWARDED_EVENTS = ['message:new', 'message:read'] as const;
+type ForwardedEvent = (typeof FORWARDED_EVENTS)[number];
+type EventHandler = (payload: unknown) => void;
+const eventHandlers = new Map<string, Set<EventHandler>>();
+const reconnectListeners = new Set<Listener>();
 let socket: Socket | null = null;
 
 function notifyListeners(): void {
@@ -57,6 +63,13 @@ export const notificationSocket = {
     nextSocket.on(NEW_NOTIFICATION_EVENT, notifyListeners);
     // Events sent while offline are lost, so resync after every (re)connect.
     nextSocket.on('connect', notifyListeners);
+    nextSocket.on('connect', () => reconnectListeners.forEach((listener) => listener()));
+
+    FORWARDED_EVENTS.forEach((event) => {
+      nextSocket.on(event, (payload: unknown) => {
+        eventHandlers.get(event)?.forEach((handler) => handler(payload));
+      });
+    });
 
     socket = nextSocket;
   },
@@ -65,6 +78,27 @@ export const notificationSocket = {
     socket?.removeAllListeners();
     socket?.disconnect();
     socket = null;
+  },
+
+  /** Receive the payload of a forwarded event; returns the unsubscribe function. */
+  on<T>(event: ForwardedEvent, handler: (payload: T) => void): () => void {
+    const handlers = eventHandlers.get(event) ?? new Set<EventHandler>();
+
+    handlers.add(handler as EventHandler);
+    eventHandlers.set(event, handlers);
+
+    return () => {
+      handlers.delete(handler as EventHandler);
+    };
+  },
+
+  /** Run `listener` after every (re)connect: whatever was missed must be reloaded. */
+  onReconnect(listener: Listener): () => void {
+    reconnectListeners.add(listener);
+
+    return () => {
+      reconnectListeners.delete(listener);
+    };
   },
 
   /** Run `listener` whenever the notification list should be reloaded. */

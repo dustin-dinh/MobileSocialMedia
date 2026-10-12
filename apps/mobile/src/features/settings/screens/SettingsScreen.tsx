@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import appConfig from '../../../../app.json';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
@@ -11,6 +11,7 @@ import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { useAuthSession } from '../../auth/authSession';
+import { profileService } from '../../profile/services/profileService';
 
 type Row = {
   destructive?: boolean;
@@ -18,6 +19,8 @@ type Row = {
   key: string;
   label: string;
   onPress: () => void;
+  /** An on/off switch instead of a chevron. */
+  toggle?: boolean;
   /** Right-aligned detail text instead of a chevron (read-only rows). */
   value?: string;
 };
@@ -35,7 +38,8 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
           return (
             <Pressable
               accessibilityLabel={row.label}
-              accessibilityRole="button"
+              accessibilityRole={row.toggle === undefined ? 'button' : 'switch'}
+              accessibilityState={row.toggle === undefined ? undefined : { checked: row.toggle }}
               disabled={row.value !== undefined}
               key={row.key}
               onPress={row.onPress}
@@ -45,7 +49,16 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
               <ClayText style={[styles.rowLabel, { color }]} variant="body">
                 {row.label}
               </ClayText>
-              {row.value !== undefined ? (
+              {row.toggle !== undefined ? (
+                <Switch
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  onValueChange={row.onPress}
+                  thumbColor={clayColors.surfaceHigh}
+                  trackColor={{ false: clayColors.border, true: clayColors.primary }}
+                  value={row.toggle}
+                />
+              ) : row.value !== undefined ? (
                 <ClayText numberOfLines={1} style={styles.rowValue} variant="meta">
                   {row.value}
                 </ClayText>
@@ -63,9 +76,28 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
 /** Account settings: profile, password, blocked users, legal pages, sign out, delete account. */
 export function SettingsScreen() {
   const navigation = useAppNavigation();
-  const { signOut, user } = useAuthSession();
+  const { signOut, updateUser, user } = useAuthSession();
   const [isSignOutVisible, setIsSignOutVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // The switch moves at once; a failed save moves it back.
+  const handleTogglePrivate = async () => {
+    const next = !user?.isPrivate;
+
+    updateUser?.({ isPrivate: next });
+
+    try {
+      await profileService.setPrivate(next);
+      showToast(
+        next
+          ? 'Tài khoản đã chuyển sang riêng tư.'
+          : 'Tài khoản đã công khai. Các yêu cầu đang chờ được chấp nhận.',
+      );
+    } catch {
+      updateUser?.({ isPrivate: !next });
+      showToast('Không lưu được thay đổi. Vui lòng thử lại.', 'error');
+    }
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -104,6 +136,19 @@ export function SettingsScreen() {
         />
         <SettingsGroup
           rows={[
+            {
+              icon: 'LockKey',
+              key: 'private',
+              label: 'Tài khoản riêng tư',
+              onPress: () => void handleTogglePrivate(),
+              toggle: user?.isPrivate ?? false,
+            },
+            {
+              icon: 'UserPlus',
+              key: 'requests',
+              label: 'Yêu cầu theo dõi',
+              onPress: () => navigation.open('FollowRequests'),
+            },
             {
               icon: 'Prohibit',
               key: 'blocked',

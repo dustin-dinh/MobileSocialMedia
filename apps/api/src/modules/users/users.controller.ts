@@ -70,14 +70,30 @@ export class UsersController {
         @Request() request: AuthenticatedRequest,
         @UploadedFile() avatar: Express.Multer.File,
     ) {
-        return this.usersService.setAvatar(request.user.userId, avatar ?? null);
+        return this.usersService.setImage(request.user.userId, 'avatarUrl', avatar ?? null);
     }
 
     @Delete("me/avatar")
     async removeAvatar(
         @Request() request: AuthenticatedRequest,
     ) {
-        return this.usersService.setAvatar(request.user.userId, null);
+        return this.usersService.setImage(request.user.userId, 'avatarUrl', null);
+    }
+
+    @Post("me/cover")
+    @UseInterceptors(FileInterceptor("cover"))
+    async uploadCover(
+        @Request() request: AuthenticatedRequest,
+        @UploadedFile() cover: Express.Multer.File,
+    ) {
+        return this.usersService.setImage(request.user.userId, 'coverUrl', cover ?? null);
+    }
+
+    @Delete("me/cover")
+    async removeCover(
+        @Request() request: AuthenticatedRequest,
+    ) {
+        return this.usersService.setImage(request.user.userId, 'coverUrl', null);
     }
 
     @Post("me/onboarding/complete")

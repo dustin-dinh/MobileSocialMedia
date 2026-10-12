@@ -375,3 +375,77 @@ Files are stored in S3-compatible storage (MinIO in local development). Every `u
 | `GET /reels/feed?limit=&exclude=` | `limit` 1-20 (default 5). `exclude` is a comma-separated list of post ids already shown (the last 50 are used). Returns `{ data: Post[], meta: { requestId } }`; each post also has `reason: { code: "FOLLOWING" \| "TRENDING" \| "FRESH", text }`. Only `reelEligible` posts the viewer may see, without hidden posts and blocked authors. Ranked feeds have no pages: call again with a longer `exclude`. Videos the viewer watched in the last 7 days are ranked last instead of removed. |
 | `POST /interactions` `{ events: [...] }` | At most 50 events. Event: `{ eventId, eventType, postId, mediaId?, watchMs?, durationMs?, position?, requestId?, surface, createdAt? }`, `eventType` = `VIEW` \| `COMPLETE` \| `REPLAY` \| `SKIP` \| `LIKE` \| `SAVE` \| `NOT_INTERESTED`. `eventId` is generated on the device; a resent event is stored once. Events for unknown posts are skipped. `204`. |
 | `POST /posts/:id/not-interested` | Same effect as `POST /posts/:id/hide`. `{ data: { isHidden: true } }`. |
+
+## Social features added on 2026-10-13
+
+All routes need `Authorization: Bearer <token>` unless noted.
+
+### Changed behaviour
+
+- `GET /posts/feed` now returns only the viewer's own posts and posts (and reposts) of people they follow.
+- `401` with `code: "ACCOUNT_BANNED"` is returned at login and on every request of a suspended account.
+- A post's `PUBLIC` privacy on a **private account** means "followers only" everywhere (feed, profile, search, reels, post detail).
+
+### Users and profile
+
+| Endpoint | Notes |
+|---|---|
+| Current user (`login`, `GET /users/me`, `PATCH /users/me`) | Also carries `coverUrl`, `isPrivate`, `role` (`USER` \| `ADMIN`). |
+| `PATCH /users/me` `{ isPrivate }` | Switching back to public accepts every pending follow request. |
+| `POST /users/me/cover` (multipart, field `cover`) / `DELETE /users/me/cover` | Same rules as the avatar: JPEG/PNG/WebP, at most 5 MB. Returns the current user. |
+| `GET /users/:id` | Adds `coverUrl`, `isPrivate`, `followRequested` (the viewer's request is pending). |
+| `POST /users/:id/follow` | Returns `{ data: { following, requested } }`. For a private account not yet followed: `following: false, requested: true` and the owner gets a `FOLLOW_REQUEST` notification. |
+| `DELETE /users/:id/follow` | Also withdraws a pending request. |
+| `GET /users/me/follow-requests` | `{ data: User[] }` with `requestedAt`. |
+| `POST /users/:id/follow-request/accept`, `DELETE /users/:id/follow-request` | `:id` is the requester. Accepting notifies them with `FOLLOW_ACCEPT`. |
+| `GET /users/:id/followers`, `/following` | `403` for a private account the viewer does not follow. |
+
+### Reactions
+
+| Endpoint | Notes |
+|---|---|
+| `POST /posts/:id/like` `{ type? }` | `type` = `LIKE` (default) \| `LOVE` \| `HAHA` \| `WOW` \| `SAD` \| `ANGRY`. One reaction per user; sending another type replaces it. `{ data: { isLiked, myReaction } }`. |
+| `DELETE /posts/:id/like` | Removes the reaction. |
+| Post object | Adds `myReaction` (string or `null`). `likeCount` counts every reaction. |
+| `GET /posts/:id/likes` | Each user carries `reaction`; `meta.reactions` holds the count per type. |
+
+### Trending
+
+`GET /hashtags/trending` -> `{ data: [{ tag, postsCount }] }`: up to 10 hashtags (lower-cased, without `#`) used by the most public posts of public accounts in the last 7 days.
+
+### Direct messages
+
+Realtime events arrive on the existing Socket.IO namespace `/notifications`: `message:new` `{ conversationId, message }` (sent to both users) and `message:read` `{ conversationId, readAt }` (sent to the other user).
+
+| Endpoint | Notes |
+|---|---|
+| `POST /conversations` `{ userId }` | Opens the conversation with a user, creating it on first use. `404` when the user does not exist or a block exists. |
+| `GET /conversations` | Conversations that have messages, newest first: `{ id, peer, lastMessage, lastMessageAt, unreadCount }`. |
+| `GET /conversations/unread-count` | `{ data: { count } }`: conversations with unread messages. |
+| `GET /conversations/:id/messages?before=&limit=` | Newest first, `limit` 1-50 (default 30). `before` is the `createdAt` of the oldest message already loaded. `meta: { hasMore, peerReadAt }`. |
+| `POST /conversations/:id/messages` | JSON `{ content?, clientId? }`, or multipart with the same fields plus an `image` file (JPEG/PNG/WebP, at most 5 MB). Text at most 2000 characters. `clientId` is generated on the device: sending it again returns the stored message instead of creating a second one. `403` when a block exists. |
+| `POST /conversations/:id/read` | Marks the conversation read for the caller. |
+
+Message: `{ id, conversationId, senderId, content, imageUrl, createdAt }`.
+
+### Stories
+
+| Endpoint | Notes |
+|---|---|
+| `POST /media/upload-url` | New `kind: "image"` (JPEG/PNG/WebP, at most 10 MB) for story pictures. |
+| `POST /stories` `{ type: "IMAGE" \| "VIDEO", storageKey, thumbnailKey?, durationMs? }` | The file is uploaded first with `POST /media/upload-url`. Video: at most 30 MB and 60 s, `durationMs` required. Expires after 24 hours. |
+| `GET /stories/feed` | Active stories of the viewer and of people they follow, grouped by author: `{ author, hasUnseen, stories: [...] }`. The viewer's own group comes first, then groups with unseen stories. Own stories carry `viewsCount`. |
+| `POST /stories/:id/view` | Idempotent. `404` when the viewer may not see the story. |
+| `GET /stories/:id/viewers`, `DELETE /stories/:id` | Owner only. |
+
+### Administration
+
+`GET /admin` serves the admin web page (no token needed to load it). Every other route needs a token of a user whose `role` is `ADMIN` (`403` otherwise).
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/stats` | Counters for the dashboard. |
+| `GET /admin/reports?status=&page=&limit=` | `status` = `OPEN` (default) \| `RESOLVED` \| `DISMISSED`. Each report carries `reporter` and `target` (the reported post, comment or user; `null` when it no longer exists). |
+| `POST /admin/reports/:id/resolve` `{ action }` | `DISMISS`, `REMOVE_CONTENT` (post or comment) or `BAN_USER` (the reported user or the content's author). Closes every open report on the same target. |
+| `GET /admin/users?q=&page=&limit=` | Search by username, display name or email. |
+| `POST` / `DELETE /admin/users/:id/ban` | Suspends or restores an account. Administrators cannot be suspended. |

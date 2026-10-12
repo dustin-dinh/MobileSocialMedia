@@ -4,6 +4,7 @@
  * Talks to `GET /posts/feed` and `POST|DELETE /posts/:id/like`. When
  * `USE_MOCK_API` is on, it serves local mock data after a simulated delay.
  */
+import type { ReactionType } from '../reactions';
 import { USE_MOCK_API } from '../../../config/runtime';
 import { ApiError } from '../../../services/apiError';
 import { httpClient } from '../../../services/httpClient';
@@ -77,6 +78,7 @@ export const feedService = {
         ...post,
         isLiked: !post.isLiked,
         likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1,
+        myReaction: post.isLiked ? null : 'LIKE',
       };
     }
 
@@ -91,12 +93,31 @@ export const feedService = {
       ...post,
       isLiked: !post.isLiked,
       likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1,
+      myReaction: post.isLiked ? null : 'LIKE',
     };
   },
 
   /**
    * Toggle the bookmark/save status of a post.
    */
+  /** Set the viewer's reaction on a post, or remove it with `null`. */
+  async react(postId: string, type: ReactionType | null): Promise<void> {
+    if (USE_MOCK_FEED) {
+      await delay(150);
+      return;
+    }
+
+    if (type) {
+      await httpClient.requestVoid<{ type: ReactionType }>({
+        body: { type },
+        method: 'POST',
+        path: `posts/${postId}/like`,
+      });
+    } else {
+      await httpClient.requestVoid({ method: 'DELETE', path: `posts/${postId}/like` });
+    }
+  },
+
   async toggleSave(post: Post): Promise<Post> {
     if (USE_MOCK_FEED) {
       await delay(200);

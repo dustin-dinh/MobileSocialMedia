@@ -310,6 +310,14 @@ export class AuthService {
             });
         }
 
+        if (user.bannedAt) {
+            throw new UnauthorizedException({
+                statusCode: 401,
+                code: "ACCOUNT_BANNED",
+                message: "This account has been suspended",
+            });
+        }
+
         const accessToken =
             await this.jwtService.signAsync({
                 sub: user.id,
@@ -387,6 +395,14 @@ export class AuthService {
                 }
                 user = createdUser;
             }
+        }
+
+        if (user.bannedAt) {
+            throw new UnauthorizedException({
+                statusCode: 401,
+                code: "ACCOUNT_BANNED",
+                message: "This account has been suspended",
+            });
         }
 
         const accessToken = await this.jwtService.signAsync({

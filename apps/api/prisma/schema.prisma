@@ -37,6 +37,19 @@ model User {
   hiddenPosts           HiddenPost[]
   deviceTokens          DeviceToken[]
   interactions          ContentInteraction[]
+  coverUrl              String?
+  // Tài khoản riêng tư: chỉ người theo dõi mới xem được bài; theo dõi phải được duyệt.
+  isPrivate             Boolean        @default(false)
+  // USER | ADMIN
+  role                  String         @default("USER")
+  bannedAt              DateTime?
+  followRequestsSent     FollowRequest[] @relation("FollowRequester")
+  followRequestsReceived FollowRequest[] @relation("FollowRequestTarget")
+  conversationsAsA      Conversation[] @relation("ConversationUserA")
+  conversationsAsB      Conversation[] @relation("ConversationUserB")
+  messages              Message[]
+  stories               Story[]
+  storyViews            StoryView[]
 }
 
 model Post {
@@ -94,6 +107,8 @@ model Follow {
 model Like {
   userId    String
   postId    String
+  // LIKE | LOVE | HAHA | WOW | SAD | ANGRY
+  type      String   @default("LIKE")
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -203,8 +218,10 @@ model Report {
   targetId   String
   reason     String
   note       String?
-  status     String   @default("OPEN")
+  status     String   @default("OPEN") // OPEN | RESOLVED | DISMISSED
   createdAt  DateTime @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
 
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
@@ -277,4 +294,81 @@ model ContentInteraction {
 
   @@index([userId, createdAt])
   @@index([postId, createdAt])
+}
+
+// Yêu cầu theo dõi một tài khoản riêng tư, chờ chủ tài khoản duyệt.
+model FollowRequest {
+  requesterId String
+  targetId    String
+  createdAt   DateTime @default(now())
+
+  requester User @relation("FollowRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  target    User @relation("FollowRequestTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([requesterId, targetId])
+  @@index([targetId, createdAt])
+}
+
+// Hội thoại 1:1. Cặp người dùng được sắp xếp (userAId < userBId) để mỗi cặp chỉ có một dòng.
+model Conversation {
+  id            String    @id @default(cuid())
+  userAId       String
+  userBId       String
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  // Thời điểm mỗi bên đọc gần nhất: dùng để tính số chưa đọc và hiện "Đã xem".
+  userAReadAt   DateTime?
+  userBReadAt   DateTime?
+
+  userA    User      @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User      @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId, lastMessageAt])
+  @@index([userBId, lastMessageAt])
+}
+
+// id do thiết bị sinh ra để gửi lại khi mất mạng không tạo tin trùng.
+model Message {
+  id             String   @id
+  conversationId String
+  senderId       String
+  content        String?
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// Tin 24 giờ: ảnh hoặc video ngắn, hết hạn sau expiresAt.
+model Story {
+  id           String   @id @default(cuid())
+  authorId     String
+  type         String // image | video
+  url          String
+  thumbnailUrl String?
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  views  StoryView[]
+
+  @@index([authorId, expiresAt])
+  @@index([expiresAt])
+}
+
+model StoryView {
+  storyId   String
+  viewerId  String
+  createdAt DateTime @default(now())
+
+  story  Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer User  @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, viewerId])
 }

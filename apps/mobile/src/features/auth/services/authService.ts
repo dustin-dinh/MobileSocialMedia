@@ -4,6 +4,7 @@ import type { LoginFormValues, RegisterFormValues } from '../validation';
 export type AuthUser = {
   avatarUrl: string | null;
   bio: string | null;
+  coverUrl?: string | null;
   createdAt?: string;
   displayName: string | null;
   /** False for Google-only accounts, which have no password to confirm with. */
@@ -12,6 +13,7 @@ export type AuthUser = {
   onboardedAt?: string | null;
   email: string;
   id: string;
+  isPrivate?: boolean;
   updatedAt?: string;
   username: string;
 };

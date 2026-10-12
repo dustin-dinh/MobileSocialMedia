@@ -1,8 +1,8 @@
 import { IsIn, IsInt, IsString, Min } from 'class-validator';
 
 export class UploadUrlDto {
-    @IsIn(['video', 'thumbnail'])
-    kind!: 'video' | 'thumbnail';
+    @IsIn(['video', 'thumbnail', 'image'])
+    kind!: 'video' | 'thumbnail' | 'image';
 
     @IsString()
     mimeType!: string;

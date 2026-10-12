@@ -18,13 +18,22 @@ type UserListScreenProps = {
   fetchPage: (page: number) => Promise<UserPage>;
   /** Rendered between the title bar and the list (e.g. tabs). */
   header?: ReactNode;
+  /** What a tap on a row does; opens the user's profile when omitted. */
+  onPressUser?: (userId: string) => void;
   /** Replaces the follow button on each row. */
   renderRight?: (user: UserRowUser, reload: () => void) => ReactNode;
   title: string;
 };
 
 /** A titled, paginated list of users: followers, following, likers, blocked. */
-export function UserListScreen({ emptyText, fetchPage, header, renderRight, title }: UserListScreenProps) {
+export function UserListScreen({
+  emptyText,
+  fetchPage,
+  header,
+  onPressUser,
+  renderRight,
+  title,
+}: UserListScreenProps) {
   const navigation = useAppNavigation();
   const [users, setUsers] = useState<UserRowUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,7 +135,7 @@ export function UserListScreen({ emptyText, fetchPage, header, renderRight, titl
           }
           renderItem={({ item }) => (
             <UserRow
-              onPress={navigation.openProfile}
+              onPress={onPressUser ?? navigation.openProfile}
               right={renderRight?.(item, refresh)}
               user={item}
             />

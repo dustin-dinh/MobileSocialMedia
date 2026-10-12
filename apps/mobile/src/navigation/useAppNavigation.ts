@@ -4,7 +4,7 @@ import { useContext, useMemo } from 'react';
 import { showToast } from '../components/common/toast';
 import { useAuthSession } from '../features/auth/authSession';
 import { followApi } from '../services/followApi';
-import type { MainStackParamList } from './types';
+import type { MainStackParamList, MainTabParamList } from './types';
 
 /**
  * Navigation helpers for screens pushed on top of the tabs.
@@ -26,6 +26,13 @@ export function useAppNavigation() {
       ...params: MainStackParamList[K] extends undefined ? [] : [MainStackParamList[K]]
     ) => {
       navigation?.dispatch(StackActions.push(name, params[0]));
+    };
+
+    const replace = <K extends keyof MainStackParamList>(
+      name: K,
+      ...params: MainStackParamList[K] extends undefined ? [] : [MainStackParamList[K]]
+    ) => {
+      navigation?.dispatch(StackActions.replace(name, params[0]));
     };
 
     const openProfile = (userId: string) => {
@@ -62,6 +69,12 @@ export function useAppNavigation() {
       },
       /** Opens a user's profile; your own profile is the Profile tab. */
       openProfile,
+      /** Switches to one of the bottom tabs. */
+      openTab: (screen: keyof MainTabParamList) => {
+        navigation?.navigate('Tabs', { screen });
+      },
+      /** Like `open`, but the current screen is removed from the stack. */
+      replace,
     };
   }, [currentUserId, navigation]);
 }

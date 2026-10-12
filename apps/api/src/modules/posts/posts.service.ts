@@ -286,9 +286,18 @@ export class PostsService {
         const fetchCount = skip + limit;
         const blocked = await blockedUserIds(this.prisma, userId);
 
+        // Bảng tin: bài của chính mình và của người mình đang theo dõi.
         const postWhere = {
-            ...visiblePostWhere(userId, blocked),
-            hiddenBy: { none: { userId } },
+            AND: [
+                visiblePostWhere(userId, blocked),
+                { hiddenBy: { none: { userId } } },
+                {
+                    OR: [
+                        { authorId: userId },
+                        { author: { followers: { some: { followerId: userId } } } },
+                    ],
+                },
+            ],
         };
 
         // Hiển thị repost của chính mình và người mình đang follow.

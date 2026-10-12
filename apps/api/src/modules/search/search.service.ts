@@ -9,6 +9,46 @@ export class SearchService {
         private readonly prisma: PrismaService,
     ) { }
 
+    // Hashtag được dùng trong nhiều bài công khai nhất trong 7 ngày qua.
+    // shortcut: đếm trong bộ nhớ trên 500 bài mới nhất có dấu #, chuyển sang bảng hashtag khi lượng bài lớn.
+    async trendingHashtags(viewerId: string, limit: number) {
+        const posts = await this.prisma.post.findMany({
+            where: {
+                deletedAt: null,
+                privacy: 'PUBLIC',
+                content: { contains: '#' },
+                createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                author: {
+                    isPrivate: false,
+                    id: { notIn: await blockedUserIds(this.prisma, viewerId) },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+            select: { content: true },
+        });
+
+        const counts = new Map<string, number>();
+
+        for (const post of posts) {
+            // Cùng mẫu với RichText ở mobile; mỗi bài chỉ tính một lần cho mỗi hashtag.
+            const tags = new Set(
+                (post.content ?? '')
+                    .match(/#[\w.\u00C0-\u1EF9]*[\w\u00C0-\u1EF9]/g)
+                    ?.map((tag) => tag.slice(1).toLowerCase()),
+            );
+
+            tags.forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1));
+        }
+
+        return {
+            data: [...counts.entries()]
+                .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                .slice(0, limit)
+                .map(([tag, postsCount]) => ({ tag, postsCount })),
+        };
+    }
+
     async searchUsers(viewerId: string, query: UserSearchQueryDto) {
         const q = query.q.trim();
         const page = query.page;

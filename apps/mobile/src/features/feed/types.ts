@@ -7,6 +7,8 @@
  */
 
 /** Lightweight author embedded in every post. */
+import type { ReactionType } from './reactions';
+
 export type PostAuthor = {
   avatarUrl: string | null;
   displayName: string | null;
@@ -50,6 +52,8 @@ export type Post = {
   isSaved: boolean;
   likesCount: number;
   media: PostMedia[];
+  /** The viewer's reaction; `LIKE` is the plain heart. Null or absent when there is none. */
+  myReaction?: ReactionType | null;
   privacy?: PostPrivacy;
   /** Set when this feed row is someone's repost of the post. */
   repost?: {

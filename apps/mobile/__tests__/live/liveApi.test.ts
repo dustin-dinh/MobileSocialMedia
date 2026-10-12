@@ -116,11 +116,8 @@ describeLive('Mobile services against the live API', () => {
     expect(await searchService.searchUsers('   ')).toEqual([]);
   });
 
-  // Known mismatch, kept visible on purpose: since the post-privacy change the
-  // backend feed returns every PUBLIC post, followed or not. `it.failing` turns
-  // red again the day the feed goes back to "people I follow", so this note
-  // cannot be forgotten.
-  it.failing('feed: a stranger\'s post is absent until followed', async () => {
+  // The feed holds the viewer's own posts and those of people they follow.
+  it('feed: a stranger\'s post is absent until followed', async () => {
     actAs(alice);
     const before = await feedService.getFeed(1);
 
@@ -296,8 +293,7 @@ describeLive('Mobile services against the live API', () => {
     expect(await searchService.toggleFollowUser(bob.user.id, true)).toBe(false);
   });
 
-  // Same known mismatch as the feed test above.
-  it.failing('unfollow: removes the post from the feed again', async () => {
+  it('unfollow: removes the post from the feed again', async () => {
     actAs(alice);
 
     const feed = await feedService.getFeed(1);

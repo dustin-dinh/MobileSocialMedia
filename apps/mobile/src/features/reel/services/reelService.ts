@@ -26,8 +26,8 @@ type UploadTarget = {
 };
 
 /** Asks the API where to put a file, then sends the file straight to storage. */
-async function uploadToStorage(
-  kind: 'thumbnail' | 'video',
+export async function uploadToStorage(
+  kind: 'image' | 'thumbnail' | 'video',
   file: { mimeType: string; sizeBytes: number; uri: string },
   onProgress?: (fraction: number) => void,
 ): Promise<string> {
@@ -49,7 +49,7 @@ async function uploadToStorage(
  * Poster frame for the feed. A missing poster must never block posting, so
  * every failure (including a build without the native module) yields null.
  */
-async function createThumbnail(videoUri: string): Promise<string | null> {
+export async function createThumbnail(videoUri: string): Promise<string | null> {
   try {
     // Loaded on demand: the module is native and absent from the Jest environment.
     const VideoThumbnails = require('expo-video-thumbnails') as typeof import('expo-video-thumbnails');

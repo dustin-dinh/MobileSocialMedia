@@ -6,6 +6,7 @@
  * the set of ids the signed-in user follows is fetched once and kept in
  * memory, and follower/following totals come from the list endpoints' `meta`.
  */
+import { showToast } from '../components/common/toast';
 import { feedEvents } from '../features/feed/feedEvents';
 import { httpClient } from './httpClient';
 
@@ -76,7 +77,19 @@ export const followApi = {
   },
 
   async follow(userId: string): Promise<void> {
-    await httpClient.requestVoid({ method: 'POST', path: `users/${userId}/follow` });
+    const response = await httpClient.requestJson<{ data: { requested?: boolean } }>({
+      method: 'POST',
+      path: `users/${userId}/follow`,
+    });
+
+    // Private account: only a request was sent. Buttons that switched to
+    // "following" ahead of the answer switch back.
+    if (response.data.requested) {
+      feedEvents.emitFollowChanged(userId, false);
+      showToast('Đã gửi yêu cầu theo dõi.');
+      return;
+    }
+
     followingIds?.add(userId);
     // Every screen showing this user updates its follow button.
     feedEvents.emitFollowChanged(userId, true);

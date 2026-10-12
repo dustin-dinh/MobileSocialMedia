@@ -1,24 +1,42 @@
 import { StyleSheet, View } from 'react-native';
 
-import { clayColors } from '../../../theme/colors';
 import { ClayEmoji } from '../../../components/icons/ClayEmoji';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
+import { clayColors } from '../../../theme/colors';
 
-export function FeedEmptyState() {
+/**
+ * Shown when the home feed has nothing: the feed only holds posts from the
+ * viewer and the people they follow, so the way forward is to follow someone.
+ */
+export function FeedEmptyState({ onFindPeople }: { onFindPeople?: () => void }) {
   return (
     <View style={styles.container}>
       <ClayEmoji name="sparkles" size={68} />
       <ClayText variant="heading" style={styles.title}>
-        Your feed is empty
+        Bảng tin của bạn đang trống
       </ClayText>
       <ClayText variant="body" style={styles.subtitle}>
-        Follow people and topics you're interested in to fill your feed with great content.
+        Bảng tin hiện bài viết của bạn và của những người bạn theo dõi. Hãy theo dõi vài người
+        để bắt đầu.
       </ClayText>
+      {onFindPeople ? (
+        <ClayButton
+          accessibilityLabel="Tìm người để theo dõi"
+          onPress={onFindPeople}
+          style={styles.button}
+          title="Tìm người để theo dõi"
+          variant="primary"
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  button: {
+    marginTop: 20,
+  },
   container: {
     alignItems: 'center',
     flex: 1,

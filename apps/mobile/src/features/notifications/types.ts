@@ -2,7 +2,15 @@
  * Data models for the Notifications feature.
  */
 
-export type NotificationType = 'LIKE' | 'COMMENT' | 'FOLLOW' | 'REPLY' | 'REPOST' | 'MENTION';
+export type NotificationType =
+  | 'LIKE'
+  | 'COMMENT'
+  | 'FOLLOW'
+  | 'REPLY'
+  | 'REPOST'
+  | 'MENTION'
+  | 'FOLLOW_REQUEST'
+  | 'FOLLOW_ACCEPT';
 
 export type NotificationActor = {
   avatarUrl: string | null;

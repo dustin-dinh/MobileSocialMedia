@@ -195,6 +195,19 @@ export const profileService = {
       await httpClient.requestVoid({ method: 'DELETE', path: 'users/me/avatar' });
     }
 
+    if (payload.cover) {
+      const form = new FormData();
+
+      form.append('cover', toUploadPart(payload.cover.uri, 0, payload.cover) as unknown as Blob);
+      await httpClient.requestForm<{ data: AuthUser }>({
+        form,
+        method: 'POST',
+        path: 'users/me/cover',
+      });
+    } else if (payload.cover === null) {
+      await httpClient.requestVoid({ method: 'DELETE', path: 'users/me/cover' });
+    }
+
     const fields = {
       bio: payload.bio,
       displayName: payload.displayName,
@@ -210,6 +223,48 @@ export const profileService = {
     }
 
     return this.getProfile(user.id);
+  },
+
+  /** Make the signed-in account private (followers need approval) or public again. */
+  async setPrivate(isPrivate: boolean): Promise<void> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+      return;
+    }
+
+    await httpClient.requestVoid<{ isPrivate: boolean }>({
+      body: { isPrivate },
+      method: 'PATCH',
+      path: 'users/me',
+    });
+  },
+
+  /** People waiting for the signed-in user to approve their follow. */
+  async getFollowRequests(): Promise<PostAuthor[]> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+      return [];
+    }
+
+    const response = await httpClient.requestJson<{ data: PostAuthor[] }>({
+      method: 'GET',
+      path: 'users/me/follow-requests',
+    });
+
+    return response.data;
+  },
+
+  async answerFollowRequest(requesterId: string, accept: boolean): Promise<void> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+      return;
+    }
+
+    await httpClient.requestVoid(
+      accept
+        ? { method: 'POST', path: `users/${requesterId}/follow-request/accept` }
+        : { method: 'DELETE', path: `users/${requesterId}/follow-request` },
+    );
   },
 
   /** Block or unblock a user. Blocking also removes the follows in both directions. */

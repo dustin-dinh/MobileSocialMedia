@@ -97,6 +97,7 @@ export class NotificationsGateway
     async emitToUser(
         userId: string,
         notification: unknown,
+        event = "notification:new",
     ): Promise<void> {
         const sockets = await this.server
             .in(`user:${userId}`)
@@ -104,7 +105,7 @@ export class NotificationsGateway
 
         for (const socket of sockets) {
             socket.emit(
-                "notification:new",
+                event,
                 resolveMediaUrls(notification, socket.handshake.headers.host),
             );
         }

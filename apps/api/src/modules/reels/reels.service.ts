@@ -18,6 +18,15 @@ export const UPLOAD_LIMITS = {
         maxBytes: 30 * 1024 * 1024,
         types: { 'video/mp4': 'mp4', 'video/quicktime': 'mov' } as Record<string, string>,
     },
+    // Ảnh của tin 24 giờ.
+    image: {
+        maxBytes: 10 * 1024 * 1024,
+        types: {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+        } as Record<string, string>,
+    },
     thumbnail: {
         maxBytes: 2 * 1024 * 1024,
         types: {

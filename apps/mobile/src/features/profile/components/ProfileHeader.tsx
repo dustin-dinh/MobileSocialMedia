@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { clayDimensions, clayRadii } from '../../../theme/spacing';
@@ -92,6 +93,8 @@ type ProfileHeaderProps = {
   isOwn: boolean;
   onChangeTab: (tab: ProfileTab) => void;
   onEditProfile?: () => void;
+  /** Other people's profiles: open the conversation with this user. */
+  onMessage?: () => void;
   onOpenSettings?: () => void;
   onPressStat?: (type: 'followers' | 'following') => void;
   onToggleFollow?: () => void;
@@ -110,6 +113,7 @@ export function ProfileHeader({
   isOwn,
   onChangeTab,
   onEditProfile,
+  onMessage,
   onOpenSettings,
   onPressStat,
   onToggleFollow,
@@ -120,6 +124,15 @@ export function ProfileHeader({
 
   return (
     <View style={styles.container}>
+      {profile.coverUrl ? (
+        <ExpoImage
+          accessibilityLabel={`Ảnh bìa của ${displayName}`}
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          source={{ uri: profile.coverUrl }}
+          style={styles.cover}
+        />
+      ) : null}
       {/* ── Name + bio on the left, avatar on the right ────── */}
       <View style={styles.topSection}>
         <View style={styles.identity}>
@@ -130,6 +143,9 @@ export function ProfileHeader({
             <ClayText variant="body" style={styles.username} numberOfLines={1}>
               @{profile.username}
             </ClayText>
+            {profile.isPrivate ? (
+              <ClayIcon color={profileColors.caption} name="LockKey" size={14} weight="bold" />
+            ) : null}
             {!isOwn && profile.followsYou ? (
               <View style={styles.followsYouBadge}>
                 <ClayText variant="meta" style={styles.followsYouText}>
@@ -199,10 +215,15 @@ export function ProfileHeader({
             />
           </View>
         ) : (
+          <>
           <View style={styles.actionButton}>
             <ClayButton
               accessibilityLabel={
-                profile.isFollowing ? `Bỏ theo dõi ${displayName}` : `Theo dõi ${displayName}`
+                profile.isFollowing
+                  ? `Bỏ theo dõi ${displayName}`
+                  : profile.followRequested
+                    ? `Huỷ yêu cầu theo dõi ${displayName}`
+                    : `Theo dõi ${displayName}`
               }
               disabled={isActionPending}
               loading={isActionPending}
@@ -211,13 +232,27 @@ export function ProfileHeader({
               title={
                 profile.isFollowing
                   ? 'Đang theo dõi'
+                  : profile.followRequested
+                    ? 'Đã gửi yêu cầu'
                   : profile.followsYou
                     ? 'Theo dõi lại'
                     : 'Theo dõi'
               }
-              variant={profile.isFollowing ? 'secondary' : 'primary'}
+              variant={profile.isFollowing || profile.followRequested ? 'secondary' : 'primary'}
             />
           </View>
+          {onMessage ? (
+            <View style={styles.actionButton}>
+              <ClayButton
+                accessibilityLabel={`Nhắn tin cho ${displayName}`}
+                onPress={onMessage}
+                size="md"
+                title="Nhắn tin"
+                variant="secondary"
+              />
+            </View>
+          ) : null}
+          </>
         )}
       </View>
 
@@ -281,6 +316,11 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: profileColors.canvas,
     paddingBottom: 8,
+  },
+  cover: {
+    backgroundColor: profileColors.surfaceWell,
+    height: 120,
+    width: '100%',
   },
   displayName: {
     color: profileColors.text,

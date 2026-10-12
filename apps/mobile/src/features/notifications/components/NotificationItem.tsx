@@ -30,7 +30,7 @@ function TypeBadge({ type }: { type: NotificationType }) {
   } else if (type === 'REPOST') {
     badgeBg = notificationsColors.followBadge;
     iconName = 'Repeat';
-  } else if (type === 'FOLLOW') {
+  } else if (type === 'FOLLOW' || type === 'FOLLOW_REQUEST' || type === 'FOLLOW_ACCEPT') {
     badgeBg = notificationsColors.followBadge;
     iconName = 'User';
   }
@@ -173,6 +173,8 @@ export const NotificationItem = memo(function NotificationItem({
           {notification.type === 'REPLY' && 'đã trả lời bình luận của bạn.'}
           {notification.type === 'REPOST' && 'đã đăng lại bài viết của bạn.'}
           {notification.type === 'MENTION' && 'đã nhắc đến bạn.'}
+          {notification.type === 'FOLLOW_REQUEST' && 'muốn theo dõi bạn.'}
+          {notification.type === 'FOLLOW_ACCEPT' && 'đã chấp nhận yêu cầu theo dõi của bạn.'}
         </ClayText>
 
         <ClayText variant="meta" style={styles.timeAgo}>

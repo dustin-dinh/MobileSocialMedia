@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản trị · Mobile Social</title>
+<style>
+  :root { --canvas:#F3E8EC; --surface:#FFF9FB; --border:#E6D3DB; --text:#3A2530; --muted:#8A6F7B; --primary:#CC2F6E; --danger:#C0392B; --ok:#2E7D5B; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--canvas); color:var(--text); }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; background:var(--surface); border-bottom:1px solid var(--border); }
+  header h1 { font-size:18px; margin:0; }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  button, input, select { font:inherit; }
+  button { cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:10px; padding:7px 12px; }
+  button:hover { border-color:var(--muted); }
+  button.primary { background:var(--primary); border-color:var(--primary); color:#fff; }
+  button.danger { color:var(--danger); border-color:#E8C4BF; }
+  button:disabled { opacity:.5; cursor:default; }
+  input, select { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; color:var(--text); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  #login { max-width:360px; margin:12vh auto 0; padding:24px; }
+  #login h2 { margin:0 0 4px; font-size:20px; }
+  #login p { margin:0 0 16px; color:var(--muted); }
+  #login label { display:block; margin:12px 0 4px; font-weight:600; font-size:13px; }
+  #login input { width:100%; }
+  #login button { width:100%; margin-top:18px; padding:10px; }
+  .error { color:var(--danger); min-height:22px; margin-top:10px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px; }
+  .stat { padding:14px 16px; }
+  .stat b { display:block; font-size:24px; }
+  .stat span { color:var(--muted); font-size:13px; }
+  .tabs { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .tabs button.active { background:var(--text); color:#fff; border-color:var(--text); }
+  .tabs .spacer { flex:1; }
+  .row { display:grid; grid-template-columns:1fr auto; gap:14px; padding:14px 16px; border-bottom:1px solid var(--border); }
+  .row:last-child { border-bottom:0; }
+  .meta { color:var(--muted); font-size:13px; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:999px; background:#F1DDE5; font-size:12px; font-weight:600; margin-right:6px; }
+  .tag.banned { background:#F7D9D4; color:var(--danger); }
+  .quote { margin:8px 0 0; padding:8px 12px; background:#fff; border:1px solid var(--border); border-radius:10px; white-space:pre-wrap; word-break:break-word; }
+  .quote img { display:block; max-width:220px; max-height:220px; border-radius:8px; margin-top:8px; }
+  .actions { display:flex; flex-direction:column; gap:6px; min-width:150px; }
+  .empty { padding:36px 16px; text-align:center; color:var(--muted); }
+  .pager { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:14px; color:var(--muted); }
+  [hidden] { display:none !important; }
+  @media (max-width:640px) { .row { grid-template-columns:1fr; } .actions { flex-direction:row; flex-wrap:wrap; } }
+</style>
+</head>
+<body>
+<section id="login" class="card">
+  <h2>Trang quản trị</h2>
+  <p>Đăng nhập bằng tài khoản quản trị viên.</p>
+  <form id="loginForm">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Mật khẩu</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="primary" type="submit">Đăng nhập</button>
+    <div class="error" id="loginError" role="alert"></div>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header>
+    <h1>Quản trị · Mobile Social</h1>
+    <div><span class="meta" id="who"></span> <button id="logout">Đăng xuất</button></div>
+  </header>
+  <main>
+    <div class="stats" id="stats"></div>
+    <div class="tabs">
+      <button data-tab="reports" class="active">Báo cáo</button>
+      <button data-tab="users">Người dùng</button>
+      <span class="spacer"></span>
+      <select id="statusFilter" aria-label="Trạng thái báo cáo">
+        <option value="OPEN">Đang mở</option>
+        <option value="RESOLVED">Đã xử lý</option>
+        <option value="DISMISSED">Đã bỏ qua</option>
+      </select>
+      <input id="userSearch" type="search" placeholder="Tìm tên, @tên, email" hidden>
+    </div>
+    <div class="card" id="list"></div>
+    <div class="pager" id="pager"></div>
+    <div class="error" id="appError" role="alert"></div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var API = location.pathname.replace(/\/admin\/?$/, '');
+  var token = sessionStorage.getItem('adminToken');
+  var state = { tab: 'reports', page: 1, status: 'OPEN', q: '' };
+  var $ = function (id) { return document.getElementById(id); };
+  var REASONS = { SPAM: 'Spam', HARASSMENT: 'Quấy rối', SENSITIVE: 'Nội dung nhạy cảm', MISINFORMATION: 'Thông tin sai', OTHER: 'Khác' };
+  var TYPES = { POST: 'Bài viết', COMMENT: 'Bình luận', USER: 'Người dùng' };
+
+  // Nội dung do người dùng viết: luôn đưa vào trang dưới dạng văn bản, không bao giờ dưới dạng HTML.
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (key) {
+      if (key === 'text') node.textContent = attrs[key];
+      else if (key === 'onclick') node.addEventListener('click', attrs[key]);
+      else node.setAttribute(key, attrs[key]);
+    });
+    (children || []).forEach(function (child) { if (child) node.appendChild(child); });
+    return node;
+  }
+
+  function api(method, path, body) {
+    return fetch(API + path, {
+      method: method,
+      headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var data = text ? JSON.parse(text) : null;
+        if (res.status === 401 && token) { signOut(); }
+        if (!res.ok) throw new Error((data && (Array.isArray(data.message) ? data.message.join(', ') : data.message)) || ('Lỗi ' + res.status));
+        return data;
+      });
+    });
+  }
+
+  function name(user) { return user ? (user.displayName || user.username) + ' (@' + user.username + ')' : 'Không rõ'; }
+  function when(value) { return new Date(value).toLocaleString('vi-VN'); }
+
+  function signOut() {
+    token = null;
+    sessionStorage.removeItem('adminToken');
+    $('app').hidden = true;
+    $('login').hidden = false;
+  }
+
+  function showApp(label) {
+    $('login').hidden = true;
+    $('app').hidden = false;
+    $('who').textContent = label || '';
+    refresh();
+  }
+
+  $('loginForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    $('loginError').textContent = '';
+    api('POST', '/auth/login', { email: $('email').value.trim(), password: $('password').value })
+      .then(function (res) {
+        if (res.data.user.role !== 'ADMIN') throw new Error('Tài khoản này không có quyền quản trị.');
+        token = res.data.accessToken;
+        sessionStorage.setItem('adminToken', token);
+        $('password').value = '';
+        showApp(res.data.user.email);
+      })
+      .catch(function (error) { $('loginError').textContent = error.message; });
+  });
+  $('logout').addEventListener('click', signOut);
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (button) {
+    button.addEventListener('click', function () {
+      state.tab = button.getAttribute('data-tab');
+      state.page = 1;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (other) {
+        other.classList.toggle('active', other === button);
+      });
+      $('statusFilter').hidden = state.tab !== 'reports';
+      $('userSearch').hidden = state.tab !== 'users';
+      refresh();
+    });
+  });
+  $('statusFilter').addEventListener('change', function () { state.status = this.value; state.page = 1; refresh(); });
+  var searchTimer;
+  $('userSearch').addEventListener('input', function () {
+    var value = this.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { state.q = value; state.page = 1; refresh(); }, 300);
+  });
+
+  function act(promise) {
+    $('appError').textContent = '';
+    promise.then(refresh).catch(function (error) { $('appError').textContent = error.message; });
+  }
+
+  function renderStats(stats) {
+    var items = [
+      [stats.openReports, 'Báo cáo đang mở'], [stats.users, 'Người dùng'], [stats.newUsers, 'Người dùng mới (7 ngày)'],
+      [stats.posts, 'Bài viết'], [stats.newPosts, 'Bài viết mới (7 ngày)'], [stats.activeStories, 'Tin đang hiển thị'],
+      [stats.newMessages, 'Tin nhắn (7 ngày)'], [stats.bannedUsers, 'Tài khoản bị khoá']
+    ];
+    $('stats').replaceChildren.apply($('stats'), items.map(function (item) {
+      return el('div', { class: 'card stat' }, [el('b', { text: String(item[0]) }), el('span', { text: item[1] })]);
+    }));
+  }
+
+  function reportRow(report) {
+    var target = report.target;
+    var author = target && (report.targetType === 'USER' ? target : target.author);
+    var info = el('div', {}, [
+      el('div', {}, [
+        el('span', { class: 'tag', text: TYPES[report.targetType] || report.targetType }),
+        el('span', { class: 'tag', text: REASONS[report.reason] || report.reason }),
+        author && author.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null
+      ]),
+      el('div', { class: 'meta', text: 'Người báo cáo: ' + name(report.reporter) + ' · ' + when(report.createdAt) }),
+      report.note ? el('div', { class: 'meta', text: 'Ghi chú: ' + report.note }) : null
+    ]);
+
+    if (!target) {
+      info.appendChild(el('div', { class: 'quote meta', text: 'Nội dung đã bị xoá.' }));
+    } else {
+      var quote = el('div', { class: 'quote' }, [el('div', { class: 'meta', text: 'Của: ' + name(author) })]);
+      if (report.targetType !== 'USER') {
+        quote.appendChild(el('div', { text: target.content || '(không có chữ)' }));
+        if (target.deletedAt) quote.appendChild(el('div', { class: 'meta', text: 'Bài viết đã bị gỡ.' }));
+        var media = target.media && target.media[0];
+        var image = media && (media.type === 'video' ? media.thumbnailUrl : media.url);
+        if (image) quote.appendChild(el('img', { src: image, alt: 'Ảnh của bài viết bị báo cáo', loading: 'lazy' }));
+      }
+      info.appendChild(quote);
+    }
+
+    var actions = el('div', { class: 'actions' });
+    if (report.status === 'OPEN') {
+      var resolve = function (action, question) {
+        return function () { if (confirm(question)) act(api('POST', '/admin/reports/' + report.id + '/resolve', { action: action })); };
+      };
+      actions.appendChild(el('button', { text: 'Bỏ qua', onclick: resolve('DISMISS', 'Bỏ qua báo cáo này?') }));
+      if (report.targetType !== 'USER' && target && !target.deletedAt) {
+        actions.appendChild(el('button', { class: 'danger', text: 'Gỡ nội dung', onclick: resolve('REMOVE_CONTENT', 'Gỡ nội dung này khỏi ứng dụng?') }));
+      }
+      if (author && !author.bannedAt) {
+        actions.appendChild(el('button', { class: 'danger', text: 'Khoá tài khoản', onclick: resolve('BAN_USER', 'Khoá tài khoản ' + name(author) + '?') }));
+      }
+    } else {
+      actions.appendChild(el('span', { class: 'meta', text: report.status === 'RESOLVED' ? 'Đã xử lý' : 'Đã bỏ qua' }));
+    }
+    return el('div', { class: 'row' }, [info, actions]);
+  }
+
+  function userRow(user) {
+    var info = el('div', {}, [
+      el('div', {}, [
+        el('b', { text: name(user) + ' ' }),
+        user.role === 'ADMIN' ? el('span', { class: 'tag', text: 'Quản trị' }) : null,
+        user.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null
+      ]),
+      el('div', { class: 'meta', text: user.email + ' · ' + user._count.posts + ' bài viết · ' + user._count.followers + ' người theo dõi · tham gia ' + when(user.createdAt) })
+    ]);
+    var actions = el('div', { class: 'actions' });
+    if (user.bannedAt) {
+      actions.appendChild(el('button', { text: 'Mở khoá', onclick: function () { act(api('DELETE', '/admin/users/' + user.id + '/ban')); } }));
+    } else if (user.role !== 'ADMIN') {
+      actions.appendChild(el('button', { class: 'danger', text: 'Khoá tài khoản', onclick: function () { if (confirm('Khoá tài khoản ' + name(user) + '?')) act(api('POST', '/admin/users/' + user.id + '/ban')); } }));
+    }
+    return el('div', { class: 'row' }, [info, actions]);
+  }
+
+  function refresh() {
+    api('GET', '/admin/stats').then(function (res) { renderStats(res.data); }).catch(function () {});
+    var path = state.tab === 'reports'
+      ? '/admin/reports?status=' + state.status + '&page=' + state.page
+      : '/admin/users?q=' + encodeURIComponent(state.q) + '&page=' + state.page;
+    api('GET', path).then(function (res) {
+      var rows = res.data.map(state.tab === 'reports' ? reportRow : userRow);
+      $('list').replaceChildren.apply($('list'), rows.length ? rows : [el('div', { class: 'empty', text: state.tab === 'reports' ? 'Không có báo cáo nào.' : 'Không tìm thấy người dùng.' })]);
+      var meta = res.meta;
+      $('pager').replaceChildren(
+        el('button', Object.assign({ text: 'Trước', onclick: function () { state.page--; refresh(); } }, meta.page <= 1 ? { disabled: '' } : {})),
+        el('span', { text: 'Trang ' + meta.page + ' / ' + Math.max(1, meta.totalPages) + ' · ' + meta.total + ' mục' }),
+        el('button', Object.assign({ text: 'Sau', onclick: function () { state.page++; refresh(); } }, meta.page >= meta.totalPages ? { disabled: '' } : {}))
+      );
+    }).catch(function (error) { $('appError').textContent = error.message; });
+  }
+
+  if (token) showApp('');
+})();
+</script>
+</body>
+</html>

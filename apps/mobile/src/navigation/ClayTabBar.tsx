@@ -6,13 +6,13 @@ import { clayColors } from '../theme/colors';
 import { clayDimensions } from '../theme/spacing';
 import { ClayIcon, ClayIconName } from '../components/icons/ClayIcon';
 import { ClayText } from '../components/ui/ClayText';
-import { useUnreadNotifications } from '../features/notifications/unreadStore';
+import { useUnreadMessages } from '../features/messages/unreadMessages';
 
 const TAB_ICONS: Record<string, { icon: ClayIconName; label: string }> = {
   Home: { icon: 'House', label: 'Home' },
   Search: { icon: 'MagnifyingGlass', label: 'Search' },
   Create: { icon: 'Plus', label: 'Create post' },
-  Notifications: { icon: 'Bell', label: 'Notifications' },
+  Messages: { icon: 'ChatCircle', label: 'Messages' },
   Profile: { icon: 'User', label: 'Profile' },
 };
 
@@ -23,7 +23,7 @@ const TAB_ICONS: Record<string, { icon: ClayIconName; label: string }> = {
  */
 export function ClayTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const unreadCount = useUnreadNotifications();
+  const unreadCount = useUnreadMessages();
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -75,7 +75,7 @@ export function ClayTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 color={isFocused ? clayColors.tabBarIconActive : clayColors.tabBarIcon}
               />
             )}
-            {route.name === 'Notifications' && unreadCount > 0 ? (
+            {route.name === 'Messages' && unreadCount > 0 ? (
               <View style={styles.badge}>
                 <ClayText variant="meta" style={styles.badgeText}>
                   {unreadCount > 99 ? '99+' : unreadCount}

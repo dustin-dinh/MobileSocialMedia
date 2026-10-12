@@ -1,4 +1,5 @@
-import type { Post } from '../features/feed/types';
+import type { Post, PostAuthor } from '../features/feed/types';
+import type { StoryGroup } from '../features/stories/services/storyService';
 
 export type AuthStackParamList = {
   ForgotPassword: undefined;
@@ -30,7 +31,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Create: undefined;
   Home: undefined;
-  Notifications: undefined;
+  Messages: undefined;
   Profile: undefined;
   /** `query` pre-fills the search box (used when a hashtag is tapped). */
   Search: { query?: string } | undefined;
@@ -40,11 +41,19 @@ export type MainTabParamList = {
 export type MainStackParamList = {
   BlockedUsers: undefined;
   ChangePassword: undefined;
+  /** One-to-one conversation. */
+  Chat: {
+    conversationId: string;
+    peer: PostAuthor;
+  };
   DeleteAccount: undefined;
   FollowList: {
     type: 'followers' | 'following';
     userId: string;
   };
+  FollowRequests: undefined;
+  NewMessage: undefined;
+  Notifications: undefined;
   Legal: {
     doc: 'privacy' | 'terms';
   };
@@ -62,6 +71,14 @@ export type MainStackParamList = {
   };
   SavedPosts: undefined;
   Settings: undefined;
+  /** Full-screen stories, starting with `groups[startIndex]`. */
+  StoryViewer: {
+    groups: StoryGroup[];
+    startIndex: number;
+  };
+  StoryViewers: {
+    storyId: string;
+  };
   Tabs: { params?: { query?: string }; screen: keyof MainTabParamList } | undefined;
   UserProfile: {
     userId: string;

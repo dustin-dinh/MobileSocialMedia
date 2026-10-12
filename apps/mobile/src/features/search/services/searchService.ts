@@ -99,7 +99,27 @@ function filterMockUsers(query: string): SearchedUser[] {
 // Service
 // ---------------------------------------------------------------------------
 
+export type TrendingHashtag = { postsCount: number; tag: string };
+
 export const searchService = {
+  /** Hashtags used by the most public posts over the last week. */
+  async getTrendingHashtags(): Promise<TrendingHashtag[]> {
+    if (USE_MOCK) {
+      return [
+        { postsCount: 12, tag: 'reactnative' },
+        { postsCount: 8, tag: 'thugian' },
+        { postsCount: 5, tag: 'amthuc' },
+      ];
+    }
+
+    const response = await httpClient.requestJson<{ data: TrendingHashtag[] }>({
+      method: 'GET',
+      path: 'hashtags/trending',
+    });
+
+    return response.data;
+  },
+
   /**
    * Search users by username or display name.
    *

@@ -86,7 +86,8 @@ async function upload(token, kind, mimeType, bytes) {
   const widePost = r.body?.data;
   check('create horizontal video post', r.status === 201, r);
 
-  // feeds
+  // feeds (the home feed only holds posts of people you follow)
+  await call('POST', `users/${a.id}/follow`, b.token);
   r = await call('GET', 'posts/feed?limit=20', b.token);
   const inFeed = r.body?.data?.find((p) => p.id === reel?.id);
   check('video post appears in home feed with media fields', Boolean(inFeed?.media?.[0]?.thumbnailUrl), inFeed);

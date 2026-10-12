@@ -25,3 +25,15 @@ export class SearchController {
         return this.searchService.searchUsers(request.user.userId, query);
     }
 }
+@Controller('hashtags')
+@UseGuards(JwtAuthGuard)
+export class HashtagsController {
+    constructor(
+        private readonly searchService: SearchService,
+    ) { }
+
+    @Get('trending')
+    async trending(@Request() request: { user: { userId: string } }) {
+        return this.searchService.trendingHashtags(request.user.userId, 10);
+    }
+}

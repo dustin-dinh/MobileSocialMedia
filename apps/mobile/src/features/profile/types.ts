@@ -7,7 +7,10 @@ import type { Post, PostAuthor } from '../feed/types';
 export type UserProfile = {
   avatarUrl: string | null;
   bio: string | null;
+  coverUrl?: string | null;
   displayName: string | null;
+  /** The viewer asked to follow this private account and is waiting for an answer. */
+  followRequested?: boolean;
   followersCount: number;
   followingCount: number;
   /** True when the profile's owner follows the viewer. */
@@ -17,6 +20,8 @@ export type UserProfile = {
   isBlocked?: boolean;
   /** True when viewing another user's profile and you follow them. */
   isFollowing: boolean;
+  /** Only followers see this account's posts; following needs approval. */
+  isPrivate?: boolean;
   postsCount: number;
   username: string;
 };
@@ -27,6 +32,8 @@ export type UpdateProfilePayload = {
   avatar?: { fileName?: string | null; mimeType?: string | null; uri: string } | null;
   avatarUrl?: string;
   bio?: string;
+  /** A newly picked cover picture to upload; `null` removes the current one. */
+  cover?: { fileName?: string | null; mimeType?: string | null; uri: string } | null;
   displayName?: string;
   username?: string;
 };

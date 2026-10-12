@@ -32,7 +32,16 @@ export function visiblePostWhere(
         deletedAt: null,
         ...(blockedIds.length ? { authorId: { notIn: blockedIds } } : {}),
         OR: [
-            { privacy: 'PUBLIC' },
+            // Bài công khai của tài khoản riêng tư chỉ dành cho người theo dõi.
+            {
+                privacy: 'PUBLIC',
+                author: {
+                    OR: [
+                        { isPrivate: false },
+                        { followers: { some: { followerId: viewerId } } },
+                    ],
+                },
+            },
             { authorId: viewerId },
             {
                 privacy: 'FRIENDS',
@@ -67,7 +76,7 @@ export function postSelect(viewerId: string) {
             },
         },
         _count: { select: { likes: true, comments: true, reposts: true } },
-        likes: { where: { userId: viewerId }, select: { userId: true } },
+        likes: { where: { userId: viewerId }, select: { userId: true, type: true } },
         saves: { where: { userId: viewerId }, select: { userId: true } },
         reposts: { where: { userId: viewerId }, select: { userId: true } },
     } satisfies Prisma.PostSelect;
@@ -88,6 +97,8 @@ export function toPostDto(post: PostRow) {
         commentsCount: post._count.comments,
         repostsCount: post._count.reposts,
         isLiked: post.likes.length > 0,
+        // Cảm xúc viewer đã thả (LIKE, LOVE, HAHA, WOW, SAD, ANGRY) hoặc null.
+        myReaction: post.likes[0]?.type ?? null,
         isSaved: post.saves.length > 0,
         isReposted: post.reposts.length > 0,
     };

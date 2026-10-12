@@ -13,13 +13,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CommentModal } from '../../comment/components/CommentModal';
 import { ListFooter } from '../../../components/common/ListFooter';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { LoadError } from '../../../components/common/LoadError';
 import { ClayText } from '../../../components/ui/ClayText';
+import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
+import { useUnreadNotifications } from '../../notifications/unreadStore';
 import { ReelsFeed } from '../../reel/screens/ReelsFeed';
+import { StoriesTray } from '../../stories/components/StoriesTray';
 import { FeedEmptyState } from '../components/FeedEmptyState';
 import { PostCard } from '../components/PostCard';
 import { feedColors, feedSpacing } from '../feedTheme';
@@ -44,6 +48,9 @@ export function HomeScreen() {
   const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
   const [pane, setPane] = useState<HomePane>('feed');
   const isFocused = useIsScreenFocused();
+  const navigation = useAppNavigation();
+  const unreadNotifications = useUnreadNotifications();
+  const [storiesKey, setStoriesKey] = useState(0);
   const paneOpacity = useRef(new Animated.Value(1)).current;
 
   // Fade the new pane in instead of swapping it instantly.
@@ -88,6 +95,7 @@ export function HomeScreen() {
         <ClayText variant="title" style={styles.headerTitle}>
           Mobile Social
         </ClayText>
+        <View style={styles.headerRight}>
         <View style={styles.paneSwitch}>
           {PANES.map((item) => {
             const isActive = item.key === pane;
@@ -112,6 +120,27 @@ export function HomeScreen() {
             );
           })}
         </View>
+          <Pressable
+            accessibilityLabel={
+              unreadNotifications > 0
+                ? `Thông báo, ${unreadNotifications} chưa đọc`
+                : 'Thông báo'
+            }
+            accessibilityRole="button"
+            hitSlop={6}
+            onPress={() => navigation.open('Notifications')}
+            style={styles.bellButton}
+          >
+            <ClayIcon color={feedColors.text} name="Bell" size={24} />
+            {unreadNotifications > 0 ? (
+              <View style={styles.bellBadge}>
+                <ClayText variant="meta" style={styles.bellBadgeText}>
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </ClayText>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
       <Animated.View style={[styles.list, { opacity: paneOpacity }]}>
@@ -127,7 +156,10 @@ export function HomeScreen() {
           }
           data={feed.posts}
           keyExtractor={postKey}
-          ListEmptyComponent={FeedEmptyState}
+          ListEmptyComponent={
+            <FeedEmptyState onFindPeople={() => navigation.openTab('Search')} />
+          }
+          ListHeaderComponent={<StoriesTray refreshKey={storiesKey} />}
           ListFooterComponent={
             <ListFooter
               endMessage="Bạn đã lướt quá nhiều rồi, đi ngủ đi"
@@ -147,7 +179,10 @@ export function HomeScreen() {
           refreshControl={
             <RefreshControl
               colors={[feedColors.primary]}
-              onRefresh={feed.refresh}
+              onRefresh={() => {
+                setStoriesKey((key) => key + 1);
+                void feed.refresh();
+              }}
               refreshing={feed.isRefreshing}
               tintColor={feedColors.primary}
             />
@@ -221,6 +256,33 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 24,
-    paddingTop: feedSpacing.cardGap / 2,
+  },
+  bellBadge: {
+    alignItems: 'center',
+    backgroundColor: clayColors.error,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    right: 2,
+    top: 4,
+  },
+  bellBadgeText: {
+    color: clayColors.onPrimary,
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  bellButton: {
+    alignItems: 'center',
+    height: clayDimensions.minTouchTarget,
+    justifyContent: 'center',
+    width: clayDimensions.minTouchTarget,
+  },
+  headerRight: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
   },
 });

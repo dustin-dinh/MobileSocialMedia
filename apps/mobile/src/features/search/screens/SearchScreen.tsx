@@ -38,7 +38,7 @@ import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { fontFamilies } from '../../../theme/typography';
-import { searchService } from '../services/searchService';
+import { searchService, type TrendingHashtag } from '../services/searchService';
 import type { SearchedUser } from '../types';
 
 /** Adjust a follower total by one, leaving an unknown (null) total untouched. */
@@ -98,6 +98,12 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 
   const [users, setUsers] = useState<SearchedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [trending, setTrending] = useState<TrendingHashtag[]>([]);
+
+  // Best effort: the screen works the same without the trending list.
+  useEffect(() => {
+    searchService.getTrendingHashtags().then(setTrending).catch(() => undefined);
+  }, []);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
 
@@ -223,12 +229,42 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 
     const hasQuery = debouncedQuery.trim().length > 0;
 
+    const trendingSection =
+      !hasQuery && trending.length > 0 ? (
+        <View style={styles.trending}>
+          <ClayText variant="heading" style={styles.sectionTitle}>
+            Xu hướng
+          </ClayText>
+          <View style={styles.trendingTags}>
+            {trending.map((item) => (
+              <Pressable
+                accessibilityLabel={`Xem bài viết có hashtag ${item.tag}`}
+                accessibilityRole="button"
+                key={item.tag}
+                onPress={() => {
+                  setQuery(`#${item.tag}`);
+                  setMode('posts');
+                }}
+                style={styles.trendingTag}
+              >
+                <ClayText variant="caption" style={styles.trendingTagText}>
+                  #{item.tag}
+                </ClayText>
+                <ClayText variant="meta">{item.postsCount} bài viết</ClayText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null;
+
     // The empty state already prompts for a query when there are no suggestions.
     if (!hasQuery && users.length === 0) {
-      return null;
+      return trendingSection;
     }
 
     return (
+      <>
+      {trendingSection}
       <View style={styles.sectionHeader}>
         <ClayText variant="heading" style={styles.sectionTitle}>
           {hasQuery ? 'Kết quả tìm kiếm' : 'Gợi ý cho bạn'}
@@ -239,8 +275,9 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
             : 'Những người bạn có thể quan tâm'}
         </ClayText>
       </View>
+      </>
     );
-  }, [debouncedQuery, isLoading, users.length]);
+  }, [debouncedQuery, isLoading, trending, users.length]);
 
   const renderItem = useCallback(
     ({ item }: { item: SearchedUser }) => (
@@ -489,6 +526,33 @@ const styles = StyleSheet.create({
     height: '100%',
     marginLeft: 10,
     paddingVertical: 0,
+  },
+  trending: {
+    borderBottomColor: searchColors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  trendingTag: {
+    backgroundColor: searchColors.surface,
+    borderColor: searchColors.border,
+    borderRadius: searchRadii.button,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  trendingTagText: {
+    color: clayColors.primary,
+    fontFamily: fontFamilies.bold,
+  },
+  trendingTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
   },
   sectionHeader: {
     backgroundColor: searchColors.surface,

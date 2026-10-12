@@ -71,6 +71,22 @@ EXPO_PUBLIC_USE_MOCK=true
 
 Mỗi lần sửa `.env.local` phải tắt Metro và chạy lại với `corepack pnpm start:lan --clear`.
 
+## Trang quản trị
+
+Trang web để duyệt báo cáo, gỡ nội dung, khoá và mở khoá tài khoản, xem số liệu. Mở khi backend đang chạy:
+
+```
+http://localhost:3000/api/admin
+```
+
+Đăng nhập bằng một tài khoản có quyền quản trị. Cấp quyền cho một tài khoản theo email (chạy trong `apps/api`):
+
+```bash
+node scripts/make-admin.cjs email-cua-ban@example.com
+```
+
+Thêm `remove` ở cuối lệnh để thu hồi quyền.
+
 ## Lỗi thường gặp
 
 | Hiện tượng | Nguyên nhân và cách xử lý |

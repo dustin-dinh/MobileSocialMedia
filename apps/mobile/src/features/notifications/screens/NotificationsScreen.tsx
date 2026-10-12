@@ -18,6 +18,7 @@ import { notificationService } from '../services/notificationService';
 import { notificationSocket } from '../services/notificationSocket';
 import { unreadStore } from '../unreadStore';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AppNotification } from '../types';
 
@@ -71,7 +72,9 @@ export function NotificationsScreen() {
     async (item: AppNotification) => {
       // Open what the notification is about: the follower's profile, or the post
       // (scrolled to the comment when there is one).
-      if (item.type === 'FOLLOW') {
+      if (item.type === 'FOLLOW_REQUEST') {
+        navigation.open('FollowRequests');
+      } else if (item.type === 'FOLLOW' || item.type === 'FOLLOW_ACCEPT') {
         navigation.openProfile(item.actor.id);
       } else if (item.postId) {
         navigation.open('PostDetail', { commentId: item.commentId, postId: item.postId });
@@ -193,6 +196,15 @@ export function NotificationsScreen() {
       {/* ── Top Header ────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={styles.titleWrap}>
+          <Pressable
+            accessibilityLabel="Quay lại"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={navigation.back}
+            style={styles.backButton}
+          >
+            <ClayIcon color={notificationsColors.text} name="CaretLeft" size={22} weight="bold" />
+          </Pressable>
           <ClayText variant="title" style={styles.headerTitle}>Thông báo</ClayText>
           {unreadCount > 0 ? (
             <View style={styles.unreadBadge}>
@@ -400,6 +412,13 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: notificationsColors.canvas,
     flex: 1,
+  },
+  backButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    marginLeft: -12,
+    width: 44,
   },
   titleWrap: {
     alignItems: 'center',

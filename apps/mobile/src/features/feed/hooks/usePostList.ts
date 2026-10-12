@@ -191,6 +191,7 @@ export function usePostList(
           ...post,
           isLiked: !post.isLiked,
           likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1,
+          myReaction: post.isLiked ? null : 'LIKE',
         },
         feedService.toggleLike,
       ),

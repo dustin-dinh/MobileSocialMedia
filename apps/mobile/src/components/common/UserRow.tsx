@@ -17,6 +17,8 @@ export type UserRowUser = {
   displayName: string | null;
   id: string;
   isFollowing?: boolean;
+  /** Second line for this user, instead of `@username`. */
+  subtitle?: string;
   username: string;
 };
 
@@ -79,7 +81,7 @@ export const UserRow = memo(function UserRow({ onPress, right, subtitle, user }:
           {name}
         </ClayText>
         <ClayText numberOfLines={1} style={styles.subtitle} variant="meta">
-          {subtitle ?? `@${user.username}`}
+          {subtitle ?? user.subtitle ?? `@${user.username}`}
         </ClayText>
       </View>
       {right ??

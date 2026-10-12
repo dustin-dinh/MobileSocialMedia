@@ -15,6 +15,9 @@ import { FollowsModule } from './modules/follows/follows.module';
 import { MailModule } from "./modules/mail/mail.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { ReelsModule } from "./modules/reels/reels.module";
+import { MessagesModule } from "./modules/messages/messages.module";
+import { StoriesModule } from "./modules/stories/stories.module";
+import { AdminModule } from "./modules/admin/admin.module";
 import { MediaUrlInterceptor } from "./modules/storage/media-url.interceptor";
 @Module({
   imports: [
@@ -36,6 +39,9 @@ import { MediaUrlInterceptor } from "./modules/storage/media-url.interceptor";
     MailModule,
     ReportsModule,
     ReelsModule,
+    MessagesModule,
+    StoriesModule,
+    AdminModule,
     // Trần chung theo IP; các route nhạy cảm (auth) đặt giới hạn chặt hơn bằng @Throttle.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
   ],
