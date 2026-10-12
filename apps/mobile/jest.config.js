@@ -13,10 +13,10 @@ module.exports = {
   preset: 'jest-expo',
   moduleNameMapper: {
     '^@babel/runtime/(.*)$': `${babelRuntimeDir}/$1`,
-    '^phosphor-react-native/lib/module/icons/(.*)$': '<rootDir>/node_modules/phosphor-react-native/lib/commonjs/icons/$1.js',
+    '^lucide-react-native/icons/(.*)$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/icons/$1.js',
   },
   transformIgnorePatterns: [
-    '[\\\\/]node_modules[\\\\/](?!(\\.pnpm[\\\\/]|(jest-)?react-native|@react-native|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|phosphor-react-native|react-native-svg))',
+    '[\\\\/]node_modules[\\\\/](?!(\\.pnpm[\\\\/]|(jest-)?react-native|@react-native|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|lucide-react-native|react-native-svg))',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   // Helper module for the live suite, not a test file.

@@ -1596,3 +1596,30 @@ Assigned to Luân: build the Reel backend; add video upload for posts (UI and ba
 - `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261012150000_add_reels/`, `apps/api/src/modules/{reels,storage,posts,notifications}/`, `apps/api/src/app.module.ts`, `apps/api/scripts/reels-smoke.cjs`, `apps/api/package.json`, `apps/api/.env.example`, `docker-compose.yml`
 - `apps/mobile/src/features/reel/`, `apps/mobile/src/features/feed/components/{FeedVideo,PostCard}.tsx`, `apps/mobile/src/features/feed/screens/HomeScreen.tsx`, `apps/mobile/src/features/post/screens/CreateScreen.tsx`, `apps/mobile/src/services/uploadFile.ts`, `apps/mobile/src/navigation/`, `apps/mobile/src/App.tsx`, `apps/mobile/package.json`
 - `README.md`, `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`
+
+---
+
+## 2026-10-12 - Icon set changed from Phosphor to Lucide
+
+### Task
+
+The owner found the icons dated and asked whether the whole set could be changed.
+
+### Changed
+
+- `apps/mobile/src/components/icons/ClayIcon.tsx` now draws every icon with `lucide-react-native` (2px outline, solid version for active/liked/saved states). The app's icon names and the `ClayIcon` props are unchanged, so no screen was edited; `PhosphorIconName` was renamed `ClayIconName` (one caller, the tab bar).
+- `phosphor-react-native` removed; `lucide-react-native` added (pure JS on top of `react-native-svg`, same on Android and iOS). Icons are imported one file each, so the bundle only carries the 41 icons in use.
+- `jest.config.js` and rule E of `scripts/verify-ui.mjs` now name the new library (the rule still means: icon library imported only in `ClayIcon.tsx`).
+
+### Checks
+
+- `tsc --noEmit` clean, `jest` 95 passed, `verify-ui` unchanged (only rule H, as before).
+
+### Platforms run
+
+- Android emulator (BlueStacks, Expo Go): home feed, tab bar, post menu and settings looked at with the new icons.
+- iPhone: not run.
+
+### Files
+
+- `apps/mobile/src/components/icons/ClayIcon.tsx`, `apps/mobile/src/navigation/ClayTabBar.tsx`, `apps/mobile/jest.config.js`, `apps/mobile/scripts/verify-ui.mjs`, `apps/mobile/package.json`, `docs/change.md`

@@ -176,14 +176,14 @@ if (ruleDViolations.length > 0) {
 }
 
 // ---------------------------------------------------------------------------
-// Rule E: phosphor-react-native imported ONLY in ClayIcon.tsx
+// Rule E: lucide-react-native imported ONLY in ClayIcon.tsx
 // ---------------------------------------------------------------------------
 let ruleEViolations = [];
 
 for (const file of allSrcFiles) {
   if (file.endsWith('ClayIcon.tsx')) continue;
   const content = fs.readFileSync(file, 'utf8');
-  if (content.includes('phosphor-react-native')) {
+  if (content.includes('lucide-react-native')) {
     ruleEViolations.push(path.relative(mobileRoot, file));
   }
 }
@@ -191,10 +191,10 @@ for (const file of allSrcFiles) {
 if (ruleEViolations.length > 0) {
   reportError(
     'Rule E (Phosphor isolation)',
-    `phosphor-react-native imported outside ClayIcon.tsx:\n${ruleEViolations.map((v) => `  - ${v}`).join('\n')}`
+    `lucide-react-native imported outside ClayIcon.tsx:\n${ruleEViolations.map((v) => `  - ${v}`).join('\n')}`
   );
 } else {
-  reportPass('Rule E', 'phosphor-react-native strictly isolated to ClayIcon.tsx');
+  reportPass('Rule E', 'lucide-react-native strictly isolated to ClayIcon.tsx');
 }
 
 // ---------------------------------------------------------------------------

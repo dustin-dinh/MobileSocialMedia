@@ -1,133 +1,111 @@
 import React, { memo } from 'react';
-import type { ComponentType } from 'react';
-import type { IconProps } from 'phosphor-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 
-import { ArrowUp } from 'phosphor-react-native/lib/module/icons/ArrowUp';
-import { Bell } from 'phosphor-react-native/lib/module/icons/Bell';
-import { BookmarkSimple } from 'phosphor-react-native/lib/module/icons/BookmarkSimple';
-import { Camera } from 'phosphor-react-native/lib/module/icons/Camera';
-import { CaretLeft } from 'phosphor-react-native/lib/module/icons/CaretLeft';
-import { ChatCircle } from 'phosphor-react-native/lib/module/icons/ChatCircle';
-import { Check } from 'phosphor-react-native/lib/module/icons/Check';
-import { DotsThree } from 'phosphor-react-native/lib/module/icons/DotsThree';
-import { Export } from 'phosphor-react-native/lib/module/icons/Export';
-import { Eye } from 'phosphor-react-native/lib/module/icons/Eye';
-import { EyeClosed } from 'phosphor-react-native/lib/module/icons/EyeClosed';
-import { EyeSlash } from 'phosphor-react-native/lib/module/icons/EyeSlash';
-import { Flag } from 'phosphor-react-native/lib/module/icons/Flag';
-import { GlobeSimple } from 'phosphor-react-native/lib/module/icons/GlobeSimple';
-import { Heart } from 'phosphor-react-native/lib/module/icons/Heart';
-import { House } from 'phosphor-react-native/lib/module/icons/House';
-import { Image } from 'phosphor-react-native/lib/module/icons/Image';
-import { LinkSimple } from 'phosphor-react-native/lib/module/icons/LinkSimple';
-import { LockKey } from 'phosphor-react-native/lib/module/icons/LockKey';
-import { MagnifyingGlass } from 'phosphor-react-native/lib/module/icons/MagnifyingGlass';
-import { PaperPlaneTilt } from 'phosphor-react-native/lib/module/icons/PaperPlaneTilt';
-import { PencilSimple } from 'phosphor-react-native/lib/module/icons/PencilSimple';
-import { Plus } from 'phosphor-react-native/lib/module/icons/Plus';
-import { Repeat } from 'phosphor-react-native/lib/module/icons/Repeat';
-import { ShareNetwork } from 'phosphor-react-native/lib/module/icons/ShareNetwork';
-import { SignOut } from 'phosphor-react-native/lib/module/icons/SignOut';
-import { Sparkle } from 'phosphor-react-native/lib/module/icons/Sparkle';
-import { Trash } from 'phosphor-react-native/lib/module/icons/Trash';
-import { User } from 'phosphor-react-native/lib/module/icons/User';
-import { UserPlus } from 'phosphor-react-native/lib/module/icons/UserPlus';
-import { Users } from 'phosphor-react-native/lib/module/icons/Users';
-import { WarningCircle } from 'phosphor-react-native/lib/module/icons/WarningCircle';
-import { X } from 'phosphor-react-native/lib/module/icons/X';
-import { CaretRight } from 'phosphor-react-native/lib/module/icons/CaretRight';
-import { Gear } from 'phosphor-react-native/lib/module/icons/Gear';
-import { Pause } from 'phosphor-react-native/lib/module/icons/Pause';
-import { Play } from 'phosphor-react-native/lib/module/icons/Play';
-import { Prohibit } from 'phosphor-react-native/lib/module/icons/Prohibit';
-import { SpeakerHigh } from 'phosphor-react-native/lib/module/icons/SpeakerHigh';
-import { SpeakerSlash } from 'phosphor-react-native/lib/module/icons/SpeakerSlash';
-import { VideoCamera } from 'phosphor-react-native/lib/module/icons/VideoCamera';
+// One file per icon: importing the package root would bundle every Lucide icon.
+import ArrowUp from 'lucide-react-native/icons/arrow-up';
+import Ban from 'lucide-react-native/icons/ban';
+import Bell from 'lucide-react-native/icons/bell';
+import Bookmark from 'lucide-react-native/icons/bookmark';
+import Camera from 'lucide-react-native/icons/camera';
+import Check from 'lucide-react-native/icons/check';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import CircleAlert from 'lucide-react-native/icons/circle-alert';
+import Ellipsis from 'lucide-react-native/icons/ellipsis';
+import Eye from 'lucide-react-native/icons/eye';
+import EyeClosed from 'lucide-react-native/icons/eye-closed';
+import EyeOff from 'lucide-react-native/icons/eye-off';
+import Flag from 'lucide-react-native/icons/flag';
+import Globe from 'lucide-react-native/icons/globe';
+import Heart from 'lucide-react-native/icons/heart';
+import House from 'lucide-react-native/icons/house';
+import Image from 'lucide-react-native/icons/image';
+import Link from 'lucide-react-native/icons/link';
+import Lock from 'lucide-react-native/icons/lock';
+import LogOut from 'lucide-react-native/icons/log-out';
+import MessageCircle from 'lucide-react-native/icons/message-circle';
+import Pause from 'lucide-react-native/icons/pause';
+import Pencil from 'lucide-react-native/icons/pencil';
+import Play from 'lucide-react-native/icons/play';
+import Plus from 'lucide-react-native/icons/plus';
+import Repeat2 from 'lucide-react-native/icons/repeat-2';
+import Search from 'lucide-react-native/icons/search';
+import Send from 'lucide-react-native/icons/send';
+import Settings from 'lucide-react-native/icons/settings';
+import Share from 'lucide-react-native/icons/share';
+import Share2 from 'lucide-react-native/icons/share-2';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Trash from 'lucide-react-native/icons/trash';
+import User from 'lucide-react-native/icons/user';
+import UserPlus from 'lucide-react-native/icons/user-plus';
+import Users from 'lucide-react-native/icons/users';
+import Video from 'lucide-react-native/icons/video';
+import Volume2 from 'lucide-react-native/icons/volume-2';
+import VolumeX from 'lucide-react-native/icons/volume-x';
+import X from 'lucide-react-native/icons/x';
 
 import { clayColors } from '../../theme/colors';
 
-export type PhosphorIconName =
-  | 'House'
-  | 'MagnifyingGlass'
-  | 'Plus'
-  | 'Bell'
-  | 'User'
-  | 'Heart'
-  | 'ChatCircle'
-  | 'ShareNetwork'
-  | 'BookmarkSimple'
-  | 'DotsThree'
-  | 'X'
-  | 'Image'
-  | 'PaperPlaneTilt'
-  | 'ArrowUp'
-  | 'UserPlus'
-  | 'Eye'
-  | 'EyeClosed'
-  | 'EyeSlash'
-  | 'Camera'
-  | 'SignOut'
-  | 'CaretLeft'
-  | 'Check'
-  | 'Sparkle'
-  | 'PencilSimple'
-  | 'Trash'
-  | 'GlobeSimple'
-  | 'Users'
-  | 'LockKey'
-  | 'LinkSimple'
-  | 'Export'
-  | 'Flag'
-  | 'Repeat'
-  | 'WarningCircle';
-
-const ICON_MAP: Record<string, ComponentType<IconProps>> = {
+/**
+ * The app's own icon names (kept from the previous icon set, so screens did
+ * not change) mapped to the Lucide icon that draws them. To restyle every
+ * icon, edit this file only.
+ */
+const ICON_MAP = {
   ArrowUp,
   Bell,
-  BookmarkSimple,
+  BookmarkSimple: Bookmark,
   Camera,
-  CaretLeft,
-  ChatCircle,
+  CaretLeft: ChevronLeft,
+  CaretRight: ChevronRight,
+  ChatCircle: MessageCircle,
   Check,
-  DotsThree,
-  Export,
+  DotsThree: Ellipsis,
+  Export: Share,
   Eye,
   EyeClosed,
-  EyeSlash,
+  EyeSlash: EyeOff,
   Flag,
-  GlobeSimple,
+  Gear: Settings,
+  GlobeSimple: Globe,
   Heart,
   House,
   Image,
-  LinkSimple,
-  LockKey,
-  MagnifyingGlass,
-  PaperPlaneTilt,
-  PencilSimple,
+  LinkSimple: Link,
+  LockKey: Lock,
+  MagnifyingGlass: Search,
+  PaperPlaneTilt: Send,
+  Pause,
+  PencilSimple: Pencil,
+  Play,
   Plus,
-  Repeat,
-  ShareNetwork,
-  SignOut,
-  Sparkle,
+  Prohibit: Ban,
+  Repeat: Repeat2,
+  ShareNetwork: Share2,
+  SignOut: LogOut,
+  Sparkle: Sparkles,
+  SpeakerHigh: Volume2,
+  SpeakerSlash: VolumeX,
   Trash,
   User,
   UserPlus,
   Users,
-  WarningCircle,
+  VideoCamera: Video,
+  WarningCircle: CircleAlert,
   X,
-  CaretRight,
-  Gear,
-  Pause,
-  Play,
-  Prohibit,
-  SpeakerHigh,
-  SpeakerSlash,
-  VideoCamera,
-};
+} satisfies Record<string, LucideIcon>;
+
+export type ClayIconName = keyof typeof ICON_MAP;
+
+const STROKE_WIDTH = { bold: 2.5, duotone: 2, fill: 2, light: 1.5, regular: 2, thin: 1.25 };
+
+// A filled magnifier is a solid dot: its active state is a heavier outline instead.
+const OUTLINE_ONLY: ReadonlySet<string> = new Set(['MagnifyingGlass']);
 
 export type ClayIconProps = {
-  name: PhosphorIconName | string;
+  name: ClayIconName | string;
   size?: number;
+  /** `fill` draws the solid version (active tab, liked, saved). */
   weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
   color?: string;
 };
@@ -138,11 +116,20 @@ export const ClayIcon = memo(function ClayIcon({
   weight = 'regular',
   color = clayColors.text,
 }: ClayIconProps) {
-  const IconComponent = ICON_MAP[name];
+  const IconComponent = (ICON_MAP as Record<string, LucideIcon>)[name];
 
   if (!IconComponent) {
     return null;
   }
 
-  return <IconComponent size={size} weight={weight} color={color} />;
+  const isFilled = weight === 'fill' && !OUTLINE_ONLY.has(name);
+
+  return (
+    <IconComponent
+      color={color}
+      fill={isFilled ? color : 'none'}
+      size={size}
+      strokeWidth={weight === 'fill' && !isFilled ? STROKE_WIDTH.bold : STROKE_WIDTH[weight]}
+    />
+  );
 });

@@ -4,11 +4,11 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clayColors } from '../theme/colors';
 import { clayDimensions } from '../theme/spacing';
-import { ClayIcon, PhosphorIconName } from '../components/icons/ClayIcon';
+import { ClayIcon, ClayIconName } from '../components/icons/ClayIcon';
 import { ClayText } from '../components/ui/ClayText';
 import { useUnreadNotifications } from '../features/notifications/unreadStore';
 
-const TAB_ICONS: Record<string, { icon: PhosphorIconName; label: string }> = {
+const TAB_ICONS: Record<string, { icon: ClayIconName; label: string }> = {
   Home: { icon: 'House', label: 'Home' },
   Search: { icon: 'MagnifyingGlass', label: 'Search' },
   Create: { icon: 'Plus', label: 'Create post' },
