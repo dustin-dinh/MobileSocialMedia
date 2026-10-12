@@ -7,10 +7,21 @@ Mạng xã hội trên di động: ứng dụng Expo / React Native (`apps/mobil
 - Node.js và Corepack (dự án dùng pnpm 12.4.1 qua Corepack).
 - File `apps/api/.env` đã điền đủ giá trị (mẫu ở `apps/api/.env.example`).
 - Expo Go bản hỗ trợ SDK 57 trên BlueStacks hoặc điện thoại.
+- Docker Desktop (để chạy kho lưu ảnh và video MinIO).
 
 ## Chạy dự án
 
-Mở hai cửa sổ terminal, một cho backend và một cho mobile. Chạy backend trước.
+Bật kho lưu tệp, rồi mở hai cửa sổ terminal: một cho backend, một cho mobile. Chạy backend trước.
+
+### 0. Kho lưu ảnh và video (MinIO)
+
+Mở Docker Desktop, rồi chạy ở thư mục gốc của dự án:
+
+```bash
+docker compose up -d
+```
+
+Chỉ cần chạy một lần; container tự bật lại cùng Docker. Ảnh, ảnh đại diện và video mới được lưu ở đây (cổng 9000; trang quản trị ở `http://localhost:9001`, tài khoản `minioadmin` / `minioadmin`). Backend tự tạo bucket khi khởi động. Tệp nằm trên máy này: xoá volume `minio-data` là mất hết ảnh và video đã đăng.
 
 ### 1. Backend
 
@@ -67,11 +78,13 @@ Mỗi lần sửa `.env.local` phải tắt Metro và chạy lại với `corepa
 | "Unable to reach the server" khi đăng nhập | Ứng dụng không gọi được backend. Kiểm tra backend đang chạy, xem dòng `[api] Backend URL` trong log Metro, và mở cổng 3000 trong tường lửa (xem bên dưới). |
 | Màn xanh "Something went wrong" trên BlueStacks | Expo Go không tới được Metro qua địa chỉ Wi-Fi. Dùng `exp://10.0.2.2:8081`. |
 | iPhone báo "You need to be signed in to Expo Go and Expo CLI" | Đăng nhập cùng một tài khoản Expo ở cả hai nơi: chạy `corepack pnpm exec expo login` trong `apps/mobile`, đăng nhập trong Expo Go, rồi chạy lại Metro. |
-| Điện thoại không kết nối được dù cùng Wi-Fi | Tường lửa Windows đang chặn. Trong PowerShell mở bằng quyền Administrator, đặt mạng Wi-Fi là "Private" và cho phép cổng 8081, 3000 (hai lệnh bên dưới). |
+| Điện thoại không kết nối được dù cùng Wi-Fi | Tường lửa Windows đang chặn. Trong PowerShell mở bằng quyền Administrator, đặt mạng Wi-Fi là "Private" và cho phép cổng 8081, 3000, 9000 (các lệnh bên dưới). |
+| Đăng ảnh hoặc video báo lỗi, hoặc ảnh và video mới không hiện | Kho lưu tệp chưa chạy hoặc điện thoại không tới được cổng 9000. Chạy `docker compose up -d`, và mở cổng 9000 trong tường lửa. Log backend có dòng "Storage is not reachable" khi MinIO chưa bật. |
 
 ```powershell
 Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
 New-NetFirewallRule -DisplayName "Expo dev (8081, 3000)" -Direction Inbound -Protocol TCP -LocalPort 8081,3000 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "MinIO dev (9000)" -Direction Inbound -Protocol TCP -LocalPort 9000 -Action Allow -Profile Private
 ```
 
 Đăng nhập Google và thông báo đẩy không chạy trong Expo Go; hai tính năng này cần development build.

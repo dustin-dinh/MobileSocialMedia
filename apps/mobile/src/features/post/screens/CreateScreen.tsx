@@ -16,7 +16,7 @@ import type { MainTabParamList } from '../../../navigation/types';
 import { useAuthSession } from '../../auth/authSession';
 import { feedEvents } from '../../feed/feedEvents';
 import { useVideoPicker } from '../../reel/hooks/useVideoPicker';
-import { REEL_UPLOAD_AVAILABLE, reelService } from '../../reel/services/reelService';
+import { reelService } from '../../reel/services/reelService';
 import { useImagePicker } from '../hooks/useImagePicker';
 import { postService } from '../services/postService';
 import { ApiError } from '../../../services/apiError';
@@ -362,24 +362,22 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           </ClayText>
         </Pressable>
 
-        {REEL_UPLOAD_AVAILABLE ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add video"
-            onPress={pickVideo}
-            disabled={images.length > 0 || isPickingVideo || isSubmitting}
-            style={[
-              styles.toolbarButton,
-              (images.length > 0 || isSubmitting) && styles.toolbarButtonDisabled,
-            ]}
-            hitSlop={8}
-          >
-            <ClayIcon name="VideoCamera" size={24} weight="regular" color={clayColors.primary} />
-            <ClayText variant="button" style={styles.toolbarLabel}>
-              Video
-            </ClayText>
-          </Pressable>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add video"
+          onPress={pickVideo}
+          disabled={images.length > 0 || isPickingVideo || isSubmitting}
+          style={[
+            styles.toolbarButton,
+            (images.length > 0 || isSubmitting) && styles.toolbarButtonDisabled,
+          ]}
+          hitSlop={8}
+        >
+          <ClayIcon name="VideoCamera" size={24} weight="regular" color={clayColors.primary} />
+          <ClayText variant="button" style={styles.toolbarLabel}>
+            Video
+          </ClayText>
+        </Pressable>
 
         <ClayText variant="caption" style={[styles.charCount, { color: charCountColor }]}>
           {charCount}/{MAX_CONTENT_LENGTH}
@@ -579,6 +577,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
+    marginHorizontal: 16,
     marginTop: 12,
     paddingLeft: 14,
     paddingVertical: 6,

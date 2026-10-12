@@ -108,10 +108,10 @@ function SingleImage({ media }: { media: PostMedia }) {
   );
 }
 
-function MediaGrid({ items }: { items: PostMedia[] }) {
+function MediaGrid({ items, onPressVideo }: { items: PostMedia[]; onPressVideo: () => void }) {
   if (items.length === 1) {
     return items[0].type === 'VIDEO' ? (
-      <FeedVideo media={items[0]} />
+      <FeedVideo media={items[0]} onPress={onPressVideo} />
     ) : (
       <SingleImage media={items[0]} />
     );
@@ -328,7 +328,10 @@ export const PostCard = memo(function PostCard({
       {/* ── Media ──────────────────────────────────── */}
       {post.media.length > 0 && (
         <View style={styles.mediaContainer}>
-          <MediaGrid items={post.media} />
+          <MediaGrid
+            items={post.media}
+            onPressVideo={() => navigation.open('ReelViewer', { post })}
+          />
         </View>
       )}
 

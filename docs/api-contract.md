@@ -340,3 +340,38 @@ Rate limits (per IP): 300 requests/minute overall; `login`, `verify-email`, `res
 | `POST /notifications/devices` `{ token, platform: "android" \| "ios" }` | Registers an Expo push token for the signed-in user. |
 | `DELETE /notifications/devices?token=` | Unregisters it. |
 | `POST /reports` `{ targetType: "POST" \| "COMMENT" \| "USER", targetId, reason, note? }` | `reason` = `SPAM` \| `HARASSMENT` \| `SENSITIVE` \| `MISINFORMATION` \| `OTHER`. Reporting the same target again updates the existing report. |
+
+## Video posts, Reels and file storage (added on 2026-10-12)
+
+All routes need `Authorization: Bearer <token>`.
+
+### File URLs
+
+Files are stored in S3-compatible storage (MinIO in local development). Every `url`, `avatarUrl` and `thumbnailUrl` in a response is an absolute URL, built for the host the client used to call the API, so the same row is reachable from an emulator (`10.0.2.2`) and from a phone on the LAN. Do not store these URLs on the device across sessions. Files uploaded before this date remain absolute Supabase URLs.
+
+### Media object (inside a Post)
+
+```json
+{ "id": "...", "type": "image" | "video", "order": 0, "url": "http://...",
+  "thumbnailUrl": "http://..." | null, "width": 720, "height": 1280, "durationMs": 12000 }
+```
+
+`thumbnailUrl`, `width`, `height`, `durationMs` are `null` for images and for media created before this date.
+
+### Posting a video (three steps)
+
+| Step | Endpoint | Notes |
+|---|---|---|
+| 1 | `POST /media/upload-url` `{ kind: "video" \| "thumbnail", mimeType, sizeBytes }` | Video: `video/mp4`, `video/quicktime`, at most 30 MB. Thumbnail: `image/jpeg`, `image/png`, `image/webp`, at most 2 MB. Returns `{ data: { storageKey, uploadUrl, method: "PUT", headers } }`. The URL is valid for 10 minutes. |
+| 2 | `PUT <uploadUrl>` with the file as the raw body and exactly the returned `headers` | Goes straight to storage, not through the API. `200` on success. |
+| 3 | `POST /posts/media` `{ content?, privacy?, media: [{ type: "VIDEO", storageKey, thumbnailKey?, width?, height?, durationMs }] }` | Exactly one video. The server checks that the object exists, is a video, is at most 30 MB and `durationMs` is at most 60 s; an invalid upload is deleted and answered with `400`. Returns `{ data: Post }` (`201`). A vertical or square video sets the post's `reelEligible` flag. |
+
+`POST /posts` (multipart, up to 4 images) is unchanged.
+
+### Reels
+
+| Endpoint | Notes |
+|---|---|
+| `GET /reels/feed?limit=&exclude=` | `limit` 1-20 (default 5). `exclude` is a comma-separated list of post ids already shown (the last 50 are used). Returns `{ data: Post[], meta: { requestId } }`; each post also has `reason: { code: "FOLLOWING" \| "TRENDING" \| "FRESH", text }`. Only `reelEligible` posts the viewer may see, without hidden posts and blocked authors. Ranked feeds have no pages: call again with a longer `exclude`. Videos the viewer watched in the last 7 days are ranked last instead of removed. |
+| `POST /interactions` `{ events: [...] }` | At most 50 events. Event: `{ eventId, eventType, postId, mediaId?, watchMs?, durationMs?, position?, requestId?, surface, createdAt? }`, `eventType` = `VIEW` \| `COMPLETE` \| `REPLAY` \| `SKIP` \| `LIKE` \| `SAVE` \| `NOT_INTERESTED`. `eventId` is generated on the device; a resent event is stored once. Events for unknown posts are skipped. `204`. |
+| `POST /posts/:id/not-interested` | Same effect as `POST /posts/:id/hide`. `{ data: { isHidden: true } }`. |

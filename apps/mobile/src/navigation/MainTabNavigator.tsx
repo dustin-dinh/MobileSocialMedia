@@ -14,7 +14,8 @@ export function MainTabNavigator() {
   return (
     <Tab.Navigator
       tabBar={(props) => <ClayTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      // Cross-fade between tabs instead of an instant swap.
+      screenOptions={{ animation: 'fade', headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Search" component={SearchScreen} options={{ title: 'Search' }} />

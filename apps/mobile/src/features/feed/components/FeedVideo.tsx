@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
-import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
@@ -15,31 +13,18 @@ function formatDuration(durationMs: number): string {
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
 }
 
-function InlinePlayer({ url }: { url: string }) {
-  const player = useVideoPlayer(url, (instance) => {
-    instance.play();
-  });
-
-  return <VideoView contentFit="contain" nativeControls player={player} style={styles.fill} />;
-}
-
 /**
- * A video inside a post card. The feed never auto-plays: it shows a poster
- * with a play badge, and the player is only created once the poster is tapped,
- * so a long feed does not hold one decoder per video.
+ * A video inside a post card: a poster with a play badge and no player, so a
+ * long feed holds no video decoders. Tapping it opens the full-screen reel
+ * viewer on this video (`onPress`).
  */
-export function FeedVideo({ media }: { media: PostMedia }) {
-  const [isStarted, setIsStarted] = useState(false);
-
+export function FeedVideo({ media, onPress }: { media: PostMedia; onPress?: () => void }) {
   return (
     <View style={styles.container}>
-      {isStarted ? (
-        <InlinePlayer url={media.url} />
-      ) : (
         <Pressable
           accessibilityLabel="Phát video"
           accessibilityRole="button"
-          onPress={() => setIsStarted(true)}
+          onPress={onPress}
           style={styles.fill}
         >
           {media.thumbnailUrl ? (
@@ -63,7 +48,6 @@ export function FeedVideo({ media }: { media: PostMedia }) {
             </View>
           ) : null}
         </Pressable>
-      )}
     </View>
   );
 }

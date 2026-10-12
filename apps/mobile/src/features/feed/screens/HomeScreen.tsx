@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Platform,
   Pressable,
@@ -43,6 +44,21 @@ export function HomeScreen() {
   const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
   const [pane, setPane] = useState<HomePane>('feed');
   const isFocused = useIsScreenFocused();
+  const paneOpacity = useRef(new Animated.Value(1)).current;
+
+  // Fade the new pane in instead of swapping it instantly.
+  const switchPane = useCallback(
+    (next: HomePane) => {
+      if (next === pane) {
+        return;
+      }
+
+      setPane(next);
+      paneOpacity.setValue(0);
+      Animated.timing(paneOpacity, { duration: 180, toValue: 1, useNativeDriver: true }).start();
+    },
+    [pane, paneOpacity],
+  );
 
   // ── Render helpers ────────────────────────────────────────────────────
   const renderPost = useCallback(
@@ -83,7 +99,7 @@ export function HomeScreen() {
                 accessibilityState={{ selected: isActive }}
                 key={item.key}
                 hitSlop={6}
-                onPress={() => setPane(item.key)}
+                onPress={() => switchPane(item.key)}
                 style={[styles.paneButton, isActive && styles.paneButtonActive]}
               >
                 <ClayText
@@ -98,6 +114,7 @@ export function HomeScreen() {
         </View>
       </View>
 
+      <Animated.View style={[styles.list, { opacity: paneOpacity }]}>
       {pane === 'reels' ? (
         // Rendered inside this tab (not a separate screen) so the tab bar stays put.
         <ReelsFeed isActive={isFocused} />
@@ -140,6 +157,7 @@ export function HomeScreen() {
           style={styles.list}
         />
       )}
+      </Animated.View>
 
       <CommentModal
         onClose={() => setActiveCommentPost(null)}

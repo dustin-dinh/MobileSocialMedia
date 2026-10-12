@@ -168,10 +168,14 @@ export const ReelPlayer = memo(function ReelPlayer({
     player.play();
   };
 
+  // A landscape video would lose most of its picture if it filled a tall screen.
+  const contentFit =
+    media.width && media.height && media.width > media.height ? 'contain' : 'cover';
+
   return (
     <View style={styles.container}>
       <VideoView
-        contentFit="cover"
+        contentFit={contentFit}
         nativeControls={false}
         onFirstFrameRender={() => setHasFirstFrame(true)}
         player={player}
@@ -181,7 +185,7 @@ export const ReelPlayer = memo(function ReelPlayer({
       {/* Poster until the first frame is drawn, so the reel is never a black box. */}
       {!hasFirstFrame && media.thumbnailUrl ? (
         <Image
-          contentFit="cover"
+          contentFit={contentFit}
           source={{ uri: media.thumbnailUrl }}
           style={StyleSheet.absoluteFill}
         />

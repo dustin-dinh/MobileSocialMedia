@@ -1555,3 +1555,44 @@ The owner sent an iPhone screenshot of the Reels pane showing display problems.
 ### Files
 
 - `apps/mobile/src/features/reel/components/ReelOverlay.tsx`, `apps/mobile/src/components/common/RichText.tsx`, `docs/change.md`
+
+---
+
+## 2026-10-12 - Reel backend, video upload for posts, S3 storage, screen transitions
+
+### Task
+
+Assigned to Luân: build the Reel backend; add video upload for posts (UI and backend) so that a video in the feed opens the reel viewer on that video; improve the transition between tabs and screens. During the work the owner asked to move file storage to S3 (MinIO in Docker for now).
+
+### Changed - backend
+
+- Migration `20261012150000_add_reels` (additive, applied): `PostMedia` + `thumbnailUrl`, `width`, `height`, `durationMs`, `sizeBytes`; `Post` + `reelEligible`; new table `ContentInteraction`.
+- New module `reels`: `POST /media/upload-url`, `GET /reels/feed`, `POST /interactions`. `posts`: `POST /posts/media`, `POST /posts/:id/not-interested`. Post responses carry the new media fields.
+- `StorageService` rewritten on the S3 API (AWS SDK v3): upload, delete, presigned upload URL, object info, bucket creation at start-up. `@supabase/supabase-js` removed.
+- `storage/media-url.ts` + `MediaUrlInterceptor`: files are stored as `s3:<key>` and turned into absolute URLs per request host; the notifications gateway does the same per socket.
+- `docker-compose.yml` (MinIO), `S3_*` variables in `apps/api/.env.example` (and in the local `.env`).
+- `scripts/reels-smoke.cjs`: end-to-end check of upload, video post, feeds, interactions, not-interested and URL handling.
+
+### Changed - mobile
+
+- `reelService`: live upload (poster frame, presigned upload with progress, `POST /posts/media`) and live reels feed; the `EXPO_PUBLIC_REELS_API` and `REEL_UPLOAD_AVAILABLE` switches are gone (samples only in mock mode). New `services/uploadFile.ts`.
+- Create screen: the Video button is always available.
+- `FeedVideo` is a poster with a play badge; tapping it opens the new `ReelViewerScreen` (`ReelsFeed` with `initialPost`). Landscape videos are fitted, not cropped.
+- Transitions: tab cross-fade, slide-from-right for pushed screens (also in the auth flow), canvas-coloured navigation background, fade when switching "Bang tin | Reels".
+
+### Checks
+
+- API: `tsc --noEmit` clean, `nest build` OK, `scripts/reels-smoke.cjs` all 28 checks pass against the running API with MinIO.
+- Mobile: `tsc --noEmit` clean, `jest` 95 passed (2 live suites skipped), `verify-ui` unchanged (only rule H, as before).
+
+### Platforms run
+
+- **Android emulator (BlueStacks, Expo Go), real API + MinIO**: picked a video, posted it (progress bar shown), saw it in the home feed with its poster and duration, tapped it and the reel viewer played it, saw it in the Reels pane, deleted the post. Tab and screen transitions were exercised but not judged frame by frame.
+- **iPhone: not run.** The upload uses XMLHttpRequest with a file URI and `expo-video-thumbnails`; both are cross-platform APIs but were only exercised on Android.
+- A phone on Wi-Fi was not tried: it needs port 9000 open in the Windows firewall (see README).
+
+### Files
+
+- `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261012150000_add_reels/`, `apps/api/src/modules/{reels,storage,posts,notifications}/`, `apps/api/src/app.module.ts`, `apps/api/scripts/reels-smoke.cjs`, `apps/api/package.json`, `apps/api/.env.example`, `docker-compose.yml`
+- `apps/mobile/src/features/reel/`, `apps/mobile/src/features/feed/components/{FeedVideo,PostCard}.tsx`, `apps/mobile/src/features/feed/screens/HomeScreen.tsx`, `apps/mobile/src/features/post/screens/CreateScreen.tsx`, `apps/mobile/src/services/uploadFile.ts`, `apps/mobile/src/navigation/`, `apps/mobile/src/App.tsx`, `apps/mobile/package.json`
+- `README.md`, `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`

@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
@@ -18,6 +18,7 @@ import { AuthSessionProvider, useAuthSession } from './features/auth/authSession
 import { SplashScreen } from './features/auth/screens/SplashScreen';
 import { linking, navigationRef } from './navigation/navigationRef';
 import { RootNavigator } from './navigation/RootNavigator';
+import { clayColors } from './theme/colors';
 
 function AppContent() {
   const [fontsLoaded] = useFonts({
@@ -36,11 +37,17 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer linking={linking} ref={navigationRef}>
+    <NavigationContainer linking={linking} ref={navigationRef} theme={navigationTheme}>
       <RootNavigator />
     </NavigationContainer>
   );
 }
+
+// Screens sit on the app canvas while they animate; the default white flashes between them.
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: clayColors.canvas },
+};
 
 export default function App() {
   return (

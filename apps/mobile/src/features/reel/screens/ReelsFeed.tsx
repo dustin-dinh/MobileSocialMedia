@@ -113,15 +113,19 @@ const ReelRow = memo(function ReelRow({
 });
 
 type ReelsFeedProps = {
+  /** Space kept free under the caption; the full-screen viewer passes the safe-area inset. */
+  bottomInset?: number;
+  /** Start on this video (a video tapped in a post); recommended reels follow it. */
+  initialPost?: Post;
   /** False while the host screen is not the one on screen: playback stops. */
   isActive: boolean;
 };
 
 /**
- * Vertical, full-height feed of short videos. Rendered inside the Home tab,
- * so the tab bar stays where it is.
+ * Vertical, full-height feed of short videos. Rendered inside the Home tab
+ * (the tab bar stays where it is) and by the full-screen reel viewer.
  */
-export function ReelsFeed({ isActive }: ReelsFeedProps) {
+export function ReelsFeed({ bottomInset = 12, initialPost, isActive }: ReelsFeedProps) {
   const insets = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const { user } = useAuthSession();
@@ -156,7 +160,7 @@ export function ReelsFeed({ isActive }: ReelsFeedProps) {
     isFetchingRef.current = true;
 
     try {
-      const current = reset ? [] : reelsRef.current;
+      const current = reset ? (initialPost ? [initialPost] : []) : reelsRef.current;
       const batch = await reelService.getFeed(current.map((reel) => reel.id));
 
       batch.items.forEach((reel) => requestIdsRef.current.set(reel.id, batch.requestId));
@@ -176,7 +180,7 @@ export function ReelsFeed({ isActive }: ReelsFeedProps) {
     } finally {
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [initialPost]);
 
   useEffect(() => {
     void loadBatch(true).finally(() => setIsLoading(false));
@@ -344,9 +348,6 @@ export function ReelsFeed({ isActive }: ReelsFeedProps) {
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     setHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
-
-  // The tab bar is part of the layout below this pane, so only a small margin is needed.
-  const bottomInset = 12;
 
   const renderItem = useCallback(
     ({ index, item }: { index: number; item: Post }) => (

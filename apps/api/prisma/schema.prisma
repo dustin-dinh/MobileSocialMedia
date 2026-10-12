@@ -36,6 +36,7 @@ model User {
   commentLikes          CommentLike[]
   hiddenPosts           HiddenPost[]
   deviceTokens          DeviceToken[]
+  interactions          ContentInteraction[]
 }
 
 model Post {
@@ -54,9 +55,12 @@ model Post {
   reposts       Repost[]
   saves         Save[]
   hiddenBy      HiddenPost[]
-
+  // Video dọc, tối đa 60 giây: đủ điều kiện xuất hiện trong luồng Reels.
+  reelEligible  Boolean        @default(false)
+  interactions  ContentInteraction[]
 
   @@index([authorId, createdAt])
+  @@index([reelEligible, createdAt])
 }
 
 model PostMedia {
@@ -65,6 +69,12 @@ model PostMedia {
   type   String
   order  Int    @default(0)
   url    String
+  // Chỉ có ở video; ảnh cũ để trống.
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  durationMs   Int?
+  sizeBytes    Int?
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, order])
@@ -246,4 +256,25 @@ model DeviceToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Nhật ký xem Reels (đầu vào cho xếp hạng). id do thiết bị sinh ra để gửi lại không bị đếm trùng.
+model ContentInteraction {
+  id         String   @id
+  userId     String
+  postId     String
+  mediaId    String?
+  eventType  String
+  watchMs    Int?
+  durationMs Int?
+  surface    String
+  requestId  String?
+  position   Int?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([postId, createdAt])
 }

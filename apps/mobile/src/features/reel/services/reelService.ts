@@ -1,38 +1,65 @@
 /**
- * Reel service — data-access layer for the Reels feed.
- *
- * The Reel backend (feed, uploads, interaction log) is owned by another
- * developer and is not built yet. Until it is, this service serves sample
- * videos; set `EXPO_PUBLIC_REELS_API=true` once the endpoints below exist.
- *
- * Contract expected from the backend (see docs/reel/REEL_FINAL_SPEC_AND_PLAN.md §5):
+ * Reel service — data-access layer for the Reels feed and for posting videos.
+ * Mock mode serves sample videos; live mode uses (see docs/api-contract.md):
  *   GET  /reels/feed?limit=&exclude=   -> { data: ApiPost[], meta: { requestId } }
  *   POST /interactions { events: ReelEvent[] }
  *   POST /posts/:id/not-interested
+ *   POST /media/upload-url, then PUT to storage, then POST /posts/media
  */
 import { USE_MOCK_API } from '../../../config/runtime';
-import { ApiError } from '../../../services/apiError';
 import { httpClient } from '../../../services/httpClient';
+import { uploadFile } from '../../../services/uploadFile';
 import type { AuthUser } from '../../auth/services/authService';
-import { mapApiPost, type ApiPost } from '../../feed/services/postMapper';
+import { mapApiPost, toApiPrivacy, type ApiPost } from '../../feed/services/postMapper';
 import type { Post, PostPrivacy } from '../../feed/types';
 import type { SelectedVideo } from '../hooks/useVideoPicker';
 import { SAMPLE_REELS } from '../sampleReels';
 import type { ReelEvent } from '../types';
 
-/** True once the real Reel endpoints are available. */
-export const REELS_API_READY = process.env.EXPO_PUBLIC_REELS_API === 'true';
+const USE_SAMPLES = USE_MOCK_API;
+const DEFAULT_BATCH_SIZE = 5;
+
+type UploadTarget = {
+  headers: Record<string, string>;
+  storageKey: string;
+  uploadUrl: string;
+};
+
+/** Asks the API where to put a file, then sends the file straight to storage. */
+async function uploadToStorage(
+  kind: 'thumbnail' | 'video',
+  file: { mimeType: string; sizeBytes: number; uri: string },
+  onProgress?: (fraction: number) => void,
+): Promise<string> {
+  const { data } = await httpClient.requestJson<
+    { data: UploadTarget },
+    { kind: string; mimeType: string; sizeBytes: number }
+  >({
+    body: { kind, mimeType: file.mimeType, sizeBytes: file.sizeBytes },
+    method: 'POST',
+    path: 'media/upload-url',
+  });
+
+  await uploadFile({ headers: data.headers, onProgress, uri: file.uri, url: data.uploadUrl });
+
+  return data.storageKey;
+}
 
 /**
- * Posting a video needs the direct-upload endpoints (`POST /media/upload-url`,
- * `POST /posts/media`), which do not exist yet, so the "Video" button is only
- * offered in mock mode. Implement the live branch of `uploadReel` against the
- * final contract, then turn this on for live mode too.
+ * Poster frame for the feed. A missing poster must never block posting, so
+ * every failure (including a build without the native module) yields null.
  */
-export const REEL_UPLOAD_AVAILABLE = USE_MOCK_API;
+async function createThumbnail(videoUri: string): Promise<string | null> {
+  try {
+    // Loaded on demand: the module is native and absent from the Jest environment.
+    const VideoThumbnails = require('expo-video-thumbnails') as typeof import('expo-video-thumbnails');
+    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, { quality: 0.7, time: 500 });
 
-const USE_SAMPLES = USE_MOCK_API || !REELS_API_READY;
-const DEFAULT_BATCH_SIZE = 5;
+    return uri;
+  } catch {
+    return null;
+  }
+}
 
 export type ReelBatch = {
   items: Post[];
@@ -85,11 +112,48 @@ export const reelService = {
     onProgress: (fraction: number) => void,
   ): Promise<Post> {
     if (!USE_MOCK_API) {
-      throw new ApiError({
-        kind: 'server',
-        message: 'Máy chủ chưa hỗ trợ đăng video.',
-        status: 501,
+      const { video } = payload;
+      const thumbnailUri = await createThumbnail(video.uri);
+      // The poster is small: give it the first 5% of the bar, the video the rest.
+      const thumbnailKey = thumbnailUri
+        ? await uploadToStorage('thumbnail', {
+            mimeType: 'image/jpeg',
+            // The real size is unknown here; the server checks the stored file.
+            sizeBytes: 1,
+            uri: thumbnailUri,
+          }).catch(() => null)
+        : null;
+
+      onProgress(0.05);
+
+      const storageKey = await uploadToStorage(
+        'video',
+        { mimeType: video.mimeType, sizeBytes: video.sizeBytes ?? 1, uri: video.uri },
+        (fraction) => onProgress(0.05 + fraction * 0.9),
+      );
+
+      const response = await httpClient.requestJson<{ data: ApiPost }, unknown>({
+        body: {
+          content: payload.content,
+          media: [
+            {
+              durationMs: Math.max(1, Math.round(video.durationMs)),
+              height: Math.round(video.height),
+              storageKey,
+              ...(thumbnailKey ? { thumbnailKey } : {}),
+              type: 'VIDEO',
+              width: Math.round(video.width),
+            },
+          ],
+          privacy: toApiPrivacy(payload.privacy),
+        },
+        method: 'POST',
+        path: 'posts/media',
       });
+
+      onProgress(1);
+
+      return mapApiPost(response.data);
     }
 
     for (let step = 1; step <= 10; step += 1) {

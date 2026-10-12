@@ -55,7 +55,16 @@ export function postSelect(viewerId: string) {
         author: { select: authorSelect },
         media: {
             orderBy: { order: 'asc' },
-            select: { id: true, url: true, type: true, order: true },
+            select: {
+                id: true,
+                url: true,
+                type: true,
+                order: true,
+                thumbnailUrl: true,
+                width: true,
+                height: true,
+                durationMs: true,
+            },
         },
         _count: { select: { likes: true, comments: true, reposts: true } },
         likes: { where: { userId: viewerId }, select: { userId: true } },

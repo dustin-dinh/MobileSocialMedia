@@ -1,105 +1,164 @@
 import {
     Injectable,
     InternalServerErrorException,
+    Logger,
+    OnModuleInit,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+    CreateBucketCommand,
+    DeleteObjectCommand,
+    HeadBucketCommand,
+    HeadObjectCommand,
+    PutBucketPolicyCommand,
+    PutObjectCommand,
+    S3Client,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+import {
+    keyFromStoredUrl,
+    publicEndpoint,
+    storageBucket,
+    storedUrl,
+} from './media-url';
+
+const UPLOAD_URL_TTL_SECONDS = 600;
+
+// Kho tệp theo chuẩn S3: MinIO trong Docker khi phát triển, S3/R2/... khi triển khai (chỉ đổi biến môi trường).
 @Injectable()
-export class StorageService {
-    private readonly supabase: SupabaseClient;
-    private readonly bucket: string;
+export class StorageService implements OnModuleInit {
+    private readonly logger = new Logger(StorageService.name);
+    private readonly bucket = storageBucket();
+    private readonly client = this.createClient(
+        process.env.S3_ENDPOINT ?? 'http://localhost:9000',
+    );
 
-    constructor(private readonly config: ConfigService) {
-        const supabaseUrl =
-            this.config.getOrThrow<string>('SUPABASE_URL');
-
-        const serviceRoleKey =
-            this.config.getOrThrow<string>(
-                'SUPABASE_SERVICE_ROLE_KEY',
-            );
-
-        this.bucket =
-            this.config.getOrThrow<string>(
-                'SUPABASE_STORAGE_BUCKET',
-            );
-
-        this.supabase = createClient(
-            supabaseUrl,
-            serviceRoleKey,
-        );
+    private createClient(endpoint: string): S3Client {
+        return new S3Client({
+            endpoint,
+            region: process.env.S3_REGION ?? 'us-east-1',
+            // MinIO không dùng tên miền theo bucket.
+            forcePathStyle: true,
+            credentials: {
+                accessKeyId: process.env.S3_ACCESS_KEY ?? '',
+                secretAccessKey: process.env.S3_SECRET_KEY ?? '',
+            },
+        });
     }
 
+    // Tạo bucket đọc công khai nếu chưa có. Kho tệp chưa bật thì API vẫn chạy, chỉ việc tải tệp báo lỗi.
+    async onModuleInit(): Promise<void> {
+        try {
+            try {
+                await this.client.send(
+                    new HeadBucketCommand({ Bucket: this.bucket }),
+                );
+            } catch {
+                await this.client.send(
+                    new CreateBucketCommand({ Bucket: this.bucket }),
+                );
+                await this.client.send(
+                    new PutBucketPolicyCommand({
+                        Bucket: this.bucket,
+                        Policy: JSON.stringify({
+                            Version: '2012-10-17',
+                            Statement: [
+                                {
+                                    Effect: 'Allow',
+                                    Principal: '*',
+                                    Action: ['s3:GetObject'],
+                                    Resource: [`arn:aws:s3:::${this.bucket}/*`],
+                                },
+                            ],
+                        }),
+                    }),
+                );
+                this.logger.log(`Created public bucket "${this.bucket}"`);
+            }
+        } catch (error) {
+            this.logger.warn(
+                `Storage is not reachable (${(error as Error).message}). ` +
+                    'Start it with "docker compose up -d" at the repository root.',
+            );
+        }
+    }
+
+    // Trả về giá trị để lưu vào database ("s3:<key>"), không phải URL đầy đủ.
     async upload(
         file: Express.Multer.File,
         storagePath: string,
     ): Promise<string> {
-        const { error } = await this.supabase.storage
-            .from(this.bucket)
-            .upload(storagePath, file.buffer, {
-                contentType: file.mimetype,
-                upsert: false,
-            });
-
-        if (error) {
+        try {
+            await this.client.send(
+                new PutObjectCommand({
+                    Bucket: this.bucket,
+                    Key: storagePath,
+                    Body: file.buffer,
+                    ContentType: file.mimetype,
+                }),
+            );
+        } catch (error) {
             throw new InternalServerErrorException(
-                `Storage upload failed: ${error.message}`,
+                `Storage upload failed: ${(error as Error).message}`,
             );
         }
 
-        return this.getPublicUrl(storagePath);
+        return storedUrl(storagePath);
     }
 
-    getPublicUrl(storagePath: string): string {
-        const { data } = this.supabase.storage
-            .from(this.bucket)
-            .getPublicUrl(storagePath);
-
-        return data.publicUrl;
+    // URL có chữ ký để điện thoại PUT tệp thẳng vào kho, không đi qua API.
+    // Chữ ký gắn với host, nên phải ký đúng địa chỉ mà client sẽ gọi.
+    async createUploadUrl(
+        storagePath: string,
+        contentType: string,
+        requestHost?: string,
+    ): Promise<string> {
+        return getSignedUrl(
+            this.createClient(publicEndpoint(requestHost)),
+            new PutObjectCommand({
+                Bucket: this.bucket,
+                Key: storagePath,
+                ContentType: contentType,
+            }),
+            { expiresIn: UPLOAD_URL_TTL_SECONDS },
+        );
     }
 
-    // URL công khai có dạng .../storage/v1/object/public/<bucket>/<path>.
-    pathFromPublicUrl(url: string): string | null {
+    // Kích thước và loại tệp thật trong kho; null khi tệp không tồn tại.
+    async head(
+        storagePath: string,
+    ): Promise<{ size: number; contentType: string } | null> {
         try {
-            const marker = '/storage/v1/object/public/';
-            const pathname = new URL(url).pathname;
-            const markerIndex = pathname.indexOf(marker);
+            const object = await this.client.send(
+                new HeadObjectCommand({ Bucket: this.bucket, Key: storagePath }),
+            );
 
-            if (markerIndex === -1) {
-                return null;
-            }
-
-            const objectPath = pathname.slice(markerIndex + marker.length);
-            const slashIndex = objectPath.indexOf('/');
-
-            if (slashIndex === -1) {
-                return null;
-            }
-
-            return decodeURIComponent(objectPath.slice(slashIndex + 1)) || null;
+            return {
+                size: object.ContentLength ?? 0,
+                contentType: object.ContentType ?? '',
+            };
         } catch {
             return null;
         }
     }
 
-    // Xóa theo URL; bỏ qua URL không thuộc bucket (ví dụ ảnh Google) và lỗi storage.
+    // Xóa theo giá trị đã lưu; bỏ qua URL ngoài kho (ảnh Google, ảnh cũ trên Supabase) và lỗi storage.
     async removeByUrls(urls: (string | null | undefined)[]): Promise<void> {
         const paths = urls
-            .map((url) => (url ? this.pathFromPublicUrl(url) : null))
+            .map((url) => keyFromStoredUrl(url))
             .filter((path): path is string => path !== null);
 
         await Promise.allSettled(paths.map((path) => this.remove(path)));
     }
 
     async remove(storagePath: string): Promise<void> {
-        const { error } =
-            await this.supabase.storage
-                .from(this.bucket)
-                .remove([storagePath]);
-
-        if (error) {
+        try {
+            await this.client.send(
+                new DeleteObjectCommand({ Bucket: this.bucket, Key: storagePath }),
+            );
+        } catch (error) {
             throw new InternalServerErrorException(
-                `Storage delete failed: ${error.message}`,
+                `Storage delete failed: ${(error as Error).message}`,
             );
         }
     }

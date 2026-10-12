@@ -663,3 +663,37 @@ The claymorphism look (puffy shadows, large radii, floating tab bar, heavy font 
 - `scripts/verify-ui.mjs` rule I still requires `overflow: 'hidden'` in `ClaySurface` although the highlight lip it protected is gone; the rule passes and was left as is.
 - `scripts/qa/e2e.ps1` coordinates are stale.
 - Verified on an Android emulator only; iPhone was not run (see the `docs/change.md` entry of the same date).
+
+---
+
+## DEC-022 - Reel backend v1, direct video upload, and S3 storage (MinIO locally)
+
+### Context
+
+On 2026-10-12 the Reel backend, video upload for posts (UI and backend) and screen transitions were assigned to Luân (previously the Reel backend belonged to another developer, see DEC-020 item 6). While the work was in progress the owner asked to store images and videos in S3-compatible storage, MinIO in Docker for now, with the production choice left open.
+
+### Decision
+
+1. **A reel is a post with a video.** No Reel table. `PostMedia` gained `thumbnailUrl`, `width`, `height`, `durationMs`, `sizeBytes`; `Post` gained `reelEligible` (vertical or square, at most 60 s); new table `ContentInteraction` holds the view log. Migration `20261012150000_add_reels` is additive.
+2. **Videos go from the phone straight to storage** with a presigned `PUT` (`POST /media/upload-url`), then `POST /posts/media` creates the post. The server trusts nothing about the file: it reads the stored object's real type and size and deletes invalid uploads.
+3. **Storage is the S3 API** (`StorageService`, AWS SDK v3). Local development uses MinIO from `docker-compose.yml`; a deployment points `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` at AWS S3, Cloudflare R2 or any compatible service, and sets `S3_PUBLIC_URL` to the public base URL. No code change is needed to switch.
+4. **The database stores `s3:<key>`, not a full URL.** The storage address differs per environment and per device (LAN IP changes, emulators use `10.0.2.2`). A global interceptor (`MediaUrlInterceptor`) turns every `...Url` field that starts with `s3:` into an absolute URL for the host the request came in on; the notifications socket does the same per connection. Presigned upload URLs are signed for that same host. With `S3_PUBLIC_URL` set, that fixed base is used instead.
+5. **Reel ranking v1 is deliberately simple**: freshness + engagement + a boost for followed authors, with videos watched in the last 7 days ranked last. The personalised engine (topics, interests, recommendation log) from `docs/reel/REEL_FINAL_SPEC_AND_PLAN.md` is the next round; it needs real videos and view data first.
+6. **A video in a post opens the full-screen reel viewer** (`ReelViewer` stack screen) on that video; recommended reels follow. The feed shows a poster and creates no video player.
+7. **Transitions**: tabs cross-fade, pushed screens slide from the right on both platforms, the navigation background is the app canvas.
+
+### Shortcuts taken on purpose (each is marked `shortcut:` in the code)
+
+- Video duration is reported by the client; the server does not decode the file. Use ffprobe if this must be enforced.
+- Ranking scores the 200 newest eligible videos in memory.
+- No transcoding or compression: a 30 MB video is uploaded and streamed as is.
+
+### Consequences
+
+- **Docker is now needed to run the project locally** (`docker compose up -d`), and phones need port 9000 reachable on the development machine.
+- **Old media stays on Supabase Storage** as absolute URLs and keeps working. Editing or deleting such a post no longer removes the old file from Supabase (the Supabase storage client was removed). `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_STORAGE_BUCKET` are no longer read. The database is still Supabase Postgres.
+- **Local media is tied to the machine**: files live in the `minio-data` Docker volume, while the rows live in the shared Supabase database. Another developer, or this machine after the volume is deleted, sees posts whose images and videos do not load. This is acceptable only while storage is "temporary"; a shared bucket (or `S3_PUBLIC_URL`) is needed before more than one machine uses the same database.
+- The MinIO image is `bitnamilegacy/minio` (MinIO no longer publishes official images on Docker Hub): a frozen build without updates, for local development only.
+- New dependencies: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (API, replacing `@supabase/supabase-js`); `expo-video-thumbnails` (Mobile, poster frame; supported on Android and iOS, loaded on demand).
+- Deleting a post is a soft delete, so its files stay in storage.
+- Production must serve media over HTTPS (iOS blocks plain HTTP outside development).

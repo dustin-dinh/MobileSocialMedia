@@ -56,7 +56,10 @@ export class NotificationsService {
             include: { actor: { select: authorSelect } },
         });
 
-        this.notificationsGateway.emitToUser(recipientId, notification);
+        // Gửi realtime là phụ: lỗi socket không được làm hỏng thao tác chính.
+        void this.notificationsGateway
+            .emitToUser(recipientId, notification)
+            .catch(() => undefined);
         void this.push(notification);
 
         return notification;

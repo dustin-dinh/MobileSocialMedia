@@ -4,6 +4,7 @@ import { PostDetailScreen } from '../features/feed/screens/PostDetailScreen';
 import { PostLikesScreen } from '../features/feed/screens/PostLikesScreen';
 import { SavedPostsScreen } from '../features/feed/screens/SavedPostsScreen';
 import { FollowListScreen } from '../features/profile/screens/FollowListScreen';
+import { ReelViewerScreen } from '../features/reel/screens/ReelViewerScreen';
 import { UserProfileScreen } from '../features/profile/screens/UserProfileScreen';
 import { BlockedUsersScreen } from '../features/settings/screens/BlockedUsersScreen';
 import { ChangePasswordScreen } from '../features/settings/screens/ChangePasswordScreen';
@@ -22,11 +23,20 @@ const Stack = createNativeStackNavigator<MainStackParamList>();
  */
 export function MainStackNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Tabs"
+      // Android's default push is a short fade; slide like iOS so both platforms feel the same.
+      screenOptions={{ animation: 'slide_from_right', headerShown: false }}
+    >
       <Stack.Screen name="Tabs" component={MainTabNavigator} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="PostLikes" component={PostLikesScreen} />
+      <Stack.Screen
+        name="ReelViewer"
+        component={ReelViewerScreen}
+        options={{ animation: 'fade_from_bottom' }}
+      />
       <Stack.Screen name="FollowList" component={FollowListScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />

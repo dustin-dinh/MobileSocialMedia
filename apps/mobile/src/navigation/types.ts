@@ -1,3 +1,5 @@
+import type { Post } from '../features/feed/types';
+
 export type AuthStackParamList = {
   ForgotPassword: undefined;
   /** Product introduction, shown only on the very first launch. */
@@ -53,6 +55,10 @@ export type MainStackParamList = {
   };
   PostLikes: {
     postId: string;
+  };
+  /** Full-screen reels starting on the video of this post. */
+  ReelViewer: {
+    post: Post;
   };
   SavedPosts: undefined;
   Settings: undefined;

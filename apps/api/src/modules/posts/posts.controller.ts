@@ -18,6 +18,7 @@ import { FeedQueryDto } from './dto/feed-query.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 
 import { CreatePostDto } from './dto/create-post.dto';
+import { CreateMediaPostDto } from './dto/create-media-post.dto';
 import { PostsService } from './posts.service';
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -41,6 +42,15 @@ export class PostsController {
             dto,
             images ?? [],
         );
+    }
+
+    // Bài có video: tệp đã được điện thoại tải thẳng lên kho (xem POST /media/upload-url).
+    @Post('media')
+    async createWithMedia(
+        @Request() request: { user: { userId: string } },
+        @Body() dto: CreateMediaPostDto,
+    ) {
+        return this.postsService.createWithMedia(request.user.userId, dto);
     }
 
     @Get('feed')
@@ -161,6 +171,15 @@ export class PostsController {
             request.user.userId,
             false,
         );
+    }
+
+    // "Không quan tâm" trong Reels: ẩn bài khỏi mọi luồng của người xem.
+    @Post(':id/not-interested')
+    async notInterested(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.setHidden(id, request.user.userId, true);
     }
 
     @Post(':id/hide')

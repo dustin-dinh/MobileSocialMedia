@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { PrismaModule } from "./prisma/prisma.module";
@@ -14,6 +14,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { FollowsModule } from './modules/follows/follows.module';
 import { MailModule } from "./modules/mail/mail.module";
 import { ReportsModule } from "./modules/reports/reports.module";
+import { ReelsModule } from "./modules/reels/reels.module";
+import { MediaUrlInterceptor } from "./modules/storage/media-url.interceptor";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -33,9 +35,13 @@ import { ReportsModule } from "./modules/reports/reports.module";
     FollowsModule,
     MailModule,
     ReportsModule,
+    ReelsModule,
     // Trần chung theo IP; các route nhạy cảm (auth) đặt giới hạn chặt hơn bằng @Throttle.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: MediaUrlInterceptor },
+  ],
 })
 export class AppModule { }

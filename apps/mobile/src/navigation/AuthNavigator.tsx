@@ -28,7 +28,7 @@ export function AuthNavigator() {
   return (
     <Stack.Navigator
       initialRouteName={introSeen ? 'Login' : 'Intro'}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ animation: 'slide_from_right', headerShown: false }}
     >
       <Stack.Screen name="Intro" component={IntroScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />

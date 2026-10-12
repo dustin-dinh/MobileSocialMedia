@@ -7,6 +7,8 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { Server, Socket } from "socket.io";
 
+import { resolveMediaUrls } from "../storage/media-url";
+
 @WebSocketGateway({
     namespace: "/notifications",
     cors: {
@@ -90,15 +92,21 @@ export class NotificationsGateway
         return null;
     }
 
-    emitToUser(
+    // Mỗi thiết bị gọi máy chủ bằng một host khác nhau (IP LAN, 10.0.2.2...), nên URL tệp
+    // được ghép riêng cho từng kết nối theo host lúc bắt tay.
+    async emitToUser(
         userId: string,
         notification: unknown,
-    ): void {
-        this.server
-            .to(`user:${userId}`)
-            .emit(
+    ): Promise<void> {
+        const sockets = await this.server
+            .in(`user:${userId}`)
+            .fetchSockets();
+
+        for (const socket of sockets) {
+            socket.emit(
                 "notification:new",
-                notification,
+                resolveMediaUrls(notification, socket.handshake.headers.host),
             );
+        }
     }
 }

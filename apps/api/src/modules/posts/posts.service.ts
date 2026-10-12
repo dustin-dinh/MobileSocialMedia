@@ -10,6 +10,8 @@ import {
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { CreateMediaPostDto } from './dto/create-media-post.dto';
+import { storedUrl } from '../storage/media-url';
 import { StorageService } from '../storage/storage.service';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,6 +26,11 @@ import {
     toRepostDto,
     visiblePostWhere,
 } from './post-view';
+
+const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
+// 60 giây, cộng 1 giây dung sai vì trình chọn video cắt không chính xác tới mili giây.
+const MAX_VIDEO_MS = 61_000;
 
 @Injectable()
 export class PostsService {
@@ -118,6 +125,98 @@ export class PostsService {
 
             throw error;
         }
+    }
+
+    // Tạo bài từ video đã nằm trong kho. Máy chủ không tin số liệu client gửi về tệp:
+    // tự kiểm tra tệp có thật, đúng loại và đúng dung lượng.
+    async createWithMedia(userId: string, dto: CreateMediaPostDto) {
+        const [item] = dto.media;
+        const ownFolder = `posts/${userId}/`;
+        const keys = [item.storageKey, item.thumbnailKey].filter(
+            (key): key is string => Boolean(key),
+        );
+
+        if (keys.some((key) => !key.startsWith(ownFolder) || key.includes('..'))) {
+            throw new BadRequestException('Invalid storage key');
+        }
+
+        const reject = async (message: string): Promise<never> => {
+            await Promise.allSettled(
+                keys.map((key) => this.storageService.remove(key)),
+            );
+            throw new BadRequestException(message);
+        };
+
+        const video = await this.storageService.head(item.storageKey);
+
+        if (!video) {
+            throw new BadRequestException('Uploaded video not found');
+        }
+
+        if (!video.contentType.startsWith('video/')) {
+            await reject('Uploaded file is not a video');
+        }
+
+        if (video.size > MAX_VIDEO_BYTES) {
+            await reject('Video is too large');
+        }
+
+        // shortcut: thời lượng do client báo (máy chủ không giải mã video); dùng ffprobe nếu cần chặn gian lận.
+        if (item.durationMs > MAX_VIDEO_MS) {
+            await reject('Video is too long');
+        }
+
+        if (item.thumbnailKey) {
+            const thumbnail = await this.storageService.head(item.thumbnailKey);
+
+            if (
+                !thumbnail ||
+                !thumbnail.contentType.startsWith('image/') ||
+                thumbnail.size > MAX_THUMBNAIL_BYTES
+            ) {
+                await reject('Invalid thumbnail');
+            }
+        }
+
+        const content = dto.content?.trim();
+        const isVertical =
+            !item.width || !item.height || item.height >= item.width;
+
+        const post = await this.prisma.post.create({
+            data: {
+                authorId: userId,
+                content: content || null,
+                privacy: dto.privacy ?? 'PUBLIC',
+                reelEligible: isVertical,
+                media: {
+                    create: [
+                        {
+                            type: 'video',
+                            order: 0,
+                            url: storedUrl(item.storageKey),
+                            thumbnailUrl: item.thumbnailKey
+                                ? storedUrl(item.thumbnailKey)
+                                : null,
+                            width: item.width || null,
+                            height: item.height || null,
+                            durationMs: item.durationMs,
+                            sizeBytes: video.size,
+                        },
+                    ],
+                },
+            },
+            select: postSelect(userId),
+        });
+
+        if (post.privacy !== 'PRIVATE') {
+            await this.notificationsService.notifyMentions(
+                userId,
+                post.content,
+                post.id,
+            );
+        }
+
+        return { data: toPostDto(post) };
     }
 
     async findOne(postId: string, userId: string) {
