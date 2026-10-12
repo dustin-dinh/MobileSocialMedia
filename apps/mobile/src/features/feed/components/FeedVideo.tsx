@@ -6,7 +6,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import { clayColors } from '../../../theme/colors';
-import { feedRadii } from '../feedTheme';
+import { clayRadii } from '../../../theme/spacing';
 import type { PostMedia } from '../types';
 
 function formatDuration(durationMs: number): string {
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   container: {
     aspectRatio: 4 / 5,
     backgroundColor: clayColors.text,
-    borderRadius: feedRadii.media,
+    borderRadius: clayRadii.media,
     overflow: 'hidden',
     width: '100%',
   },

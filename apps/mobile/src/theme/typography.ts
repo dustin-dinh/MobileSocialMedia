@@ -12,16 +12,16 @@ export const fontFamilies = {
 
 export const clayTypography: Record<'title' | 'heading' | 'body' | 'caption' | 'meta' | 'button', TextStyle> = {
   title: {
-    fontFamily: fontFamilies.extraBold,
-    fontSize: 26,
-    lineHeight: 34,
+    fontFamily: fontFamilies.bold,
+    fontSize: 22,
+    lineHeight: 28,
     color: clayColors.text,
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   heading: {
     fontFamily: fontFamilies.bold,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 22,
     color: clayColors.text,
   },
   body: {

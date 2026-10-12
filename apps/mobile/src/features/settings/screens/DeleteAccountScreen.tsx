@@ -61,7 +61,7 @@ export function DeleteAccountScreen() {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ClaySurface style={styles.warning} variant="raisedLite">
+          <ClaySurface style={styles.warning} variant="inset">
             <ClayText style={styles.warningTitle} variant="heading">
               Hành động này không thể hoàn tác
             </ClayText>

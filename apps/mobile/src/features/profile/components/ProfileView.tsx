@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1,
-    paddingBottom: 100 + feedSpacing.cardGap,
+    paddingBottom: 24,
   },
   listLoading: {
     paddingVertical: 48,

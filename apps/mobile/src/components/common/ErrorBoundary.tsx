@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <View style={styles.container}>
-        <ClayIcon color={clayColors.error} name="WarningCircle" size={52} weight="duotone" />
+        <ClayIcon color={clayColors.error} name="WarningCircle" size={52} weight="regular" />
         <ClayText style={styles.title} variant="heading">
           Đã có lỗi xảy ra
         </ClayText>

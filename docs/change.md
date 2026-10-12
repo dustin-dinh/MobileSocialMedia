@@ -1444,3 +1444,53 @@ Documentation only; nothing to run.
 ### Files
 
 - `RULE.md`, `AGENTS.md`, `CLAUDE.md`, `apps/mobile/AGENTS.md`, `docs/change.md`
+
+---
+
+## 2026-10-12 - Mobile UI redesign: flat content-first layout, card feed, in-app pop-ups only
+
+### Task
+
+Redesign the Mobile UI: calm, content-first layout (Threads-like) everywhere, rounded cards only for feed posts (moderate radius), same colours and font, and no operating-system pop-ups - the app shows its own.
+
+### Changed
+
+- **Tokens** (`src/theme`): radii lowered (`control`/`card` 12, `media` 10, `dialog` 16, `modal` 20); one light shadow kept for floating layers only (`getClayBoxShadow('floating')`), cards and buttons are flat with a 1px border; `title` 22/28 and `heading` 16/22 in bold; heavy Nunito weights (ExtraBold, Black) and duotone icons are no longer used by screens.
+- **Shared components**: `ClaySurface` gained `dialog`, `flat`, `rowLite`; the highlight lip is gone. `ClayButton`, `ClayInput`, `AuthTextInput` are flat. `ClayButton` now renders plain-text children as its label (see Fixed).
+- **Tab bar**: attached to the bottom edge with a hairline (was a floating pill); it absorbs the bottom safe-area inset, so the per-screen bottom paddings for the floating bar were removed.
+- **Feed**: `PostCard` is a 12px-radius card with a hairline border, avatar 40, media radius 10. Action row is like, comment, repost, share (each with its count). Repost is one tap on the card; Save moved to the "..." menu only. Home header: title left, compact "Bang tin | Reels" switch.
+- **Flat screens**: profile header is left-aligned (name and bio left, avatar right, one line of counts, two outline buttons, underline tabs); Settings is a flat list with section headers; auth screens lost their card; search rows, comment rows and notification rows lost avatar halos and shadows.
+- **Pop-ups**: every `Alert.alert` is gone (10 call sites). Errors use `showToast`; confirmations use `ConfirmModal` (discard post, discard edits, delete post). `DeletePostModal` is now a thin wrapper over `ConfirmModal`. `showToast` reaches every mounted `ToastHost`, and a host is mounted inside `ConfirmModal`, `CommentModal`, `EditPostModal` and `EditProfileModal`, because a native modal covers the root host. Reposting from the share sheet no longer asks for confirmation (it is one tap to undo).
+- **`app.json`**: added `ios.bundleIdentifier` and the iOS photo-library usage text (`expo-image-picker` plugin), required by the cross-platform rule.
+
+### Fixed
+
+- `ConfirmModal` buttons showed no text and raised "Text strings must be rendered within a <Text> component": `ClayButton` rendered string children raw. Found on the emulator, fixed in `ClayButton`, covered by `__tests__/clayButton.test.tsx`.
+- Profile action buttons did not share the row width (`ClayButton` puts `style` on its inner pressable); they are wrapped now.
+
+### Not changed
+
+- Colours, the Nunito family, the five tabs, hooks, services, API calls, backend, and the `Clay*` component names.
+- Still operating-system UI by nature: the system share sheet ("Other share options") and permission prompts.
+
+### Checks
+
+- `pnpm exec tsc --noEmit`: clean. `pnpm exec jest`: 95 passed (2 live suites skipped). `node scripts/verify-ui.mjs`: rules A-G and I-M pass; rule H fails as it did before this change (baseline comparison).
+
+### Platforms run
+
+- **Android emulator (BlueStacks, Expo Go), real API**: home feed, Reels pane, search, notifications, own profile, settings, post "..." menu, share sheet, comment sheet, create screen, sign-out confirmation - looked at on screen.
+- **Not looked at on any device**: login / register / intro / onboarding, edit-profile and edit-post sheets, delete account, other users' profiles, toasts shown inside a modal, the confirmation nested inside the edit-post sheet.
+- **iPhone: not run.**
+
+### Follow-up
+
+- `scripts/qa/e2e.ps1` taps by coordinates; the tab bar, post actions and profile buttons moved, so its coordinates are stale.
+- The Create screen and the search "Follow" button still use English labels (not part of this change).
+
+### Files
+
+- `apps/mobile/src/theme/{spacing,clay,typography}.ts`, `apps/mobile/src/components/{ui,common,icons}/*`, `apps/mobile/src/navigation/ClayTabBar.tsx`
+- `apps/mobile/src/features/{feed,post,comment,profile,search,notifications,settings,auth,onboarding,reel}` (screens and components listed in the commit)
+- `apps/mobile/app.json`, `apps/mobile/__tests__/{smoke.test.tsx,clayButton.test.tsx}`
+- `docs/change.md`, `docs/decisions.md`

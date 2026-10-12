@@ -277,7 +277,7 @@ export function NotificationsScreen() {
           displayedNotifications.length === 0
             ? styles.emptyListContent
             : styles.listContent,
-          { paddingBottom: 100 },
+          { paddingBottom: 24 },
         ]}
         data={isLoading ? [] : displayedNotifications}
         keyExtractor={(item) => item.id}
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: notificationsColors.text,
-    fontFamily: 'Nunito_800ExtraBold',
+    fontFamily: 'Nunito_700Bold',
     fontSize: 24,
     letterSpacing: -0.4,
   },
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   },
   unreadBadgeText: {
     color: notificationsColors.onPrimary,
-    fontFamily: 'Nunito_800ExtraBold',
+    fontFamily: 'Nunito_700Bold',
     fontSize: 11,
     textAlign: 'center',
   },

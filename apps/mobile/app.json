@@ -6,13 +6,23 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "mobilesocial",
+    "ios": {
+      "bundleIdentifier": "com.mobilesocial.app",
+      "supportsTablet": false
+    },
     "android": {
       "package": "com.mobilesocial.app"
     },
     "plugins": [
       "expo-font",
       "@react-native-google-signin/google-signin",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần truy cập thư viện ảnh để bạn chọn ảnh và video đăng bài hoặc đổi ảnh đại diện."
+        }
+      ]
     ]
   }
 }

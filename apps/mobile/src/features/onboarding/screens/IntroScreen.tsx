@@ -92,7 +92,7 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
         pagingEnabled
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-            <ClaySurface style={styles.art} variant="raised">
+            <ClaySurface style={styles.art} variant="flat">
               <ClayEmoji name={item.emoji} size={96} />
             </ClaySurface>
             <ClayText style={styles.title} variant="title">
@@ -129,9 +129,9 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
 const styles = StyleSheet.create({
   art: {
     alignItems: 'center',
-    height: 180,
+    height: 140,
     justifyContent: 'center',
-    width: 180,
+    width: 140,
   },
   body: {
     color: clayColors.textSecondary,

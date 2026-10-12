@@ -16,7 +16,7 @@ import { LoadError } from '../../../components/common/LoadError';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
+import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
 import { ReelsFeed } from '../../reel/screens/ReelsFeed';
 import { FeedEmptyState } from '../components/FeedEmptyState';
@@ -82,6 +82,7 @@ export function HomeScreen() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: isActive }}
                 key={item.key}
+                hitSlop={6}
                 onPress={() => setPane(item.key)}
                 style={[styles.paneButton, isActive && styles.paneButtonActive]}
               >
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flexGrow: 1,
-    paddingBottom: 96,
+    paddingBottom: 24,
   },
   header: {
     alignItems: 'center',
@@ -172,39 +173,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   headerTitle: {
     color: feedColors.text,
-    fontSize: 24,
-    fontFamily: fontFamilies.extraBold,
-    letterSpacing: -0.4,
   },
   list: {
     flex: 1,
   },
   paneButton: {
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: clayRadii.media - 2,
     justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget - 8,
-    paddingHorizontal: 14,
+    minHeight: clayDimensions.minTouchTarget - 12,
+    paddingHorizontal: 12,
   },
   paneButtonActive: {
-    backgroundColor: clayColors.primarySoft,
+    backgroundColor: clayColors.surfaceHigh,
   },
   paneSwitch: {
     backgroundColor: clayColors.surfaceWell,
-    borderRadius: 20,
+    borderRadius: clayRadii.media,
     flexDirection: 'row',
-    padding: 4,
+    padding: 2,
   },
   paneTextActive: {
-    color: clayColors.primary,
+    color: clayColors.text,
     fontFamily: fontFamilies.bold,
   },
   listContent: {
-    paddingBottom: 96,
+    paddingBottom: 24,
     paddingTop: feedSpacing.cardGap / 2,
   },
 });

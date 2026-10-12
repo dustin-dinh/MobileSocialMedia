@@ -20,7 +20,7 @@ export function LoadError({
 }: LoadErrorProps) {
   return (
     <View style={styles.container}>
-      <ClayIcon color={clayColors.caption} name="WarningCircle" size={44} weight="duotone" />
+      <ClayIcon color={clayColors.caption} name="WarningCircle" size={44} weight="regular" />
       <ClayText style={styles.title} variant="heading">
         {title}
       </ClayText>

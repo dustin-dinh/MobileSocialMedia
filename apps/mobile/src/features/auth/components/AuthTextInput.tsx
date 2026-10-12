@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, TextInput, type TextInputProps, View, ViewStyle,
 
 import { clayColors } from '../../../theme/colors';
 import { clayRadii, clayDimensions } from '../../../theme/spacing';
-import { getClayBoxShadow } from '../../../theme/clay';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 
@@ -69,7 +68,7 @@ export function AuthTextInput({
             <ClayIcon
               name={isPasswordVisible ? 'EyeClosed' : 'Eye'}
               size={20}
-              weight="duotone"
+              weight="regular"
               color={clayColors.primary}
             />
           </Pressable>
@@ -102,29 +101,19 @@ const styles = StyleSheet.create({
   },
   inputShell: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
+    backgroundColor: clayColors.surfaceHigh,
+    borderColor: clayColors.border,
     borderRadius: clayRadii.control,
-    borderWidth: 1.5,
-    borderTopColor: clayColors.border,
-    borderLeftColor: clayColors.border,
-    borderRightColor: clayColors.shadowLight,
-    borderBottomColor: clayColors.shadowLight,
+    borderWidth: 1,
     flexDirection: 'row',
     marginTop: 6,
     minHeight: clayDimensions.minTouchTarget + 6,
-    boxShadow: getClayBoxShadow('inset'),
   } as ViewStyle,
   inputShellFocused: {
-    borderTopColor: clayColors.primary,
-    borderLeftColor: clayColors.primary,
-    borderRightColor: clayColors.primarySoft,
-    borderBottomColor: clayColors.primarySoft,
+    borderColor: clayColors.primary,
   },
   inputShellInvalid: {
-    borderTopColor: clayColors.error,
-    borderLeftColor: clayColors.error,
-    borderRightColor: clayColors.errorBg,
-    borderBottomColor: clayColors.errorBg,
+    borderColor: clayColors.error,
   },
   label: {
     color: clayColors.text,

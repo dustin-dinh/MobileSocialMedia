@@ -6,7 +6,6 @@ import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { ScreenHeader } from '../../../components/common/ScreenHeader';
 import { showToast } from '../../../components/common/toast';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
@@ -29,7 +28,7 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
       <ClayText style={styles.groupTitle} variant="meta">
         {title}
       </ClayText>
-      <ClaySurface style={styles.groupCard} variant="raisedLite">
+      <View style={styles.groupRows}>
         {rows.map((row, index) => {
           const color = row.destructive ? clayColors.error : clayColors.text;
 
@@ -42,7 +41,7 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
               onPress={row.onPress}
               style={[styles.row, index > 0 && styles.rowDivider]}
             >
-              <ClayIcon color={color} name={row.icon} size={20} weight="duotone" />
+              <ClayIcon color={color} name={row.icon} size={20} weight="regular" />
               <ClayText style={[styles.rowLabel, { color }]} variant="body">
                 {row.label}
               </ClayText>
@@ -56,7 +55,7 @@ function SettingsGroup({ rows, title }: { rows: Row[]; title: string }) {
             </Pressable>
           );
         })}
-      </ClaySurface>
+      </View>
     </View>
   );
 }
@@ -178,19 +177,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: claySpacing.base,
     paddingBottom: 48,
+    paddingTop: claySpacing.sm,
   },
   group: {
-    marginBottom: claySpacing.lg,
+    marginBottom: claySpacing.base,
   },
-  groupCard: {
+  groupRows: {
+    borderBottomColor: clayColors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: claySpacing.base,
   },
   groupTitle: {
     color: clayColors.caption,
-    marginBottom: claySpacing.sm,
-    marginLeft: claySpacing.xs,
+    paddingHorizontal: claySpacing.base,
+    paddingVertical: claySpacing.sm,
   },
   row: {
     alignItems: 'center',

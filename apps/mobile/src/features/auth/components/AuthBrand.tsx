@@ -8,7 +8,7 @@ import { ClayText } from '../../../components/ui/ClayText';
 export function AuthBrand() {
   return (
     <View style={styles.container}>
-      <ClaySurface variant="raisedPrimary" borderRadius={26} style={styles.mark}>
+      <ClaySurface variant="raisedPrimary" borderRadius={16} style={styles.mark}>
         <ClayText variant="title" style={styles.markText}>
           MS
         </ClayText>
@@ -29,14 +29,14 @@ const styles = StyleSheet.create({
   },
   mark: {
     alignItems: 'center',
-    height: 76,
+    height: 56,
     justifyContent: 'center',
-    width: 76,
+    width: 56,
   },
   markText: {
     color: clayColors.onPrimary,
-    fontSize: 24,
-    fontFamily: fontFamilies.extraBold,
+    fontSize: 20,
+    fontFamily: fontFamilies.bold,
     letterSpacing: 1,
   },
   name: {

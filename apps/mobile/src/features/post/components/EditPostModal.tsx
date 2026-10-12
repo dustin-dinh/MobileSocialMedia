@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -12,6 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
+import { showToast, ToastHost } from '../../../components/common/toast';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -45,6 +46,7 @@ export function EditPostModal({
   const [privacy, setPrivacy] = useState<PostPrivacy>(post.privacy ?? 'PUBLIC');
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDiscardVisible, setIsDiscardVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -85,11 +87,11 @@ export function EditPostModal({
       onClose();
     } catch (error) {
       console.error('Update post failed:', error);
-      Alert.alert(
-        'Lỗi',
+      showToast(
         error instanceof ApiError
           ? error.message
           : 'Không thể cập nhật bài viết. Vui lòng thử lại sau.',
+        'error',
       );
     } finally {
       setIsSaving(false);
@@ -98,18 +100,7 @@ export function EditPostModal({
 
   const handleCancel = () => {
     if (hasChanged) {
-      Alert.alert(
-        'Bỏ thay đổi?',
-        'Bạn có thay đổi chưa lưu. Bạn có chắc muốn thoát mà không lưu không?',
-        [
-          { text: 'Tiếp tục sửa', style: 'cancel' },
-          {
-            text: 'Bỏ thay đổi',
-            style: 'destructive',
-            onPress: onClose,
-          },
-        ],
-      );
+      setIsDiscardVisible(true);
     } else {
       onClose();
     }
@@ -284,6 +275,22 @@ export function EditPostModal({
         onSelectPrivacy={(newPrivacy) => setPrivacy(newPrivacy)}
         visible={isPrivacyModalOpen}
       />
+
+      {/* Rendered inside this Modal so it stacks above it on iOS as well. */}
+      <ConfirmModal
+        cancelLabel="Tiếp tục sửa"
+        confirmLabel="Bỏ thay đổi"
+        destructive
+        message="Bạn có thay đổi chưa lưu. Bạn có chắc muốn thoát mà không lưu không?"
+        onCancel={() => setIsDiscardVisible(false)}
+        onConfirm={() => {
+          setIsDiscardVisible(false);
+          onClose();
+        }}
+        title="Bỏ thay đổi?"
+        visible={isDiscardVisible}
+      />
+      <ToastHost bottomOffset={24} />
     </Modal>
   );
 }

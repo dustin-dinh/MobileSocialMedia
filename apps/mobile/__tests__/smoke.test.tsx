@@ -120,7 +120,8 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
     expect(getByText('Hello world claymorphism post!')).toBeTruthy();
     expect(getByLabelText(/Like post/i)).toBeTruthy();
     expect(getByLabelText(/Comments/i)).toBeTruthy();
-    expect(getByLabelText(/Save post/i)).toBeTruthy();
+    expect(getByLabelText(/^Repost$/i)).toBeTruthy();
+    expect(getByLabelText(/Share post/i)).toBeTruthy();
   });
 
   it('renders SearchScreen with search input', async () => {

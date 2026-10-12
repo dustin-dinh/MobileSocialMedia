@@ -118,7 +118,7 @@ export function PostPrivacyModal({
                         color={isSelected ? clayColors.primary : clayColors.text}
                         name={option.icon}
                         size={22}
-                        weight={isSelected ? 'fill' : 'duotone'}
+                        weight={isSelected ? 'fill' : 'regular'}
                       />
                     </View>
 

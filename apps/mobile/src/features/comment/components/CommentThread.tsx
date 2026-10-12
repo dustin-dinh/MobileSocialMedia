@@ -18,7 +18,6 @@ import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
-import { getClayBoxShadow } from '../../../theme/clay';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
@@ -436,12 +435,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 12,
     paddingVertical: 2,
+    borderColor: clayColors.border,
     borderWidth: 1,
-    borderTopColor: clayColors.border,
-    borderLeftColor: clayColors.border,
-    borderRightColor: clayColors.shadowLight,
-    borderBottomColor: clayColors.shadowLight,
-    boxShadow: getClayBoxShadow('inset'),
   },
   list: {
     flex: 1,

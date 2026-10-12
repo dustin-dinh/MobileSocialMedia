@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -69,22 +68,8 @@ export function SharePostModal({
   };
 
   const handleRepost = () => {
-    Alert.alert(
-      post.isReposted ? 'Huỷ đăng lại' : 'Đăng lại lên Bảng tin',
-      post.isReposted
-        ? 'Bài viết sẽ không còn hiện trên trang cá nhân của bạn.'
-        : 'Bạn có muốn đăng lại bài viết này cho người theo dõi của mình không?',
-      [
-        { text: 'Huỷ', style: 'cancel' },
-        {
-          text: post.isReposted ? 'Huỷ đăng lại' : 'Đăng lại',
-          onPress: () => {
-            onClose();
-            onToggleRepost?.();
-          },
-        },
-      ],
-    );
+    onClose();
+    onToggleRepost?.();
   };
 
   const authorInitials = (post.author.displayName ?? post.author.username)
@@ -191,7 +176,7 @@ export function SharePostModal({
                     color={copied ? clayColors.primary : clayColors.text}
                     name="LinkSimple"
                     size={22}
-                    weight="duotone"
+                    weight="regular"
                   />
                 </View>
                 <View style={styles.optionContent}>
@@ -218,7 +203,7 @@ export function SharePostModal({
                       color={post.isReposted ? clayColors.primary : clayColors.text}
                       name="Repeat"
                       size={22}
-                      weight={post.isReposted ? 'bold' : 'duotone'}
+                      weight={post.isReposted ? 'bold' : 'regular'}
                     />
                   </View>
                   <View style={styles.optionContent}>
@@ -245,7 +230,7 @@ export function SharePostModal({
                     color={clayColors.text}
                     name="Export"
                     size={22}
-                    weight="duotone"
+                    weight="regular"
                   />
                 </View>
                 <View style={styles.optionContent}>

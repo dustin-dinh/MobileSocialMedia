@@ -11,7 +11,6 @@ import {
 import { clayColors } from '../../theme/colors';
 import { clayRadii, clayDimensions } from '../../theme/spacing';
 import { ClayText } from './ClayText';
-import { getClayBoxShadow } from '../../theme/clay';
 
 export type ClayButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'pill';
 
@@ -46,7 +45,9 @@ export function ClayButton({
   labelStyle,
   children,
 }: ClayButtonProps) {
-  const buttonText = label || title;
+  // Plain-text children are a label too: raw strings cannot render outside a Text.
+  const textChild = typeof children === 'string' ? children : undefined;
+  const buttonText = label || title || textChild;
   const isButtonLoading = isLoading || loading;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const isDisabled = disabled || isButtonLoading;
@@ -127,7 +128,7 @@ export function ClayButton({
                 {buttonText}
               </ClayText>
             ) : null}
-            {children}
+            {textChild === undefined ? children : null}
           </>
         )}
       </Pressable>
@@ -156,49 +157,18 @@ const styles = StyleSheet.create({
   },
   primary: {
     backgroundColor: clayColors.primary,
-    borderWidth: 1,
-    borderTopColor: clayColors.primarySoft,
-    borderLeftColor: clayColors.primarySoft,
-    borderRightColor: clayColors.primaryPressed,
-    borderBottomColor: clayColors.primaryPressed,
-    shadowColor: 'rgb(168,36,89)',
-    shadowOffset: { width: 3, height: 5 },
-    shadowOpacity: 0.32,
-    shadowRadius: 8,
-    elevation: 4,
-    // Modern BoxShadow
-    boxShadow: getClayBoxShadow('raisedPrimary'),
-  } as ViewStyle,
+  },
   primaryPressed: {
     backgroundColor: clayColors.primaryPressed,
-    borderTopColor: clayColors.primaryPressed,
-    borderLeftColor: clayColors.primaryPressed,
-    borderRightColor: clayColors.primarySoft,
-    borderBottomColor: clayColors.primarySoft,
-    boxShadow: getClayBoxShadow('inset'),
-  } as ViewStyle,
+  },
   secondary: {
-    backgroundColor: clayColors.surface,
+    backgroundColor: clayColors.surfaceHigh,
+    borderColor: clayColors.border,
     borderWidth: 1,
-    borderTopColor: clayColors.shadowLight,
-    borderLeftColor: clayColors.shadowLight,
-    borderRightColor: clayColors.border,
-    borderBottomColor: clayColors.border,
-    shadowColor: 'rgb(150,84,96)',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-    elevation: 3,
-    boxShadow: getClayBoxShadow('raised'),
-  } as ViewStyle,
+  },
   secondaryPressed: {
     backgroundColor: clayColors.surfaceWell,
-    borderTopColor: clayColors.border,
-    borderLeftColor: clayColors.border,
-    borderRightColor: clayColors.shadowLight,
-    borderBottomColor: clayColors.shadowLight,
-    boxShadow: getClayBoxShadow('inset'),
-  } as ViewStyle,
+  },
   ghost: {
     backgroundColor: 'transparent',
     borderWidth: 0,
@@ -208,35 +178,17 @@ const styles = StyleSheet.create({
   },
   destructive: {
     backgroundColor: clayColors.errorBg,
-    borderWidth: 1,
-    borderTopColor: clayColors.shadowLight,
-    borderLeftColor: clayColors.shadowLight,
-    borderRightColor: clayColors.border,
-    borderBottomColor: clayColors.border,
-    shadowColor: 'rgb(200,65,59)',
-    shadowOffset: { width: 2, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
   },
   destructivePressed: {
     backgroundColor: clayColors.errorBg,
+    opacity: 0.8,
   },
   pill: {
+    backgroundColor: clayColors.surfaceHigh,
+    borderColor: clayColors.border,
     borderRadius: clayRadii.pill,
-    backgroundColor: clayColors.surface,
     borderWidth: 1,
-    borderTopColor: clayColors.shadowLight,
-    borderLeftColor: clayColors.shadowLight,
-    borderRightColor: clayColors.border,
-    borderBottomColor: clayColors.border,
-    shadowColor: 'rgb(150,84,96)',
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 5,
-    elevation: 2,
-    boxShadow: getClayBoxShadow('pill'),
-  } as ViewStyle,
+  },
   disabled: {
     opacity: 0.5,
   },

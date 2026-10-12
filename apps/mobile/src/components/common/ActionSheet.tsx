@@ -75,7 +75,7 @@ export function ActionSheet({ onClose, options, title, visible }: ActionSheetPro
                         color={color}
                         name={item.icon}
                         size={22}
-                        weight={item.destructive ? 'bold' : 'duotone'}
+                        weight={item.destructive ? 'bold' : 'regular'}
                       />
                     </View>
                     <View style={styles.optionContent}>

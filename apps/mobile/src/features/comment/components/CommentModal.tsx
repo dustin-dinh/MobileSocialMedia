@@ -14,6 +14,7 @@ import { commentColors, commentRadii } from '../commentTheme';
 import { clayColors } from '../../../theme/colors';
 import { fontFamilies } from '../../../theme/typography';
 import { clayDimensions } from '../../../theme/spacing';
+import { ToastHost } from '../../../components/common/toast';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -102,6 +103,7 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
             />
           </ClaySurface>
         </KeyboardAvoidingView>
+        <ToastHost bottomOffset={88} />
       </View>
     </Modal>
   );

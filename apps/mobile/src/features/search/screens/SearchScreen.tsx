@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Keyboard,
   Platform,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { ListFooter } from '../../../components/common/ListFooter';
+import { showToast } from '../../../components/common/toast';
 import { USE_MOCK_API } from '../../../config/runtime';
 import { useDebounce } from '../../../hooks/useDebounce';
 import type { MainTabParamList } from '../../../navigation/types';
@@ -109,7 +109,7 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
       setUsers(data);
     } catch (error) {
       console.error('Failed to search users:', error);
-      Alert.alert('Lỗi', 'Không thể tải danh sách người dùng. Vui lòng thử lại.');
+      showToast('Không thể tải danh sách người dùng. Vui lòng thử lại.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +205,7 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
         }),
       );
 
-      Alert.alert('Thông báo', 'Không thể cập nhật theo dõi lúc này. Vui lòng thử lại sau.');
+      showToast('Không thể cập nhật theo dõi lúc này. Vui lòng thử lại sau.', 'error');
     } finally {
       setPendingFollowIds((prev) => {
         const next = new Set(prev);
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   listContent: {
     backgroundColor: clayColors.canvas,
     flexGrow: 1,
-    paddingBottom: 96,
+    paddingBottom: 24,
   },
   loaderIcon: {
     marginLeft: 8,

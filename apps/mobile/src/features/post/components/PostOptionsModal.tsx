@@ -196,7 +196,7 @@ export function PostOptionsModal({
                         color={iconColor}
                         name={item.icon}
                         size={22}
-                        weight={item.isDestructive ? 'bold' : 'duotone'}
+                        weight={item.isDestructive ? 'bold' : 'regular'}
                       />
                     </View>
 

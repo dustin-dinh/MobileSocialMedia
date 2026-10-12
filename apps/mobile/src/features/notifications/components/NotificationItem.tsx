@@ -101,7 +101,7 @@ export type NotificationItemProps = {
 
 /**
  * NotificationItem component (memoized, lite clay tier)
- * Uses lightweight row layout with subtle border and elevation 2 on badge (<= 2 layers).
+ * Flat row with a hairline divider.
  */
 export const NotificationItem = memo(function NotificationItem({
   isFollowPending = false,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     color: notificationsColors.primary,
-    fontFamily: 'Nunito_800ExtraBold',
+    fontFamily: 'Nunito_700Bold',
     fontSize: 15,
   },
   avatarWrapper: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   containerPressed: {
     backgroundColor: notificationsColors.surfaceWell,

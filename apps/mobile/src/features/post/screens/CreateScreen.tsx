@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +22,8 @@ import { postService } from '../services/postService';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
 import { clayRadii, clayDimensions } from '../../../theme/spacing';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
+import { showToast } from '../../../components/common/toast';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
@@ -116,6 +117,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDiscardVisible, setIsDiscardVisible] = useState(false);
   const [privacy, setPrivacy] = useState<PostPrivacy>('PUBLIC');
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
@@ -146,27 +148,19 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
   // ── Handlers ────────────────────────────────────────────────────────
   const handleCancel = useCallback(() => {
     if (hasContent) {
-      Alert.alert(
-        'Discard post?',
-        'You have unsaved changes. Are you sure you want to discard this post?',
-        [
-          { text: 'Keep editing', style: 'cancel' },
-          {
-            text: 'Discard',
-            style: 'destructive',
-            onPress: () => {
-              setContent('');
-              clearImages();
-              clearVideo();
-              navigation.navigate('Home');
-            },
-          },
-        ],
-      );
+      setIsDiscardVisible(true);
     } else {
       navigation.navigate('Home');
     }
-  }, [clearImages, clearVideo, hasContent, navigation]);
+  }, [hasContent, navigation]);
+
+  const handleDiscard = useCallback(() => {
+    setIsDiscardVisible(false);
+    setContent('');
+    clearImages();
+    clearVideo();
+    navigation.navigate('Home');
+  }, [clearImages, clearVideo, navigation]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !user) {
@@ -206,9 +200,9 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
       navigation.navigate('Home');
     } catch (error) {
       console.error('Failed to create post:', error);
-      Alert.alert(
-        'Error',
-        error instanceof ApiError ? error.message : 'Failed to create post. Please try again.',
+      showToast(
+        error instanceof ApiError ? error.message : 'Không đăng được bài viết. Vui lòng thử lại.',
+        'error',
       );
     } finally {
       setIsSubmitting(false);
@@ -308,7 +302,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
         {video ? (
           <ClaySurface variant="inset" style={styles.videoChip}>
-            <ClayIcon name="VideoCamera" size={22} weight="duotone" color={clayColors.primary} />
+            <ClayIcon name="VideoCamera" size={22} weight="regular" color={clayColors.primary} />
             <View style={styles.videoChipText}>
               <ClayText variant="caption" numberOfLines={1}>
                 {video.fileName ?? 'Video đã chọn'}
@@ -343,7 +337,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
       </ScrollView>
 
       {/* ── Bottom toolbar ────────────────────────────────── */}
-      <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, 12) + 60 }]}>
+      <View style={[styles.toolbar, { paddingBottom: 12 }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add photo"
@@ -356,7 +350,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           ]}
           hitSlop={8}
         >
-          <ClayIcon name="Image" size={24} weight="duotone" color={clayColors.primary} />
+          <ClayIcon name="Image" size={24} weight="regular" color={clayColors.primary} />
           <ClayText
             variant="button"
             style={[
@@ -380,7 +374,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             ]}
             hitSlop={8}
           >
-            <ClayIcon name="VideoCamera" size={24} weight="duotone" color={clayColors.primary} />
+            <ClayIcon name="VideoCamera" size={24} weight="regular" color={clayColors.primary} />
             <ClayText variant="button" style={styles.toolbarLabel}>
               Video
             </ClayText>
@@ -397,6 +391,17 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
         onClose={() => setIsPrivacyModalOpen(false)}
         onSelectPrivacy={(newPrivacy) => setPrivacy(newPrivacy)}
         visible={isPrivacyModalOpen}
+      />
+
+      <ConfirmModal
+        cancelLabel="Viết tiếp"
+        confirmLabel="Bỏ bài viết"
+        destructive
+        message="Nội dung bạn đang soạn sẽ không được lưu."
+        onCancel={() => setIsDiscardVisible(false)}
+        onConfirm={handleDiscard}
+        title="Bỏ bài viết này?"
+        visible={isDiscardVisible}
       />
     </KeyboardAvoidingView>
   );
@@ -440,19 +445,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarHalo: {
-    borderRadius: (AVATAR_SIZE + 4) / 2,
-    borderWidth: 2,
-    borderColor: clayColors.surfaceHigh,
-    shadowColor: 'rgb(150,84,96)',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitials: {
     color: clayColors.primary,
     fontSize: 14,
-    fontFamily: fontFamilies.extraBold,
+    fontFamily: fontFamilies.bold,
   },
   body: {
     flex: 1,

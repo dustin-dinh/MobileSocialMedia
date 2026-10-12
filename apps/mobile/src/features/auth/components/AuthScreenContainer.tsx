@@ -48,7 +48,7 @@ export function AuthScreenContainer({
               </ClayText>
             </View>
 
-            <ClaySurface variant="card" style={styles.card}>
+            <ClaySurface variant="flat" style={styles.card}>
               {children}
             </ClaySurface>
 
@@ -77,8 +77,7 @@ export function AuthScreenContainer({
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 28,
-    padding: 24,
+    marginTop: 24,
   },
   content: {
     alignSelf: 'center',
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 32,
   },
   subtitle: {

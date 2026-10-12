@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, ViewProps, StyleSheet, ViewStyle } from 'react-native';
-import { clayColors } from '../../theme/colors';
+import { View, ViewProps, ViewStyle } from 'react-native';
 import { clayRadii } from '../../theme/spacing';
 import { clayStyles } from '../../theme/clay';
 
@@ -11,15 +10,26 @@ export type ClaySurfaceVariant =
   | 'inset'
   | 'pill'
   | 'modal'
+  | 'dialog'
   | 'lite'
   | 'raisedLite'
-  | 'cardLite';
+  | 'cardLite'
+  | 'rowLite'
+  | 'flat';
 
 export type ClaySurfaceProps = ViewProps & {
   variant?: ClaySurfaceVariant;
   borderRadius?: number;
 };
 
+/**
+ * The surfaces of the flat design:
+ * - `card` / `raised` / `*Lite`: a bordered block with small corners (post cards).
+ * - `rowLite`: a full-width list row with a hairline below it.
+ * - `inset`: the well of an input.
+ * - `modal` (bottom sheet) and `dialog`: floating layers, the only ones with a shadow.
+ * - `flat`: no chrome at all.
+ */
 export function ClaySurface({
   variant = 'raised',
   borderRadius,
@@ -27,115 +37,67 @@ export function ClaySurface({
   children,
   ...props
 }: ClaySurfaceProps) {
-  let baseStyle: ViewStyle = clayStyles.raised;
-  let customRadius = borderRadius;
+  let baseStyle: ViewStyle;
+  let radiusStyle: ViewStyle;
 
   switch (variant) {
-    case 'card':
-      baseStyle = clayStyles.raisedCard;
-      customRadius = customRadius ?? clayRadii.card;
-      break;
     case 'raisedPrimary':
       baseStyle = clayStyles.raisedPrimary;
-      customRadius = customRadius ?? clayRadii.control;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.control };
       break;
     case 'inset':
       baseStyle = clayStyles.inset;
-      customRadius = customRadius ?? clayRadii.control;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.control };
       break;
     case 'pill':
       baseStyle = clayStyles.pill;
-      customRadius = customRadius ?? clayRadii.pill;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.pill };
       break;
     case 'modal':
-      baseStyle = styles.modal;
-      customRadius = customRadius ?? clayRadii.modal;
+      baseStyle = clayStyles.floating;
+      // A bottom sheet is only rounded where it meets the page.
+      radiusStyle = {
+        borderTopLeftRadius: borderRadius ?? clayRadii.modal,
+        borderTopRightRadius: borderRadius ?? clayRadii.modal,
+      };
+      break;
+    case 'dialog':
+      baseStyle = clayStyles.floating;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.dialog };
+      break;
+    case 'rowLite':
+      baseStyle = clayStyles.row;
+      radiusStyle = {};
+      break;
+    case 'flat':
+      baseStyle = {};
+      radiusStyle = borderRadius === undefined ? {} : { borderRadius };
       break;
     case 'lite':
     case 'raisedLite':
     case 'cardLite':
       baseStyle = clayStyles.raisedLite;
-      customRadius = customRadius ?? clayRadii.card;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.card };
       break;
+    case 'card':
     case 'raised':
     default:
       baseStyle = clayStyles.raised;
-      customRadius = customRadius ?? clayRadii.card;
+      radiusStyle = { borderRadius: borderRadius ?? clayRadii.card };
       break;
   }
 
-  const radius = customRadius ?? clayRadii.card;
-  const isPill = variant === 'pill';
-  const isLite = variant === 'lite' || variant === 'raisedLite' || variant === 'cardLite';
-  const isInset = variant === 'inset';
+  // Rounded blocks clip their children (media reaching the edge follows the
+  // corners). Pills and chrome-less surfaces must not: they hold badges and
+  // controls that may reach past their edge.
+  const clipsChildren = variant !== 'pill' && variant !== 'flat' && variant !== 'rowLite';
 
   return (
     <View
-      style={[
-        baseStyle,
-        { borderRadius: radius },
-        style,
-      ]}
+      style={[baseStyle, radiusStyle, clipsChildren ? { overflow: 'hidden' } : undefined, style]}
       {...props}
     >
-      {/* 
-        3D Clay reflection highlight bar on top lip:
-        - NEVER rendered for 'pill' (avoids the horizontal white streak across floating tab bar)
-        - NEVER rendered for 'lite' variants (FlatList render performance)
-        - Wrapped inside a container with matching borderRadius and overflow: 'hidden' to prevent any pixel leakage
-      */}
-      {!isInset && !isPill && !isLite && (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              borderRadius: radius,
-              overflow: 'hidden',
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.highlightLip,
-              {
-                borderRadius: radius,
-                backgroundColor:
-                  variant === 'raisedPrimary'
-                    ? 'rgba(255,255,255,0.30)'
-                    : clayColors.shadowLight,
-              },
-            ]}
-          />
-        </View>
-      )}
       {children}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  highlightLip: {
-    position: 'absolute',
-    top: 0,
-    left: 2,
-    right: 2,
-    height: 2,
-    opacity: 0.85,
-  },
-  modal: {
-    backgroundColor: clayColors.surface,
-    borderTopLeftRadius: clayRadii.modal,
-    borderTopRightRadius: clayRadii.modal,
-    borderWidth: 1,
-    borderTopColor: clayColors.shadowLight,
-    borderLeftColor: clayColors.shadowLight,
-    borderRightColor: clayColors.border,
-    borderBottomColor: clayColors.border,
-    shadowColor: 'rgb(100,60,85)',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.20,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-});

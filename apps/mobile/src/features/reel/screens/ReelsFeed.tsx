@@ -345,7 +345,8 @@ export function ReelsFeed({ isActive }: ReelsFeedProps) {
     setHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
 
-  const bottomInset = insets.bottom + 92;
+  // The tab bar is part of the layout below this pane, so only a small margin is needed.
+  const bottomInset = 12;
 
   const renderItem = useCallback(
     ({ index, item }: { index: number; item: Post }) => (

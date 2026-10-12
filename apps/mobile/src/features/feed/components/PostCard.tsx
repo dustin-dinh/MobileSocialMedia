@@ -12,8 +12,8 @@ import { Image } from 'expo-image';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { clayColors } from '../../../theme/colors';
 import { fontFamilies } from '../../../theme/typography';
-import { feedRadii, feedSpacing } from '../feedTheme';
-import { clayDimensions } from '../../../theme/spacing';
+import { feedSpacing } from '../feedTheme';
+import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -41,13 +41,13 @@ import { feedEvents } from '../feedEvents';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_HORIZONTAL_MARGIN = feedSpacing.cardPadding;
 const MEDIA_WIDTH = SCREEN_WIDTH - CARD_HORIZONTAL_MARGIN * 2;
-const AVATAR_SIZE = 44;
+const AVATAR_SIZE = 40;
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Renders the author's avatar with clay halo and fallback initials. */
+/** Renders the author's avatar with fallback initials. */
 function Avatar({ author }: { author: Post['author'] }) {
   const initials = (author.displayName ?? author.username)
     .split(' ')
@@ -57,22 +57,20 @@ function Avatar({ author }: { author: Post['author'] }) {
     .toUpperCase();
 
   return (
-    <View style={styles.avatarHalo}>
-      {author.avatarUrl ? (
-        <Image
-          source={{ uri: author.avatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <ClayText variant="caption" style={styles.avatarInitials}>
-            {initials}
-          </ClayText>
-        </View>
-      )}
-    </View>
+    author.avatarUrl ? (
+      <Image
+        source={{ uri: author.avatarUrl }}
+        style={styles.avatar}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+    ) : (
+      <View style={[styles.avatar, styles.avatarFallback]}>
+        <ClayText variant="caption" style={styles.avatarInitials}>
+          {initials}
+        </ClayText>
+      </View>
+    )
   );
 }
 
@@ -220,6 +218,7 @@ export const PostCard = memo(function PostCard({
   }, [onToggleSave, post]);
 
   const displayName = post.author.displayName ?? post.author.username;
+  const canRepost = !isAuthor && post.privacy !== 'ONLY_ME';
 
   const privacyIconName =
     post.privacy === 'FRIENDS'
@@ -251,7 +250,7 @@ export const PostCard = memo(function PostCard({
       <ClaySurface variant="raisedLite" style={styles.card}>
         {repostBanner}
         <View style={styles.unavailable}>
-          <ClayIcon name="EyeSlash" size={20} weight="duotone" color={clayColors.caption} />
+          <ClayIcon name="EyeSlash" size={20} weight="regular" color={clayColors.caption} />
           <ClayText variant="caption" style={styles.unavailableText}>
             Bài viết này không còn khả dụng.
           </ClayText>
@@ -335,7 +334,6 @@ export const PostCard = memo(function PostCard({
 
       {/* ── Action Bar ─────────────────────────────────────── */}
       <View style={styles.actions}>
-        <View style={styles.actionsLeft}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={post.isLiked ? 'Unlike post' : 'Like post'}
@@ -347,7 +345,7 @@ export const PostCard = memo(function PostCard({
               <ClayIcon
                 name="Heart"
                 size={22}
-                weight={post.isLiked ? 'fill' : 'duotone'}
+                weight={post.isLiked ? 'fill' : 'regular'}
                 color={post.isLiked ? clayColors.liked : clayColors.caption}
               />
             </Animated.View>
@@ -368,7 +366,7 @@ export const PostCard = memo(function PostCard({
             style={styles.actionButton}
             hitSlop={8}
           >
-            <ClayIcon name="ChatCircle" size={22} weight="duotone" color={clayColors.caption} />
+            <ClayIcon name="ChatCircle" size={22} weight="regular" color={clayColors.caption} />
             {post.commentsCount > 0 && (
               <ClayText variant="caption" style={styles.actionCount}>
                 {formatCount(post.commentsCount)}
@@ -378,15 +376,17 @@ export const PostCard = memo(function PostCard({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Share post"
-            onPress={() => setIsShareModalOpen(true)}
-            style={styles.actionButton}
+            accessibilityLabel={post.isReposted ? 'Undo repost' : 'Repost'}
+            accessibilityState={{ disabled: !canRepost }}
+            disabled={!canRepost}
+            onPress={handleToggleRepost}
+            style={[styles.actionButton, !canRepost && styles.actionDisabled]}
             hitSlop={8}
           >
             <ClayIcon
-              name={post.isReposted ? 'Repeat' : 'ShareNetwork'}
+              name="Repeat"
               size={22}
-              weight={post.isReposted ? 'bold' : 'duotone'}
+              weight={post.isReposted ? 'bold' : 'regular'}
               color={post.isReposted ? clayColors.primary : clayColors.caption}
             />
             {(post.repostsCount ?? 0) > 0 && (
@@ -398,22 +398,16 @@ export const PostCard = memo(function PostCard({
               </ClayText>
             )}
           </Pressable>
-        </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={post.isSaved ? 'Unsave post' : 'Save post'}
-          onPress={handleSave}
-          style={styles.actionButton}
-          hitSlop={8}
-        >
-          <ClayIcon
-            name="BookmarkSimple"
-            size={22}
-            weight={post.isSaved ? 'fill' : 'duotone'}
-            color={post.isSaved ? clayColors.saved : clayColors.caption}
-          />
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share post"
+            onPress={() => setIsShareModalOpen(true)}
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <ClayIcon name="ShareNetwork" size={22} weight="regular" color={clayColors.caption} />
+          </Pressable>
       </View>
 
       {/* ── Modals ─────────────────────────────────────────── */}
@@ -433,7 +427,7 @@ export const PostCard = memo(function PostCard({
       />
 
       <SharePostModal
-        canRepost={!isAuthor && post.privacy !== 'ONLY_ME'}
+        canRepost={canRepost}
         onClose={() => setIsShareModalOpen(false)}
         onToggleRepost={handleToggleRepost}
         post={post}
@@ -493,6 +487,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
+  actionDisabled: {
+    opacity: 0.4,
+  },
   actionCountLiked: {
     color: clayColors.liked,
   },
@@ -527,17 +524,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     alignItems: 'center',
-    borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+    paddingBottom: 4,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  actionsLeft: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,
@@ -548,16 +538,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
-  },
-  avatarHalo: {
-    borderRadius: (AVATAR_SIZE + 4) / 2,
-    borderWidth: 2,
-    borderColor: clayColors.surfaceHigh,
-    shadowColor: 'rgb(150,84,96)',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
   },
   avatarInitials: {
     color: clayColors.caption,
@@ -573,7 +553,7 @@ const styles = StyleSheet.create({
     width: MEDIA_WIDTH,
   },
   carouselImage: {
-    borderRadius: feedRadii.media,
+    borderRadius: clayRadii.media,
     borderWidth: 1,
     borderColor: clayColors.border,
     height: MEDIA_WIDTH * 0.65,
@@ -584,7 +564,7 @@ const styles = StyleSheet.create({
   },
   content: {
     lineHeight: 22,
-    paddingBottom: 10,
+    paddingBottom: 8,
     paddingHorizontal: feedSpacing.cardPadding,
   },
   displayName: {
@@ -597,17 +577,18 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     flexDirection: 'row',
-    padding: feedSpacing.cardPadding,
     paddingBottom: 8,
+    paddingLeft: feedSpacing.cardPadding,
+    paddingRight: 4,
+    paddingTop: 12,
   },
   headerMeta: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginTop: 2,
   },
   headerText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   hidden: {
     opacity: 0,
@@ -619,16 +600,16 @@ const styles = StyleSheet.create({
   },
   mediaPlaceholder: {
     backgroundColor: clayColors.surfaceWell,
-    borderRadius: feedRadii.media,
+    borderRadius: clayRadii.media,
     height: MEDIA_WIDTH * 0.65,
     width: '100%',
   },
   mediaSingle: {
-    borderRadius: feedRadii.media,
+    borderRadius: clayRadii.media,
     overflow: 'hidden',
   },
   mediaSingleImage: {
-    borderRadius: feedRadii.media,
+    borderRadius: clayRadii.media,
     borderWidth: 1,
     borderColor: clayColors.border,
     height: MEDIA_WIDTH * 0.65,

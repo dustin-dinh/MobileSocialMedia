@@ -637,3 +637,29 @@ px expo run:android or EAS build) with configured GOOGLE_WEB_CLIENT_ID and EXPO_
 - `apps/mobile/src/features/comment/components/CommentThread.tsx`
 - `apps/mobile/src/features/reel/`
 - `docs/api-contract.md`, `docs/FEATURE_GAP_CHECKLIST.md`
+
+---
+
+## DEC-021 - Mobile visual language: flat screens, card feed, floating layers only for overlays
+
+### Context
+
+The claymorphism look (puffy shadows, large radii, floating tab bar, heavy font weights) competed with the content. The owner asked for a professional, content-first layout in the style of Threads, with the current colours kept, rounded cards only for feed posts (not too round), and no operating-system pop-ups. Implemented on 2026-10-12 on branch `feat/gap-checklist`.
+
+### Decision
+
+1. **Three surface levels, nothing else.** Flat (screens, rows, lists: hairline dividers, no shadow), card (feed posts only: radius 12, 1px border, no shadow), floating (dialogs, bottom sheets, toast: the single shadow `getClayBoxShadow('floating')`, radius 16 for dialogs and 20 for sheet tops). New UI picks one of these through `ClaySurface` variants; it does not define its own shadow or radius.
+2. **Pink is an accent, not a background.** Primary button, active tab, liked/reposted state, links and hashtags. Everything else is text colour on the blush canvas.
+3. **Type**: Nunito stays; bold is the heaviest weight used. Icons are `regular`, `fill` only for an active state.
+4. **The tab bar is part of the layout** (attached, hairline on top, absorbs the bottom inset). Screens add no padding for it.
+5. **No operating-system pop-ups.** `Alert.alert` is not used. Short feedback is `showToast`; a decision is `ConfirmModal`; a list of choices is `ActionSheet`. A full-screen `Modal` that can raise a toast mounts its own `<ToastHost />`, because a native modal covers the root one; `showToast` broadcasts to every mounted host. A confirmation opened from inside a modal is rendered inside that modal so it stacks correctly on iOS.
+6. **Component names are unchanged** (`Clay*`, `clayColors`, `clayRadii`) although the look is no longer clay: renaming would touch every file for no user-visible gain.
+
+### Consequences
+
+- Save is no longer a button on the post card; it is in the "..." menu and in Settings > Saved posts.
+- Reposting is a single tap with a toast and no confirmation.
+- The system share sheet and permission prompts remain operating-system UI.
+- `scripts/verify-ui.mjs` rule I still requires `overflow: 'hidden'` in `ClaySurface` although the highlight lip it protected is gone; the rule passes and was left as is.
+- `scripts/qa/e2e.ps1` coordinates are stale.
+- Verified on an Android emulator only; iPhone was not run (see the `docs/change.md` entry of the same date).

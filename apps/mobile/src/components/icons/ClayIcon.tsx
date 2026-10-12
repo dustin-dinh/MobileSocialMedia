@@ -135,7 +135,7 @@ export type ClayIconProps = {
 export const ClayIcon = memo(function ClayIcon({
   name,
   size = 22,
-  weight = 'duotone',
+  weight = 'regular',
   color = clayColors.text,
 }: ClayIconProps) {
   const IconComponent = ICON_MAP[name];

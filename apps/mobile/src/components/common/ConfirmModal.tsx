@@ -6,6 +6,7 @@ import { ClayIcon } from '../icons/ClayIcon';
 import { ClayButton } from '../ui/ClayButton';
 import { ClaySurface } from '../ui/ClaySurface';
 import { ClayText } from '../ui/ClayText';
+import { ToastHost } from './toast';
 
 export type ConfirmModalProps = {
   cancelLabel?: string;
@@ -61,17 +62,17 @@ export function ConfirmModal({
           }}
           style={styles.dialogWrap}
         >
-          <ClaySurface variant="modal" style={styles.dialog}>
+          <ClaySurface variant="dialog" style={styles.dialog}>
             <View
               style={[
                 styles.iconCircle,
                 { backgroundColor: destructive ? clayColors.errorBg : clayColors.primarySoft },
               ]}
             >
-              <ClayIcon color={accent} name={icon} size={26} weight="bold" />
+              <ClayIcon color={accent} name={icon} size={22} weight="bold" />
             </View>
 
-            <ClayText variant="title" style={styles.title}>
+            <ClayText variant="heading" style={styles.title}>
               {title}
             </ClayText>
             <ClayText variant="body" style={styles.message}>
@@ -105,6 +106,7 @@ export function ConfirmModal({
             </View>
           </ClaySurface>
         </Pressable>
+        <ToastHost bottomOffset={24} />
       </Pressable>
     </Modal>
   );
@@ -129,7 +131,6 @@ const styles = StyleSheet.create({
   },
   dialog: {
     alignItems: 'center',
-    borderRadius: clayRadii.modal,
     paddingHorizontal: 20,
     paddingVertical: 24,
   },
@@ -140,10 +141,10 @@ const styles = StyleSheet.create({
   iconCircle: {
     alignItems: 'center',
     borderRadius: clayRadii.pill,
-    height: 60,
+    height: 48,
     justifyContent: 'center',
-    marginBottom: 16,
-    width: 60,
+    marginBottom: 12,
+    width: 48,
   },
   message: {
     color: clayColors.caption,

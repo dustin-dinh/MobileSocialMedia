@@ -11,7 +11,6 @@ import {
 import { clayColors } from '../../theme/colors';
 import { clayRadii, clayDimensions } from '../../theme/spacing';
 import { ClayText } from './ClayText';
-import { getClayBoxShadow } from '../../theme/clay';
 
 export type ClayInputProps = TextInputProps & {
   label?: string;
@@ -92,29 +91,18 @@ const styles = StyleSheet.create({
   inputShell: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
+    backgroundColor: clayColors.surfaceHigh,
+    borderColor: clayColors.border,
     borderRadius: clayRadii.control,
-    borderWidth: 1.5,
-    borderTopColor: clayColors.border,
-    borderLeftColor: clayColors.border,
-    borderRightColor: clayColors.shadowLight,
-    borderBottomColor: clayColors.shadowLight,
+    borderWidth: 1,
     paddingHorizontal: 14,
     minHeight: clayDimensions.minTouchTarget + 6,
-    // Modern BoxShadow for inset
-    boxShadow: getClayBoxShadow('inset'),
   } as ViewStyle,
   inputShellFocused: {
-    borderTopColor: clayColors.primary,
-    borderLeftColor: clayColors.primary,
-    borderRightColor: clayColors.primarySoft,
-    borderBottomColor: clayColors.primarySoft,
+    borderColor: clayColors.primary,
   },
   inputShellInvalid: {
-    borderTopColor: clayColors.error,
-    borderLeftColor: clayColors.error,
-    borderRightColor: clayColors.errorBg,
-    borderBottomColor: clayColors.errorBg,
+    borderColor: clayColors.error,
   },
   input: {
     flex: 1,

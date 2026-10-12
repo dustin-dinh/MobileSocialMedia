@@ -1,5 +1,5 @@
 import { clayColors } from '../../theme/colors';
-import { clayRadii, claySpacing } from '../../theme/spacing';
+import { claySpacing } from '../../theme/spacing';
 
 export const feedColors = {
   background: clayColors.canvas,
@@ -12,11 +12,6 @@ export const feedColors = {
   surface: clayColors.surface,
   text: clayColors.text,
   textSecondary: clayColors.textSecondary,
-} as const;
-
-export const feedRadii = {
-  card: clayRadii.card,
-  media: 20,
 } as const;
 
 export const feedSpacing = {

@@ -6,7 +6,6 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 
 import { ClayButton } from '../../../components/ui/ClayButton';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
@@ -17,7 +16,7 @@ import type { UserProfile } from '../types';
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const AVATAR_SIZE = 96;
+const AVATAR_SIZE = 72;
 
 export type ProfileTab = 'posts' | 'reposts';
 
@@ -30,22 +29,20 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
     .toUpperCase();
 
   return (
-    <View style={styles.avatarHalo}>
-      {profile.avatarUrl ? (
-        <ExpoImage
-          source={{ uri: profile.avatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <ClayText variant="title" style={styles.avatarInitials}>
-            {initials}
-          </ClayText>
-        </View>
-      )}
-    </View>
+    profile.avatarUrl ? (
+      <ExpoImage
+        source={{ uri: profile.avatarUrl }}
+        style={styles.avatar}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+    ) : (
+      <View style={[styles.avatar, styles.avatarFallback]}>
+        <ClayText variant="title" style={styles.avatarInitials}>
+          {initials}
+        </ClayText>
+      </View>
+    )
   );
 }
 
@@ -73,10 +70,10 @@ function StatItem({
       onPress={onPress}
       style={styles.statItem}
     >
-      <ClayText variant="heading" style={styles.statValue}>
-        {formatted}
-      </ClayText>
-      <ClayText variant="caption" style={styles.statLabel}>
+      <ClayText variant="body" style={styles.statLabel}>
+        <ClayText variant="body" style={styles.statValue}>
+          {formatted}
+        </ClayText>{' '}
         {label}
       </ClayText>
     </Pressable>
@@ -123,97 +120,104 @@ export function ProfileHeader({
 
   return (
     <View style={styles.container}>
-      {/* ── Avatar + Info ──────────────────────────────────── */}
+      {/* ── Name + bio on the left, avatar on the right ────── */}
       <View style={styles.topSection}>
-        <ProfileAvatar profile={profile} />
-        <ClayText variant="title" style={styles.displayName} numberOfLines={1}>
-          {displayName}
-        </ClayText>
-        <ClayText variant="meta" style={styles.username}>
-          @{profile.username}
-        </ClayText>
-        {!isOwn && profile.followsYou ? (
-          <View style={styles.followsYouBadge}>
-            <ClayText variant="meta" style={styles.followsYouText}>
-              Theo dõi bạn
-            </ClayText>
-          </View>
-        ) : null}
-        {profile.bio ? (
-          <ClayText variant="body" style={styles.bio} numberOfLines={3}>
-            {profile.bio}
+        <View style={styles.identity}>
+          <ClayText variant="title" style={styles.displayName} numberOfLines={2}>
+            {displayName}
           </ClayText>
-        ) : null}
+          <View style={styles.usernameRow}>
+            <ClayText variant="body" style={styles.username} numberOfLines={1}>
+              @{profile.username}
+            </ClayText>
+            {!isOwn && profile.followsYou ? (
+              <View style={styles.followsYouBadge}>
+                <ClayText variant="meta" style={styles.followsYouText}>
+                  Theo dõi bạn
+                </ClayText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <ProfileAvatar profile={profile} />
       </View>
 
-      {/* ── Stats bar ──────────────────────────────────────── */}
-      <ClaySurface variant="raised" style={styles.statsBar}>
-        <StatItem label="Bài viết" value={profile.postsCount} />
-        <View style={styles.statDivider} />
+      {profile.bio ? (
+        <ClayText variant="body" style={styles.bio} numberOfLines={4}>
+          {profile.bio}
+        </ClayText>
+      ) : null}
+
+      {/* ── Stats: one quiet line ──────────────────────────── */}
+      <View style={styles.statsBar}>
+        <StatItem label="bài viết" value={profile.postsCount} />
         <StatItem
-          label="Người theo dõi"
+          label="người theo dõi"
           onPress={onPressStat ? () => onPressStat('followers') : undefined}
           value={profile.followersCount}
         />
-        <View style={styles.statDivider} />
         <StatItem
-          label="Đang theo dõi"
+          label="đang theo dõi"
           onPress={onPressStat ? () => onPressStat('following') : undefined}
           value={profile.followingCount}
         />
-      </ClaySurface>
+      </View>
 
       {/* ── Action buttons ─────────────────────────────────── */}
       <View style={styles.actionsRow}>
         {isOwn ? (
           <>
-            <ClayButton
-              accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
-              onPress={onEditProfile}
-              size="md"
-              style={styles.actionButton}
-              title="Chỉnh sửa hồ sơ"
-              variant="primary"
-            />
-            <ClayButton
-              accessibilityLabel="Mở cài đặt tài khoản"
-              onPress={onOpenSettings}
-              size="md"
-              style={styles.actionButton}
-              title="Cài đặt"
-              variant="secondary"
-            />
+            <View style={styles.actionButton}>
+              <ClayButton
+                accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
+                onPress={onEditProfile}
+                size="md"
+                title="Chỉnh sửa hồ sơ"
+                variant="secondary"
+              />
+            </View>
+            <View style={styles.actionButton}>
+              <ClayButton
+                accessibilityLabel="Mở cài đặt tài khoản"
+                onPress={onOpenSettings}
+                size="md"
+                title="Cài đặt"
+                variant="secondary"
+              />
+            </View>
           </>
         ) : profile.isBlocked ? (
-          <ClayButton
-            accessibilityLabel={`Bỏ chặn ${displayName}`}
-            disabled={isActionPending}
-            loading={isActionPending}
-            onPress={onUnblock}
-            size="md"
-            style={styles.actionButton}
-            title="Bỏ chặn"
-            variant="secondary"
-          />
+          <View style={styles.actionButton}>
+            <ClayButton
+              accessibilityLabel={`Bỏ chặn ${displayName}`}
+              disabled={isActionPending}
+              loading={isActionPending}
+              onPress={onUnblock}
+              size="md"
+              title="Bỏ chặn"
+              variant="secondary"
+            />
+          </View>
         ) : (
-          <ClayButton
-            accessibilityLabel={
-              profile.isFollowing ? `Bỏ theo dõi ${displayName}` : `Theo dõi ${displayName}`
-            }
-            disabled={isActionPending}
-            loading={isActionPending}
-            onPress={onToggleFollow}
-            size="md"
-            style={styles.actionButton}
-            title={
-              profile.isFollowing
-                ? 'Đang theo dõi'
-                : profile.followsYou
-                  ? 'Theo dõi lại'
-                  : 'Theo dõi'
-            }
-            variant={profile.isFollowing ? 'secondary' : 'primary'}
-          />
+          <View style={styles.actionButton}>
+            <ClayButton
+              accessibilityLabel={
+                profile.isFollowing ? `Bỏ theo dõi ${displayName}` : `Theo dõi ${displayName}`
+              }
+              disabled={isActionPending}
+              loading={isActionPending}
+              onPress={onToggleFollow}
+              size="md"
+              title={
+                profile.isFollowing
+                  ? 'Đang theo dõi'
+                  : profile.followsYou
+                    ? 'Theo dõi lại'
+                    : 'Theo dõi'
+              }
+              variant={profile.isFollowing ? 'secondary' : 'primary'}
+            />
+          </View>
         )}
       </View>
 
@@ -252,8 +256,8 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
+    gap: 8,
+    paddingHorizontal: 16,
     paddingTop: 16,
   },
   avatar: {
@@ -266,63 +270,51 @@ const styles = StyleSheet.create({
     backgroundColor: profileColors.surfaceWell,
     justifyContent: 'center',
   },
-  avatarHalo: {
-    borderColor: profileColors.surfaceWell,
-    borderRadius: (AVATAR_SIZE + 8) / 2,
-    borderWidth: 3,
-    padding: 2,
-  },
   avatarInitials: {
     color: profileColors.primary,
   },
   bio: {
-    color: profileColors.textSecondary,
-    marginTop: 8,
-    paddingHorizontal: 32,
-    textAlign: 'center',
+    color: profileColors.text,
+    marginTop: 12,
+    paddingHorizontal: 16,
   },
   container: {
     backgroundColor: profileColors.canvas,
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   displayName: {
     color: profileColors.text,
-    marginTop: 12,
   },
   followsYouBadge: {
     backgroundColor: profileColors.surfaceWell,
     borderRadius: clayRadii.pill,
-    marginTop: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 2,
   },
   followsYouText: {
     color: profileColors.textSecondary,
   },
-  statDivider: {
-    backgroundColor: profileColors.border,
-    height: 28,
-    width: 1,
+  identity: {
+    flex: 1,
   },
   statItem: {
-    alignItems: 'center',
-    flex: 1,
     justifyContent: 'center',
     minHeight: clayDimensions.minTouchTarget,
   },
   statLabel: {
     color: profileColors.caption,
-    marginTop: 2,
   },
   statValue: {
     color: profileColors.text,
+    fontFamily: fontFamilies.bold,
   },
   statsBar: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingVertical: 8,
+    flexWrap: 'wrap',
+    columnGap: 16,
+    marginTop: 4,
+    paddingHorizontal: 16,
   },
   tab: {
     alignItems: 'center',
@@ -333,29 +325,36 @@ const styles = StyleSheet.create({
     minHeight: clayDimensions.minTouchTarget,
   },
   tabActive: {
-    borderBottomColor: profileColors.primary,
+    borderBottomColor: profileColors.text,
   },
   tabText: {
     color: profileColors.caption,
   },
   tabTextActive: {
-    color: profileColors.primary,
+    color: profileColors.text,
     fontFamily: fontFamilies.bold,
   },
   tabs: {
     borderBottomColor: profileColors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: 12,
   },
   topSection: {
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   username: {
     color: profileColors.caption,
+    flexShrink: 1,
+  },
+  usernameRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 2,
   },
 });

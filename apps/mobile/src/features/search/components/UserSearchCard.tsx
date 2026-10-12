@@ -78,7 +78,7 @@ export type UserSearchCardProps = {
 
 /**
  * UserSearchCard component (memoized, lite clay tier)
- * Uses lightweight flat row with subtle border and elevation 2 on avatar halo (<= 2 layers).
+ * Flat row with a hairline divider.
  */
 export const UserSearchCard = memo(function UserSearchCard({
   isPending = false,
@@ -174,19 +174,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarHalo: {
-    borderRadius: (AVATAR_SIZE + 4) / 2,
-    borderWidth: 1.5,
-    borderColor: clayColors.surfaceHigh,
-    shadowColor: 'rgb(100,60,85)',
-    shadowOffset: { width: 1, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitials: {
     color: clayColors.primary,
     fontSize: 16,
-    fontFamily: fontFamilies.extraBold,
+    fontFamily: fontFamilies.bold,
   },
   bio: {
     color: searchColors.textSecondary,
@@ -201,7 +194,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   displayName: {
     fontSize: 15,

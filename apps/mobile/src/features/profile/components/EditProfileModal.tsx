@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,6 +12,7 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 
+import { showToast, ToastHost } from '../../../components/common/toast';
 import { UserAvatar } from '../../../components/common/UserAvatar';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
@@ -60,7 +60,7 @@ export function EditProfileModal({
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập ảnh', 'Hãy cho phép ứng dụng truy cập thư viện ảnh để đổi ảnh đại diện.');
+      showToast('Hãy cho phép ứng dụng truy cập thư viện ảnh để đổi ảnh đại diện.', 'error');
       return;
     }
 
@@ -100,9 +100,9 @@ export function EditProfileModal({
       onClose();
     } catch (error) {
       console.error('Failed to update profile:', error);
-      Alert.alert(
-        'Lỗi',
+      showToast(
         error instanceof ApiError ? error.message : 'Không thể cập nhật hồ sơ. Vui lòng thử lại.',
+        'error',
       );
     } finally {
       setIsSaving(false);
@@ -266,6 +266,7 @@ export function EditProfileModal({
             </ClaySurface>
           </Pressable>
         </KeyboardAvoidingView>
+        <ToastHost bottomOffset={24} />
       </Pressable>
     </Modal>
   );

@@ -206,7 +206,7 @@ export const CommentItem = memo(function CommentItem({
           <ClayIcon
             name="Heart"
             size={18}
-            weight={comment.isLiked ? 'fill' : 'duotone'}
+            weight={comment.isLiked ? 'fill' : 'regular'}
             color={comment.isLiked ? clayColors.liked : clayColors.caption}
           />
         </Animated.View>
@@ -239,14 +239,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarHalo: {
-    borderRadius: (AVATAR_SIZE + 2) / 2,
-    borderWidth: 1.5,
-    borderColor: clayColors.surfaceHigh,
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitials: {
     color: clayColors.primary,
     fontSize: 12,
-    fontFamily: fontFamilies.extraBold,
+    fontFamily: fontFamilies.bold,
   },
   commentText: {
     color: clayColors.text,
@@ -264,7 +262,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   containerReply: {
-    backgroundColor: clayColors.surfaceHigh,
     paddingLeft: 16 + AVATAR_SIZE + 10,
   },
   contentWrap: {

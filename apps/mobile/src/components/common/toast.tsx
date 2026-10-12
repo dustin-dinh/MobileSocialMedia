@@ -12,28 +12,36 @@ type ToastTone = 'error' | 'success';
 type Toast = { id: number; text: string; tone: ToastTone };
 
 const VISIBLE_MS = 2_600;
-let listener: ((toast: Toast) => void) | null = null;
+// One entry per mounted host. Every host shows the toast, so it stays visible
+// whether a full-screen Modal is open, closing, or already gone.
+const hosts: Array<(toast: Toast) => void> = [];
 let nextId = 1;
 
 /**
- * Show a short pop-up message above the tab bar. Safe to call from anywhere
- * (services, event handlers); it is a no-op until `ToastHost` is mounted.
+ * Show a short in-app pop-up message. Safe to call from anywhere (services,
+ * event handlers); it is a no-op until a `ToastHost` is mounted.
  */
 export function showToast(text: string, tone: ToastTone = 'success'): void {
-  listener?.({ id: nextId++, text, tone });
+  const toast = { id: nextId++, text, tone };
+
+  hosts.forEach((host) => host(toast));
 }
 
-/** Mount once near the app root. */
-export function ToastHost() {
+/**
+ * Renders the toasts. Mounted once at the app root, and once inside every
+ * full-screen `Modal` that can trigger a toast: a native modal covers the
+ * root view, so a toast drawn there would be hidden behind it.
+ */
+export function ToastHost({ bottomOffset = 72 }: { bottomOffset?: number }) {
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<Toast | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    listener = setToast;
+    hosts.push(setToast);
 
     return () => {
-      listener = null;
+      hosts.splice(hosts.indexOf(setToast), 1);
     };
   }, []);
 
@@ -67,9 +75,9 @@ export function ToastHost() {
     <Animated.View
       accessibilityLiveRegion="polite"
       pointerEvents="none"
-      style={[styles.host, { bottom: insets.bottom + 104, opacity }]}
+      style={[styles.host, { bottom: insets.bottom + bottomOffset, opacity }]}
     >
-      <ClaySurface variant="raised" style={styles.toast}>
+      <ClaySurface variant="dialog" borderRadius={clayRadii.pill} style={styles.toast}>
         <ClayIcon
           color={isError ? clayColors.error : clayColors.success}
           name={isError ? 'WarningCircle' : 'Check'}
@@ -97,7 +105,6 @@ const styles = StyleSheet.create({
   },
   toast: {
     alignItems: 'center',
-    borderRadius: clayRadii.pill,
     flexDirection: 'row',
     gap: claySpacing.sm,
     paddingHorizontal: claySpacing.base,
