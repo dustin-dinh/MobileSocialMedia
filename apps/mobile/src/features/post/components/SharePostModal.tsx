@@ -8,6 +8,9 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+
+import { showToast } from '../../../components/common/toast';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -16,29 +19,37 @@ import { clayRadii, clayDimensions } from '../../../theme/spacing';
 import type { Post } from '../../feed/types';
 
 export type SharePostModalProps = {
+  /** False for the viewer's own posts and for "only me" posts. */
+  canRepost?: boolean;
   onClose: () => void;
-  onRepostSuccess?: (post: Post) => void;
+  /** Repost, or undo the repost when `post.isReposted` is already true. */
+  onToggleRepost?: () => void;
   post: Post;
   visible: boolean;
 };
 
 export function SharePostModal({
+  canRepost = true,
   onClose,
-  onRepostSuccess,
+  onToggleRepost,
   post,
   visible,
 }: SharePostModalProps) {
   const [copied, setCopied] = useState(false);
 
-  const postUrl = `https://mobilesocial.app/p/${post.id}`;
+  // Uses the app's own scheme (see `scheme` in app.json): there is no web
+  // domain behind the app yet, so an https link would lead nowhere.
+  const postUrl = `mobilesocial://p/${post.id}`;
 
-  const handleCopyLink = () => {
-    setCopied(true);
-    Alert.alert(
-      'Đã sao chép liên kết',
-      `Liên kết bài viết đã được sao chép:\n${postUrl}`,
-      [{ text: 'Đóng', onPress: onClose }],
-    );
+  const handleCopyLink = async () => {
+    try {
+      await Clipboard.setStringAsync(postUrl);
+      setCopied(true);
+      showToast('Đã sao chép liên kết bài viết.');
+      onClose();
+    } catch {
+      showToast('Không sao chép được liên kết.', 'error');
+    }
   };
 
   const handleSystemShare = async () => {
@@ -59,27 +70,20 @@ export function SharePostModal({
 
   const handleRepost = () => {
     Alert.alert(
-      'Chia sẻ lên Bảng tin',
-      'Bạn có muốn chia sẻ bài viết này lên bảng tin của mình không?',
+      post.isReposted ? 'Huỷ đăng lại' : 'Đăng lại lên Bảng tin',
+      post.isReposted
+        ? 'Bài viết sẽ không còn hiện trên trang cá nhân của bạn.'
+        : 'Bạn có muốn đăng lại bài viết này cho người theo dõi của mình không?',
       [
         { text: 'Huỷ', style: 'cancel' },
         {
-          text: 'Chia sẻ ngay',
+          text: post.isReposted ? 'Huỷ đăng lại' : 'Đăng lại',
           onPress: () => {
-            onRepostSuccess?.(post);
             onClose();
-            Alert.alert('Thành công', 'Đã chia sẻ bài viết lên bảng tin của bạn.');
+            onToggleRepost?.();
           },
         },
       ],
-    );
-  };
-
-  const handleSendMessage = () => {
-    Alert.alert(
-      'Gửi tin nhắn riêng',
-      'Chọn người bạn muốn gửi bài viết này tới (tính năng Direct Message).',
-      [{ text: 'Đóng', onPress: onClose }],
     );
   };
 
@@ -200,53 +204,35 @@ export function SharePostModal({
                 </View>
               </Pressable>
 
-              <Pressable
-                accessibilityLabel="Đăng lại lên Bảng tin của bạn"
-                accessibilityRole="button"
-                onPress={handleRepost}
-                style={styles.optionRow}
-              >
-                <View style={styles.iconWrap}>
-                  <ClayIcon
-                    color={clayColors.text}
-                    name="Repeat"
-                    size={22}
-                    weight="duotone"
-                  />
-                </View>
-                <View style={styles.optionContent}>
-                  <ClayText variant="body" style={styles.optionLabel}>
-                    Đăng lại lên Bảng tin
-                  </ClayText>
-                  <ClayText variant="caption" style={styles.optionDescription}>
-                    Chia sẻ bài viết này đến người theo dõi của bạn
-                  </ClayText>
-                </View>
-              </Pressable>
-
-              <Pressable
-                accessibilityLabel="Gửi qua tin nhắn riêng"
-                accessibilityRole="button"
-                onPress={handleSendMessage}
-                style={styles.optionRow}
-              >
-                <View style={styles.iconWrap}>
-                  <ClayIcon
-                    color={clayColors.text}
-                    name="PaperPlaneTilt"
-                    size={22}
-                    weight="duotone"
-                  />
-                </View>
-                <View style={styles.optionContent}>
-                  <ClayText variant="body" style={styles.optionLabel}>
-                    Gửi bằng tin nhắn
-                  </ClayText>
-                  <ClayText variant="caption" style={styles.optionDescription}>
-                    Gửi trực tiếp cho bạn bè trong cuộc trò chuyện
-                  </ClayText>
-                </View>
-              </Pressable>
+              {canRepost ? (
+                <Pressable
+                  accessibilityLabel={
+                    post.isReposted ? 'Huỷ đăng lại bài viết' : 'Đăng lại lên Bảng tin của bạn'
+                  }
+                  accessibilityRole="button"
+                  onPress={handleRepost}
+                  style={styles.optionRow}
+                >
+                  <View style={[styles.iconWrap, post.isReposted && styles.iconWrapActive]}>
+                    <ClayIcon
+                      color={post.isReposted ? clayColors.primary : clayColors.text}
+                      name="Repeat"
+                      size={22}
+                      weight={post.isReposted ? 'bold' : 'duotone'}
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <ClayText variant="body" style={styles.optionLabel}>
+                      {post.isReposted ? 'Huỷ đăng lại' : 'Đăng lại lên Bảng tin'}
+                    </ClayText>
+                    <ClayText variant="caption" style={styles.optionDescription}>
+                      {post.isReposted
+                        ? 'Gỡ bài viết này khỏi trang cá nhân của bạn'
+                        : 'Chia sẻ bài viết này đến người theo dõi của bạn'}
+                    </ClayText>
+                  </View>
+                </Pressable>
+              ) : null}
 
               <Pressable
                 accessibilityLabel="Mở chia sẻ ứng dụng khác của hệ thống"

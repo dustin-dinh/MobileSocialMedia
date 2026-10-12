@@ -19,11 +19,17 @@ export type PostMediaType = 'IMAGE' | 'VIDEO';
 
 /** Single media attachment on a post. */
 export type PostMedia = {
+  /** Video length in milliseconds, when the backend reports it. */
+  durationMs?: number;
+  height?: number;
   id: string;
   /** Display order (0-based). */
   order: number;
+  /** Poster image for a video. */
+  thumbnailUrl?: string;
   type: PostMediaType;
   url: string;
+  width?: number;
 };
 
 /** Post privacy levels. */
@@ -37,10 +43,24 @@ export type Post = {
   createdAt: string;
   id: string;
   isLiked: boolean;
+  /** Whether the signed-in user has reposted this post. */
+  isReposted?: boolean;
+  /** Placeholder content (sample reels): interactions stay on the device. */
+  isSample?: boolean;
   isSaved: boolean;
   likesCount: number;
   media: PostMedia[];
   privacy?: PostPrivacy;
+  /** Set when this feed row is someone's repost of the post. */
+  repost?: {
+    by: PostAuthor;
+    createdAt: string;
+    /** Id of the repost row; unique even when the original is also listed. */
+    id: string;
+  };
+  repostsCount?: number;
+  /** A repost whose original was deleted or is no longer visible to the viewer. */
+  unavailable?: boolean;
 };
 
 /** Paginated feed response shape from `GET /posts/feed`. */

@@ -1292,3 +1292,155 @@ Build UI for 5 post management features in `apps/mobile` (Luân - Dev A):
 - `apps/mobile/src/features/profile/screens/ProfileScreen.tsx`
 - `docs/change.md`
 
+
+
+---
+
+## 2026-10-12 - Reel recommendation production plan (PDF)
+
+### Task
+
+Plan how to take Reels and its recommendation system to production level, with several options and their trade-offs.
+
+### Changed
+
+- Added `docs/reel/REEL_RECSYS_PRODUCTION_PLAN.pdf` (documentation only; no code, schema or API changed). It builds on `docs/reel/REEL_FINAL_SPEC_AND_PLAN.md`; all tables and endpoints in it are proposals pending Dev B review.
+
+### Files
+
+- `docs/reel/REEL_RECSYS_PRODUCTION_PLAN.pdf`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-12 - Feature gap checklist
+
+### Task
+
+List the small but required social-network features the project is still missing, in detail, checked against the current code.
+
+### Changed
+
+- Added `docs/FEATURE_GAP_CHECKLIST.md` (documentation only; no code, schema or API changed). All endpoints and tables in it are proposals. It also records defects found while reading the code (section 1), including `GET /users/:id/posts` not filtering by post privacy.
+
+### Files
+
+- `docs/FEATURE_GAP_CHECKLIST.md`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-12 - Feature-gap batch (backend + mobile) and Reels UI
+
+### Task
+
+Implement the items in `docs/FEATURE_GAP_CHECKLIST.md`: fix the flows that only worked in mock mode, add the small features the app was missing, and build the Reels UI. Backend written in the smallest-change style; mobile keeps the existing Claymorphism components and feature folders. Branch `feat/gap-checklist`, nothing committed.
+
+### Changed
+
+- **Database (`apps/api/prisma`)**: additive migration `20261012090000_add_gap_features` (applied to the Supabase database): tables `Block`, `Report`, `Save`, `CommentLike`, `HiddenPost`, `DeviceToken`; columns `User.onboardedAt`, `Comment.editedAt`. Existing users are back-filled with `onboardedAt = createdAt`.
+- **Backend (`apps/api`)**:
+  - New `modules/posts/post-view.ts`: the single post-visibility rule, shared post select and DTO, block lookup. Used by feed, post detail, profile posts, comments, likes, save, repost and search. This fixes `GET /users/:id/posts` returning private posts, and the same gap in comments and likes.
+  - Users: profile edit, avatar upload/removal, account deletion (with stored files), onboarding completion, block/unblock, blocked list, follow suggestions, reposts by user; profile now reports follow totals and relation flags.
+  - Posts: feed rows carry `privacy`, `isSaved`, `isReposted`, `repostsCount`; save, hide, saved list, text search, likers list; repost notifies the author.
+  - Comments: edit, like, delete by the post's author, `commentsCount` returned on delete, replies limited to two levels.
+  - Auth: `PATCH /auth/password`, `EMAIL_NOT_VERIFIED` error code, access token lifetime 30 days, rate limits (`@nestjs/throttler`), `trust proxy`.
+  - Notifications: one `notify()` entry point, new types `REPLY`, `REPOST`, `MENTION`, Expo push delivery, device-token endpoints. New `reports` module.
+  - Mail: both code emails now say not to share the code.
+  - `scripts/seed-test-users.cjs` and `scripts/api-smoke.cjs` for checking the API.
+- **Mobile (`apps/mobile`)**:
+  - Auth: email-verification step after register and on unverified login; password reset now calls the real endpoints and has a new-password screen (`passwordResetService` no longer hard-codes mock mode).
+  - Navigation: `MainStackNavigator` around the tabs; new screens UserProfile, PostDetail, PostLikes, FollowList, SavedPosts, Settings, ChangePassword, DeleteAccount, BlockedUsers, Legal, Intro, Onboarding; deep links `mobilesocial://p/:postId` and `mobilesocial://u/:userId`.
+  - Feed: mapper understands repost rows and maps `PRIVATE` to the app's `ONLY_ME` (creating an "only me" post used to be rejected by the API); infinite scroll with the end-of-feed message; repost, save, hide and report call the API; hashtags and mentions are tappable.
+  - Comments: reply, edit, delete with confirmation pop-up, like, paging; the thread is shared by the comment sheet and the Post detail screen.
+  - Profile: other users' profiles with follow, block and report; avatar change; Posts / Reposts tabs; tappable follower totals. Sign-out moved to Settings.
+  - Search: suggestions when the box is empty, post search tab, tap a user to open the profile.
+  - Notifications: tap opens the post or profile; unread badge on the tab; new notification types.
+  - Reels (`src/features/reel/`): vertical player, overlay, view tracker, sample-video service, video picker (posting a video works in mock mode only).
+  - Shared components under `src/components/common/`: ConfirmModal, ActionSheet, toast, ScreenHeader, UserAvatar, UserRow, UserListScreen, ListFooter, LoadError, RichText, ErrorBoundary.
+  - Fixed the 16 TypeScript errors that existed before this batch (icon declarations, two wrong font keys, an unsupported icon prop), and a stale-closure bug that could post with the previous privacy setting.
+  - Dependencies added: `expo-video`, `expo-clipboard`, `expo-notifications`.
+- **Docs**: `docs/api-contract.md` (new endpoints), `docs/decisions.md` (DEC-020), status table in `docs/FEATURE_GAP_CHECKLIST.md`.
+
+### Validation
+
+- API: `tsc --noEmit` clean, `nest build` OK. `scripts/api-smoke.cjs` against the running API: 70 of 71 checks passed; the remaining one was a wrong assertion in the script (since corrected), the rate limit itself behaved as intended.
+- Mobile: `tsc --noEmit` 0 errors (16 before). `jest`: 94 passed. `verify-ui.mjs`: rules A–G and I–M pass; Rule H fails exactly as before this batch (it compares against an old baseline directory).
+- Mobile services against the running API: `__tests__/live/gapLive.test.ts` 14/14, `__tests__/live/liveApi.test.ts` 20/20 (two of those are `it.failing`, recording that the feed returns every public post instead of only followed users').
+- **Not verified:** nothing was run on a device or emulator. Unchecked there: the video player, image/video pickers, avatar upload from the app, push notifications, Google Sign-In, deep links, the intro and onboarding screens.
+
+### Files
+
+- `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261012090000_add_gap_features/`
+- `apps/api/src/app.module.ts`, `apps/api/src/main.ts`, `apps/api/src/modules/{auth,comments,follows,likes,mail,notifications,posts,reports,search,storage,users}/`
+- `apps/api/scripts/`, `apps/api/package.json`, `apps/api/pnpm-lock.yaml`
+- `apps/mobile/src/` (features `auth`, `comment`, `feed`, `notifications`, `onboarding`, `post`, `profile`, `reel`, `report`, `search`, `settings`; `components/common`, `navigation`, `services`, `App.tsx`)
+- `apps/mobile/__tests__/`, `apps/mobile/jest.setup.js`, `apps/mobile/types/phosphor-icons.d.ts`, `apps/mobile/app.json`, `apps/mobile/package.json`, `apps/mobile/pnpm-lock.yaml`
+- `docs/api-contract.md`, `docs/decisions.md`, `docs/FEATURE_GAP_CHECKLIST.md`, `docs/change.md`
+
+
+---
+
+## 2026-10-12 - Mobile finds the local backend by itself in development
+
+### Task
+
+Stop "Unable to reach the server" from coming back every time the development computer gets a new LAN address.
+
+### Changed
+
+- `apps/mobile/src/config/api.ts`: when `EXPO_PUBLIC_API_BASE_URL` is not set and the app runs in development, the API URL is `http://<host the JS bundle was loaded from>:3000/api` (the LAN IP on a phone, `10.0.2.2` on an Android emulator). An explicit `EXPO_PUBLIC_API_BASE_URL` still wins and is still required for a deployed backend or when Metro runs behind a tunnel. The URL in use is logged once at startup (`[api] Backend URL: …`).
+- `apps/mobile/.env.local` (ignored by git) no longer pins an address.
+
+### Validation
+
+- `tsc --noEmit` clean; `jest` 94 passed.
+- The bundle served by Metro no longer contains the stale address. Not yet confirmed on a device that the detected address is the right one.
+
+### Files
+
+- `apps/mobile/src/config/api.ts`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-12 - Root README: how to run the backend and the mobile app
+
+### Task
+
+Document the commands to run the backend and the mobile app.
+
+### Changed
+
+- Rewrote the root `README.md` (it only held the project title, saved as UTF-16; it is now UTF-8): run commands for `apps/api` and `apps/mobile`, how to open the app on BlueStacks / Android / iPhone, mock mode, and the connection problems met while testing with their fixes.
+
+### Files
+
+- `README.md`
+- `docs/change.md`
+
+
+---
+
+## 2026-10-12 - Binding rule: everything must work on Android and iOS
+
+### Task
+
+Make "runs on both Android and iOS" a rule that every AI agent entering the project has to follow.
+
+### Changed
+
+- `RULE.md`: new section "Cross-Platform Rule (Android + iOS)" with 12 checkable rules (no platform-only APIs, paired permissions, `app.json` valid for both, store requirements, and stating which platforms a change was actually run on).
+- New root `AGENTS.md` and `CLAUDE.md`: entry points that send every agent to `RULE.md` (`CLAUDE.md` imports it).
+- `apps/mobile/AGENTS.md`: new "Android and iOS" section pointing at the rule.
+
+### Platforms run
+
+Documentation only; nothing to run.
+
+### Files
+
+- `RULE.md`, `AGENTS.md`, `CLAUDE.md`, `apps/mobile/AGENTS.md`, `docs/change.md`

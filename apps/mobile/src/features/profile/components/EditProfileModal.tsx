@@ -11,15 +11,21 @@ import {
   View,
 } from 'react-native';
 
+import * as ImagePicker from 'expo-image-picker';
+
+import { UserAvatar } from '../../../components/common/UserAvatar';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ApiError } from '../../../services/apiError';
 import { profileColors, profileRadii } from '../profileTheme';
-import type { UserProfile } from '../types';
+import type { UpdateProfilePayload, UserProfile } from '../types';
+
+type AvatarChange = UpdateProfilePayload['avatar'];
 
 type EditProfileModalProps = {
   onClose: () => void;
-  onSave: (data: { bio: string; displayName: string }) => Promise<void>;
+  /** `avatar` is only present when the picture changed (`null` = removed). */
+  onSave: (data: { avatar?: AvatarChange; bio: string; displayName: string }) => Promise<void>;
   profile: UserProfile;
   visible: boolean;
 };
@@ -35,6 +41,8 @@ export function EditProfileModal({
 }: EditProfileModalProps) {
   const [displayName, setDisplayName] = useState(profile.displayName ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
+  // undefined = keep the current picture, null = remove it, object = new picture.
+  const [avatar, setAvatar] = useState<AvatarChange>(undefined);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync form when profile changes or modal opens
@@ -42,8 +50,33 @@ export function EditProfileModal({
     if (visible) {
       setDisplayName(profile.displayName ?? '');
       setBio(profile.bio ?? '');
+      setAvatar(undefined);
     }
   }, [profile, visible]);
+
+  const previewUrl = avatar === undefined ? profile.avatarUrl : (avatar?.uri ?? null);
+
+  const handlePickAvatar = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      Alert.alert('Cần quyền truy cập ảnh', 'Hãy cho phép ứng dụng truy cập thư viện ảnh để đổi ảnh đại diện.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+
+      setAvatar({ fileName: asset.fileName, mimeType: asset.mimeType, uri: asset.uri });
+    }
+  }, []);
 
   const canSave =
     !isSaving &&
@@ -59,7 +92,11 @@ export function EditProfileModal({
     setIsSaving(true);
 
     try {
-      await onSave({ bio: bio.trim(), displayName: displayName.trim() });
+      await onSave({
+        bio: bio.trim(),
+        displayName: displayName.trim(),
+        ...(avatar === undefined ? {} : { avatar }),
+      });
       onClose();
     } catch (error) {
       console.error('Failed to update profile:', error);
@@ -70,18 +107,19 @@ export function EditProfileModal({
     } finally {
       setIsSaving(false);
     }
-  }, [bio, canSave, displayName, onClose, onSave]);
+  }, [avatar, bio, canSave, displayName, onClose, onSave]);
 
   return (
     <Modal
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={isSaving ? undefined : onClose}
       transparent
       visible={visible}
     >
       <Pressable
         accessibilityLabel="Đóng modal chỉnh sửa hồ sơ"
         accessibilityRole="button"
+        disabled={isSaving}
         style={styles.overlay}
         onPress={onClose}
       >
@@ -142,6 +180,43 @@ export function EditProfileModal({
                 </Pressable>
               </View>
 
+              {/* ── Avatar ──────────────────────────────── */}
+              <View style={styles.avatarRow}>
+                <UserAvatar
+                  avatarUrl={previewUrl}
+                  name={displayName.trim() || profile.username}
+                  size={72}
+                />
+                <View style={styles.avatarActions}>
+                  <Pressable
+                    accessibilityLabel="Chọn ảnh đại diện mới"
+                    accessibilityRole="button"
+                    disabled={isSaving}
+                    hitSlop={8}
+                    onPress={handlePickAvatar}
+                    style={styles.avatarAction}
+                  >
+                    <ClayText variant="caption" style={styles.saveText}>
+                      Đổi ảnh đại diện
+                    </ClayText>
+                  </Pressable>
+                  {previewUrl ? (
+                    <Pressable
+                      accessibilityLabel="Gỡ ảnh đại diện"
+                      accessibilityRole="button"
+                      disabled={isSaving}
+                      hitSlop={8}
+                      onPress={() => setAvatar(null)}
+                      style={styles.avatarAction}
+                    >
+                      <ClayText variant="caption" style={styles.removeAvatarText}>
+                        Gỡ ảnh
+                      </ClayText>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+
               {/* ── Fields ──────────────────────────────── */}
               <View style={styles.fieldGroup}>
                 <ClayText variant="meta" style={styles.label}>
@@ -197,6 +272,22 @@ export function EditProfileModal({
 }
 
 const styles = StyleSheet.create({
+  avatarAction: {
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  avatarActions: {
+    marginLeft: 16,
+  },
+  avatarRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  removeAvatarText: {
+    color: profileColors.danger,
+  },
   bioInput: {
     height: 72,
   },

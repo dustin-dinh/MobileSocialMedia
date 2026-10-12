@@ -42,10 +42,12 @@ export class FollowsController {
 
     @Get(':id/followers')
     async getFollowers(
+        @Request() request: { user: { userId: string } },
         @Param('id') userId: string,
         @Query() query: FeedQueryDto,
     ) {
         return this.followsService.getFollowers(
+            request.user.userId,
             userId,
             query.page,
             query.limit,
@@ -54,10 +56,12 @@ export class FollowsController {
 
     @Get(':id/following')
     async getFollowing(
+        @Request() request: { user: { userId: string } },
         @Param('id') userId: string,
         @Query() query: FeedQueryDto,
     ) {
         return this.followsService.getFollowing(
+            request.user.userId,
             userId,
             query.page,
             query.limit,

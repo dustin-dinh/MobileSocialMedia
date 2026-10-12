@@ -11,6 +11,7 @@ import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
+import { RichText } from '../../../components/common/RichText';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { PostComment } from '../types';
@@ -49,7 +50,17 @@ function CommentAuthorAvatar({ author }: { author: PostComment['author'] }) {
 
 export type CommentItemProps = {
   comment: PostComment;
+  /** Indents the row: the comment is a reply shown under its parent. */
+  isReply?: boolean;
+  /** Opens the action menu (edit, delete, report). */
+  onOpenActions?: (comment: PostComment) => void;
+  onPressAuthor?: (userId: string) => void;
+  onPressHashtag?: (tag: string) => void;
+  onPressMention?: (username: string) => void;
+  onReply?: (comment: PostComment) => void;
   onToggleLike: (comment: PostComment) => void;
+  onToggleReplies?: (comment: PostComment) => void;
+  repliesExpanded?: boolean;
 };
 
 /**
@@ -58,7 +69,15 @@ export type CommentItemProps = {
  */
 export const CommentItem = memo(function CommentItem({
   comment,
+  isReply = false,
+  onOpenActions,
+  onPressAuthor,
+  onPressHashtag,
+  onPressMention,
+  onReply,
   onToggleLike,
+  onToggleReplies,
+  repliesExpanded = false,
 }: CommentItemProps) {
   const heartScale = useRef(new Animated.Value(1)).current;
 
@@ -80,16 +99,37 @@ export const CommentItem = memo(function CommentItem({
   }, [comment, heartScale, onToggleLike]);
 
   const displayName = comment.author.displayName?.trim() || comment.author.username;
+  // A comment still being sent has no server id yet, so it cannot be acted on.
+  const isPending = comment.id.startsWith('temp-');
+  const repliesCount = comment.repliesCount ?? 0;
 
   return (
-    <View style={styles.container}>
+    <Pressable
+      accessibilityLabel={`Bình luận của ${displayName}`}
+      delayLongPress={300}
+      disabled={isPending || !onOpenActions}
+      onLongPress={() => onOpenActions?.(comment)}
+      style={[styles.container, isReply && styles.containerReply, isPending && styles.pending]}
+    >
       {/* ── Left: Author Avatar ─────────────────────────────── */}
-      <CommentAuthorAvatar author={comment.author} />
+      <Pressable
+        accessibilityLabel={`Xem trang cá nhân của ${displayName}`}
+        accessibilityRole="button"
+        disabled={!onPressAuthor}
+        onPress={() => onPressAuthor?.(comment.author.id)}
+      >
+        <CommentAuthorAvatar author={comment.author} />
+      </Pressable>
 
       {/* ── Center: Author Meta & Content ───────────────────── */}
       <View style={styles.contentWrap}>
         <View style={styles.metaRow}>
-          <ClayText variant="caption" style={styles.displayName} numberOfLines={1}>
+          <ClayText
+            variant="caption"
+            style={styles.displayName}
+            numberOfLines={1}
+            onPress={onPressAuthor ? () => onPressAuthor(comment.author.id) : undefined}
+          >
             {displayName}
           </ClayText>
           <ClayText variant="meta" style={styles.username} numberOfLines={1}>
@@ -103,15 +143,61 @@ export const CommentItem = memo(function CommentItem({
           </ClayText>
         </View>
 
-        <ClayText variant="body" style={styles.commentText}>
-          {comment.content}
-        </ClayText>
+        <RichText
+          onPressHashtag={onPressHashtag}
+          onPressMention={onPressMention}
+          style={styles.commentText}
+          text={comment.content}
+        />
+
+        {!isPending ? (
+          <View style={styles.footerRow}>
+            {onReply ? (
+              <ClayText
+                accessibilityRole="button"
+                onPress={() => onReply(comment)}
+                style={styles.footerAction}
+                variant="meta"
+              >
+                Trả lời
+              </ClayText>
+            ) : null}
+            {comment.editedAt ? (
+              <ClayText style={styles.footerNote} variant="meta">
+                đã chỉnh sửa
+              </ClayText>
+            ) : null}
+            {onOpenActions ? (
+              <ClayText
+                accessibilityLabel="Tuỳ chọn bình luận"
+                accessibilityRole="button"
+                onPress={() => onOpenActions(comment)}
+                style={styles.footerAction}
+                variant="meta"
+              >
+                Thêm
+              </ClayText>
+            ) : null}
+          </View>
+        ) : null}
+
+        {!isReply && repliesCount > 0 && onToggleReplies ? (
+          <ClayText
+            accessibilityRole="button"
+            onPress={() => onToggleReplies(comment)}
+            style={styles.repliesToggle}
+            variant="meta"
+          >
+            {repliesExpanded ? 'Ẩn trả lời' : `Xem ${repliesCount} trả lời`}
+          </ClayText>
+        ) : null}
       </View>
 
       {/* ── Right: Like button ──────────────────────────────── */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={comment.isLiked ? 'Unlike comment' : 'Like comment'}
+        disabled={isPending}
         hitSlop={10}
         onPress={handleLikePress}
         style={styles.likeButton}
@@ -137,7 +223,7 @@ export const CommentItem = memo(function CommentItem({
           </ClayText>
         ) : null}
       </Pressable>
-    </View>
+    </Pressable>
   );
 });
 
@@ -177,10 +263,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  containerReply: {
+    backgroundColor: clayColors.surfaceHigh,
+    paddingLeft: 16 + AVATAR_SIZE + 10,
+  },
   contentWrap: {
     flex: 1,
     marginLeft: 10,
     marginRight: 8,
+  },
+  footerAction: {
+    color: clayColors.textSecondary,
+    fontFamily: fontFamilies.bold,
+    paddingVertical: 4,
+  },
+  footerNote: {
+    color: clayColors.caption,
+    paddingVertical: 4,
+  },
+  footerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 2,
+  },
+  pending: {
+    opacity: 0.6,
+  },
+  repliesToggle: {
+    color: clayColors.primary,
+    fontFamily: fontFamilies.bold,
+    paddingVertical: 4,
   },
   displayName: {
     color: clayColors.text,

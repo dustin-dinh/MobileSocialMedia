@@ -6,6 +6,10 @@ export type AuthUser = {
   bio: string | null;
   createdAt?: string;
   displayName: string | null;
+  /** False for Google-only accounts, which have no password to confirm with. */
+  hasPassword?: boolean;
+  /** Null until the first-run setup has been completed or skipped. */
+  onboardedAt?: string | null;
   email: string;
   id: string;
   updatedAt?: string;
@@ -105,6 +109,22 @@ export const authService = {
       headers: getAuthorizationHeaders(accessToken),
       method: 'POST',
       path: 'auth/logout',
+    });
+  },
+  /** Confirm the 6-digit code emailed after registration. */
+  async verifyEmail(email: string, otp: string): Promise<void> {
+    await httpClient.requestVoid<{ email: string; otp: string }>({
+      body: { email: email.trim().toLowerCase(), otp: otp.trim() },
+      method: 'POST',
+      path: 'auth/verify-email',
+    });
+  },
+  /** Ask the backend to email a fresh verification code (max 3 per hour). */
+  async resendVerification(email: string): Promise<void> {
+    await httpClient.requestVoid<{ email: string }>({
+      body: { email: email.trim().toLowerCase() },
+      method: 'POST',
+      path: 'auth/resend-verification',
     });
   },
   async register(values: RegisterFormValues): Promise<AuthUser> {

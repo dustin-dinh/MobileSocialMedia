@@ -22,6 +22,7 @@ import { PostsService } from './posts.service';
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { UpdatePostDto } from './dto/update-post.dto';
+import { PostSearchQueryDto } from './dto/post-search-query.dto';
 
 @Controller('posts')
 
@@ -48,6 +49,30 @@ export class PostsController {
         @Query() query: FeedQueryDto,
     ) {
         return this.postsService.getFeed(
+            request.user.userId,
+            query,
+        );
+    }
+
+    // Các route tĩnh phải đứng trước `:id`.
+    @Get('search')
+    async search(
+        @Request() request: { user: { userId: string } },
+        @Query() query: PostSearchQueryDto,
+    ) {
+        return this.postsService.search(
+            request.user.userId,
+            query.q,
+            query,
+        );
+    }
+
+    @Get('saved')
+    async findSaved(
+        @Request() request: { user: { userId: string } },
+        @Query() query: FeedQueryDto,
+    ) {
+        return this.postsService.findSaved(
             request.user.userId,
             query,
         );
@@ -114,4 +139,51 @@ export class PostsController {
         );
     }
 
+    @Post(':id/save')
+    async save(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.setSaved(
+            id,
+            request.user.userId,
+            true,
+        );
+    }
+
+    @Delete(':id/save')
+    async unsave(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.setSaved(
+            id,
+            request.user.userId,
+            false,
+        );
+    }
+
+    @Post(':id/hide')
+    async hide(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.setHidden(
+            id,
+            request.user.userId,
+            true,
+        );
+    }
+
+    @Delete(':id/hide')
+    async unhide(
+        @Request() request: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.postsService.setHidden(
+            id,
+            request.user.userId,
+            false,
+        );
+    }
 }

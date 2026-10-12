@@ -2,7 +2,7 @@
  * Data models for the Notifications feature.
  */
 
-export type NotificationType = 'LIKE' | 'COMMENT' | 'FOLLOW';
+export type NotificationType = 'LIKE' | 'COMMENT' | 'FOLLOW' | 'REPLY' | 'REPOST' | 'MENTION';
 
 export type NotificationActor = {
   avatarUrl: string | null;
@@ -13,6 +13,8 @@ export type NotificationActor = {
 
 export type AppNotification = {
   actor: NotificationActor;
+  /** The comment to scroll to when the notification is opened. */
+  commentId?: string;
   commentText?: string;
   createdAt: string;
   id: string;

@@ -12,8 +12,22 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
+import { ListFooter } from '../../../components/common/ListFooter';
+import { USE_MOCK_API } from '../../../config/runtime';
 import { useDebounce } from '../../../hooks/useDebounce';
+import type { MainTabParamList } from '../../../navigation/types';
+import { useAppNavigation } from '../../../navigation/useAppNavigation';
+import { CommentModal } from '../../comment/components/CommentModal';
+import { PostCard } from '../../feed/components/PostCard';
+import { feedEvents } from '../../feed/feedEvents';
+import { usePostList } from '../../feed/hooks/usePostList';
+import { feedService } from '../../feed/services/feedService';
+import { postKey } from '../../feed/services/postMapper';
+import type { Post } from '../../feed/types';
+import { profileService } from '../../profile/services/profileService';
+import { suggestionReason } from '../../profile/suggestionReason';
 import { SearchEmptyState } from '../components/SearchEmptyState';
 import { SearchSkeleton } from '../components/SearchSkeleton';
 import { UserSearchCard } from '../components/UserSearchCard';
@@ -32,11 +46,55 @@ function shiftFollowersCount(count: number | null, delta: 1 | -1): number | null
   return count === null ? null : Math.max(0, count + delta);
 }
 
-export function SearchScreen() {
+type SearchScreenProps = Partial<BottomTabScreenProps<MainTabParamList, 'Search'>>;
+type SearchMode = 'posts' | 'users';
+
+/**
+ * Users for a query; with an empty query, people the viewer may know (the
+ * mock layer already answers an empty query with suggestions).
+ */
+async function loadUsers(searchQuery: string): Promise<SearchedUser[]> {
+  if (USE_MOCK_API || searchQuery.trim()) {
+    return searchService.searchUsers(searchQuery);
+  }
+
+  const suggestions = await profileService.getSuggestions();
+
+  return suggestions.map((user) => ({
+    avatarUrl: user.avatarUrl,
+    bio: suggestionReason(user),
+    displayName: user.displayName,
+    followersCount: null,
+    id: user.id,
+    isFollowing: user.isFollowing,
+    username: user.username,
+  }));
+}
+
+export function SearchScreen({ route }: SearchScreenProps = {}) {
   const insets = useSafeAreaInsets();
+  const navigation = useAppNavigation();
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 350);
+  const [mode, setMode] = useState<SearchMode>('users');
+  const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
+
+  // A tapped hashtag opens this tab with the query pre-filled, on the Posts tab.
+  const routeQuery = route?.params?.query;
+
+  useEffect(() => {
+    if (routeQuery) {
+      setQuery(routeQuery);
+      setMode('posts');
+    }
+  }, [routeQuery]);
+
+  const fetchPostPage = useCallback(
+    (page: number) => feedService.searchPosts(mode === 'posts' ? debouncedQuery : '', page),
+    [debouncedQuery, mode],
+  );
+  const postList = usePostList(fetchPostPage);
 
   const [users, setUsers] = useState<SearchedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +105,7 @@ export function SearchScreen() {
   const fetchUsers = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
     try {
-      const data = await searchService.searchUsers(searchQuery);
+      const data = await loadUsers(searchQuery);
       setUsers(data);
     } catch (error) {
       console.error('Failed to search users:', error);
@@ -62,6 +120,25 @@ export function SearchScreen() {
     void fetchUsers(debouncedQuery);
   }, [debouncedQuery, fetchUsers]);
 
+  // Follows made on other screens (a profile, a list) show up here too.
+  useEffect(
+    () =>
+      feedEvents.on('followChanged', ({ isFollowing, userId }) => {
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === userId && item.isFollowing !== isFollowing
+              ? {
+                  ...item,
+                  followersCount: shiftFollowersCount(item.followersCount, isFollowing ? 1 : -1),
+                  isFollowing,
+                }
+              : item,
+          ),
+        );
+      }),
+    [],
+  );
+
   // ── Handle Clear ───────────────────────────────────────────────────────
   const handleClearQuery = useCallback(() => {
     setQuery('');
@@ -71,7 +148,7 @@ export function SearchScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const data = await searchService.searchUsers(debouncedQuery);
+      const data = await loadUsers(debouncedQuery);
       setUsers(data);
     } catch (error) {
       console.error('Refresh search failed:', error);
@@ -170,10 +247,23 @@ export function SearchScreen() {
       <UserSearchCard
         user={item}
         isPending={pendingFollowIds.has(item.id)}
+        onPressUser={(target) => navigation.openProfile(target.id)}
         onToggleFollow={handleToggleFollow}
       />
     ),
-    [handleToggleFollow, pendingFollowIds],
+    [handleToggleFollow, navigation, pendingFollowIds],
+  );
+
+  const renderPost = useCallback(
+    ({ item }: { item: Post }) => (
+      <PostCard
+        post={item}
+        onPressComment={setActiveCommentPost}
+        onToggleLike={postList.toggleLike}
+        onToggleSave={postList.toggleSave}
+      />
+    ),
+    [postList.toggleLike, postList.toggleSave],
   );
 
   const keyExtractor = useCallback((item: SearchedUser) => item.id, []);
@@ -198,7 +288,7 @@ export function SearchScreen() {
             clearButtonMode="never"
             onChangeText={setQuery}
             onSubmitEditing={Keyboard.dismiss}
-            placeholder="Tìm kiếm người dùng, @username..."
+            placeholder="Tìm người dùng, bài viết, #hashtag..."
             placeholderTextColor={searchColors.placeholder}
             returnKeyType="search"
             style={styles.searchInput}
@@ -223,9 +313,66 @@ export function SearchScreen() {
             </Pressable>
           ) : null}
         </ClaySurface>
+
+        {hasQueryInput ? (
+          <View style={styles.modeRow}>
+            {(['users', 'posts'] as const).map((item) => {
+              const isActive = item === mode;
+
+              return (
+                <Pressable
+                  accessibilityLabel={item === 'users' ? 'Tìm người dùng' : 'Tìm bài viết'}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  key={item}
+                  onPress={() => setMode(item)}
+                  style={[styles.modeButton, isActive && styles.modeButtonActive]}
+                >
+                  <ClayText
+                    variant="caption"
+                    style={isActive ? styles.modeTextActive : undefined}
+                  >
+                    {item === 'users' ? 'Người dùng' : 'Bài viết'}
+                  </ClayText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       {/* ── List Content ────────────────────────────────────── */}
+      {mode === 'posts' && hasQueryInput ? (
+        <FlatList
+          contentContainerStyle={styles.listContent}
+          data={postList.isLoading ? [] : postList.posts}
+          initialNumToRender={6}
+          windowSize={7}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={postKey}
+          ListEmptyComponent={
+            postList.isLoading || isDebouncing ? (
+              <SearchSkeleton />
+            ) : (
+              <SearchEmptyState query={debouncedQuery} onClear={handleClearQuery} />
+            )
+          }
+          ListFooterComponent={
+            <ListFooter
+              hasItems={postList.posts.length > 0}
+              hasMore={postList.hasMore}
+              isLoadingMore={postList.isLoadingMore}
+              loadMoreFailed={postList.loadMoreFailed}
+              onRetry={postList.loadMore}
+            />
+          }
+          onEndReached={postList.loadMore}
+          onEndReachedThreshold={0.5}
+          renderItem={renderPost}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
       <FlatList
         contentContainerStyle={styles.listContent}
         data={isLoading ? [] : users}
@@ -255,6 +402,13 @@ export function SearchScreen() {
         }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
+      />
+      )}
+
+      <CommentModal
+        onClose={() => setActiveCommentPost(null)}
+        post={activeCommentPost}
+        visible={!!activeCommentPost}
       />
     </View>
   );
@@ -291,6 +445,26 @@ const styles = StyleSheet.create({
   },
   loaderIcon: {
     marginLeft: 8,
+  },
+  modeButton: {
+    alignItems: 'center',
+    backgroundColor: searchColors.inputBg,
+    borderRadius: searchRadii.input,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+  },
+  modeButtonActive: {
+    backgroundColor: clayColors.primarySoft,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  modeTextActive: {
+    color: clayColors.primary,
+    fontFamily: fontFamilies.bold,
   },
   screen: {
     backgroundColor: searchColors.surface,

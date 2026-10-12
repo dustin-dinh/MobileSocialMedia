@@ -162,6 +162,7 @@ export const notificationService = {
     // shows the actor and the action without a post preview.
     return response.data.map((notification) => ({
       actor: notification.actor,
+      commentId: notification.comment?.id,
       createdAt: notification.createdAt,
       id: notification.id,
       isFollowingBack:

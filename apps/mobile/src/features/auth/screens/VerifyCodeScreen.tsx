@@ -12,6 +12,7 @@ import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
+import { authService } from '../services/authService';
 import { passwordResetService } from '../services/passwordResetService';
 import { validateVerificationCode } from '../validation';
 
@@ -33,6 +34,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   const email = route.params?.email ?? '';
+  const isEmailVerification = route.params?.mode === 'verifyEmail';
   const maskedEmail = maskEmail(email);
 
   const [code, setCode] = useState('');
@@ -57,6 +59,14 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     return () => clearInterval(timer);
   }, [countdown > 0]);
 
+  // Arriving from Login with an unverified account: the old code has usually
+  // expired, so request a fresh one right away.
+  useEffect(() => {
+    if (isEmailVerification && route.params?.resend) {
+      void submit(() => authService.resendVerification(email));
+    }
+  }, []);
+
   const handleCodeChange = (text: string) => {
     const digitsOnly = text.replace(/\D/g, '').slice(0, 6);
     codeRef.current = digitsOnly;
@@ -78,12 +88,25 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     setLocalError(null);
     reset();
 
+    if (isEmailVerification) {
+      const verified = await submit(async () => {
+        await authService.verifyEmail(email, currentCode);
+        return true;
+      });
+
+      if (verified) {
+        navigation.navigate('Login', {
+          email,
+          message: 'Email verified. Sign in to continue.',
+        });
+      }
+
+      return;
+    }
+
     const result = await submit(() => passwordResetService.verifyResetCode(email, currentCode));
     if (result?.success) {
-      navigation.navigate('Login', {
-        email,
-        message: 'Password reset verified. Please sign in.',
-      });
+      navigation.navigate('NewPassword', { code: currentCode, email });
     }
   };
 
@@ -96,7 +119,14 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     setResendStatus(null);
     reset();
 
-    const result = await submit(() => passwordResetService.requestResetCode(email));
+    const result = await submit(async () => {
+      if (isEmailVerification) {
+        await authService.resendVerification(email);
+        return { success: true };
+      }
+
+      return passwordResetService.requestResetCode(email);
+    });
     if (result?.success) {
       setCountdown(RESEND_COOLDOWN_SECONDS);
       setResendStatus('New verification code sent.');
@@ -108,21 +138,21 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   return (
     <AuthScreenContainer
       footerActionLabel="Log in"
-      footerPrompt="Remember your password?"
+      footerPrompt={isEmailVerification ? 'Already verified?' : 'Remember your password?'}
       onFooterAction={() => navigation.navigate('Login')}
       subtitle={`Enter the 6-digit code sent to ${maskedEmail}`}
-      title="Verify code"
+      title={isEmailVerification ? 'Verify your email' : 'Verify code'}
     >
       <Pressable
         accessibilityLabel="Back"
         accessibilityRole="button"
         hitSlop={8}
-        onPress={() => navigation.navigate('ForgotPassword')}
+        onPress={() => navigation.navigate(isEmailVerification ? 'Login' : 'ForgotPassword')}
         style={styles.backButton}
       >
         <ClayIcon color={authColors.primary} name="CaretLeft" size={18} weight="bold" />
         <ClayText style={styles.backButtonText} variant="caption">
-          Back to Forgot password
+          {isEmailVerification ? 'Back to Log in' : 'Back to Forgot password'}
         </ClayText>
       </Pressable>
 

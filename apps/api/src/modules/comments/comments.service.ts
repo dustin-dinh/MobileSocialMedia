@@ -3,10 +3,50 @@ import {
     NotFoundException,
     ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentsQueryDto } from './dto/comments-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+    authorSelect,
+    blockedUserIds,
+    pageMeta,
+    visiblePostWhere,
+} from '../posts/post-view';
+
+function commentSelect(viewerId: string) {
+    return {
+        id: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
+        editedAt: true,
+        parentId: true,
+        user: { select: authorSelect },
+        _count: { select: { replies: true, likes: true } },
+        likes: { where: { userId: viewerId }, select: { userId: true } },
+    } satisfies Prisma.CommentSelect;
+}
+
+type CommentRow = Prisma.CommentGetPayload<{
+    select: ReturnType<typeof commentSelect>;
+}>;
+
+function toCommentDto(comment: CommentRow) {
+    return {
+        id: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        editedAt: comment.editedAt,
+        parentId: comment.parentId,
+        author: comment.user,
+        repliesCount: comment._count.replies,
+        likesCount: comment._count.likes,
+        isLiked: comment.likes.length > 0,
+    };
+}
 
 @Injectable()
 export class CommentsService {
@@ -15,226 +55,153 @@ export class CommentsService {
         private readonly notificationsService: NotificationsService,
     ) { }
 
-    async create(
-        userId: string,
-        postId: string,
-        dto: CreateCommentDto,
-    ) {
+    // Bình luận đi theo quyền xem của bài viết chứa nó.
+    private async visiblePost(viewerId: string, postId: string) {
+        const blocked = await blockedUserIds(this.prisma, viewerId);
         const post = await this.prisma.post.findFirst({
-            where: {
-                id: postId,
-                deletedAt: null,
-            },
-            select: {
-                id: true,
-                authorId: true,
-            },
+            where: { id: postId, ...visiblePostWhere(viewerId, blocked) },
+            select: { id: true, authorId: true },
         });
 
         if (!post) {
             throw new NotFoundException('Post not found');
         }
 
-        if (dto.parentId) {
-            const parent = await this.prisma.comment.findFirst({
-                where: {
-                    id: dto.parentId,
-                    postId,
-                },
-                select: {
-                    id: true,
-                },
-            });
+        return { post, blocked };
+    }
 
-            if (!parent) {
-                throw new NotFoundException('Parent comment not found');
-            }
+    private async countForPost(postId: string) {
+        return this.prisma.comment.count({ where: { postId } });
+    }
+
+    async create(
+        userId: string,
+        postId: string,
+        dto: CreateCommentDto,
+    ) {
+        if (dto.parentId) {
+            return this.reply(userId, dto.parentId, dto);
         }
+
+        const { post } = await this.visiblePost(userId, postId);
 
         const comment = await this.prisma.comment.create({
             data: {
                 content: dto.content.trim(),
                 postId,
                 userId,
-                parentId: dto.parentId ?? null,
             },
-            select: {
-                id: true,
-                content: true,
-                createdAt: true,
-                updatedAt: true,
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        displayName: true,
-                        avatarUrl: true,
-                    },
-                },
-            },
+            select: commentSelect(userId),
         });
 
-        await this.notificationsService.createCommentNotification(
+        await this.notificationsService.notify({
+            type: 'COMMENT',
+            actorId: userId,
+            recipientId: post.authorId,
+            postId,
+            commentId: comment.id,
+        });
+        await this.notificationsService.notifyMentions(
             userId,
+            comment.content,
             postId,
             comment.id,
-            post.authorId,
         );
 
         return {
-            data: comment,
+            data: toCommentDto(comment),
+        };
+    }
+
+    private async list(
+        viewerId: string,
+        where: Prisma.CommentWhereInput,
+        order: 'asc' | 'desc',
+        query: CommentsQueryDto,
+    ) {
+        const { page, limit } = query;
+
+        const [comments, total] = await Promise.all([
+            this.prisma.comment.findMany({
+                where,
+                orderBy: { createdAt: order },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: commentSelect(viewerId),
+            }),
+            this.prisma.comment.count({ where }),
+        ]);
+
+        return {
+            data: comments.map(toCommentDto),
+            meta: pageMeta(page, limit, total),
         };
     }
 
     async findByPost(
+        viewerId: string,
         postId: string,
         query: CommentsQueryDto,
     ) {
-        const page = query.page;
-        const limit = query.limit;
-        const skip = (page - 1) * limit;
+        const { blocked } = await this.visiblePost(viewerId, postId);
 
-        const post = await this.prisma.post.findFirst({
-            where: {
-                id: postId,
-                deletedAt: null,
-            },
-            select: {
-                id: true,
-            },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-
-        const [comments, total] = await Promise.all([
-            this.prisma.comment.findMany({
-                where: {
-                    postId,
-                    parentId: null,
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                skip,
-                take: limit,
-                select: {
-                    id: true,
-                    content: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    user: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                    _count: {
-                        select: {
-                            replies: true,
-                        },
-                    },
-                },
-            }),
-
-            this.prisma.comment.count({
-                where: {
-                    postId,
-                    parentId: null,
-                },
-            }),
-        ]);
-
-        return {
-            data: comments.map((comment) => ({
-                id: comment.id,
-                content: comment.content,
-                createdAt: comment.createdAt,
-                updatedAt: comment.updatedAt,
-                author: comment.user,
-                repliesCount: comment._count.replies,
-            })),
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
+        return this.list(
+            viewerId,
+            { postId, parentId: null, userId: { notIn: blocked } },
+            'desc',
+            query,
+        );
     }
 
     async findReplies(
+        viewerId: string,
         commentId: string,
         query: CommentsQueryDto,
     ) {
-        const page = query.page;
-        const limit = query.limit;
-        const skip = (page - 1) * limit;
-
         const parent = await this.prisma.comment.findUnique({
-            where: {
-                id: commentId,
-            },
-            select: {
-                id: true,
-            },
+            where: { id: commentId },
+            select: { postId: true },
         });
 
         if (!parent) {
             throw new NotFoundException('Comment not found');
         }
 
-        const [replies, total] = await Promise.all([
-            this.prisma.comment.findMany({
-                where: {
-                    parentId: commentId,
-                },
-                orderBy: {
-                    createdAt: 'asc',
-                },
-                skip,
-                take: limit,
-                select: {
-                    id: true,
-                    content: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    user: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                },
-            }),
+        const { blocked } = await this.visiblePost(viewerId, parent.postId);
 
-            this.prisma.comment.count({
-                where: {
-                    parentId: commentId,
-                },
-            }),
-        ]);
+        return this.list(
+            viewerId,
+            { parentId: commentId, userId: { notIn: blocked } },
+            'asc',
+            query,
+        );
+    }
 
-        return {
-            data: replies.map((reply) => ({
-                id: reply.id,
-                content: reply.content,
-                createdAt: reply.createdAt,
-                updatedAt: reply.updatedAt,
-                author: reply.user,
-            })),
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
+    async update(userId: string, commentId: string, content: string) {
+        const result = await this.prisma.comment.updateMany({
+            where: { id: commentId, userId },
+            data: { content: content.trim(), editedAt: new Date() },
+        });
+
+        if (result.count !== 1) {
+            const exists = await this.prisma.comment.findUnique({
+                where: { id: commentId },
+                select: { id: true },
+            });
+
+            if (!exists) {
+                throw new NotFoundException('Comment not found');
+            }
+
+            throw new ForbiddenException('You can only edit your own comment');
+        }
+
+        const comment = await this.prisma.comment.findUniqueOrThrow({
+            where: { id: commentId },
+            select: commentSelect(userId),
+        });
+
+        return { data: toCommentDto(comment) };
     }
 
     async remove(userId: string, commentId: string) {
@@ -245,6 +212,8 @@ export class CommentsService {
             select: {
                 id: true,
                 userId: true,
+                postId: true,
+                post: { select: { authorId: true } },
             },
         });
 
@@ -252,7 +221,8 @@ export class CommentsService {
             throw new NotFoundException('Comment not found');
         }
 
-        if (comment.userId !== userId) {
+        // Chủ bình luận hoặc chủ bài viết đều được xóa.
+        if (comment.userId !== userId && comment.post.authorId !== userId) {
             throw new ForbiddenException(
                 'You can only delete your own comment',
             );
@@ -267,9 +237,12 @@ export class CommentsService {
         return {
             data: {
                 deleted: true,
+                // Trả lời con bị xóa theo nên client không tự tính được.
+                commentsCount: await this.countForPost(comment.postId),
             },
         };
     }
+
     async reply(
         userId: string,
         parentCommentId: string,
@@ -283,6 +256,7 @@ export class CommentsService {
                 id: true,
                 postId: true,
                 userId: true,
+                parentId: true,
             },
         });
 
@@ -290,43 +264,67 @@ export class CommentsService {
             throw new NotFoundException('Parent comment not found');
         }
 
+        await this.visiblePost(userId, parent.postId);
+
         const comment = await this.prisma.comment.create({
             data: {
                 content: dto.content.trim(),
                 postId: parent.postId,
                 userId,
-                parentId: parent.id,
+                // Chỉ hai cấp: trả lời một câu trả lời thì gắn vào bình luận gốc.
+                parentId: parent.parentId ?? parent.id,
             },
-            select: {
-                id: true,
-                content: true,
-                createdAt: true,
-                updatedAt: true,
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        displayName: true,
-                        avatarUrl: true,
-                    },
-                },
-            },
+            select: commentSelect(userId),
         });
 
-        await this.notificationsService.createCommentNotification(
+        await this.notificationsService.notify({
+            type: 'REPLY',
+            actorId: userId,
+            recipientId: parent.userId,
+            postId: parent.postId,
+            commentId: comment.id,
+        });
+        await this.notificationsService.notifyMentions(
             userId,
+            comment.content,
             parent.postId,
             comment.id,
-            parent.userId,
         );
 
         return {
+            data: toCommentDto(comment),
+        };
+    }
+
+    async setLike(userId: string, commentId: string, liked: boolean) {
+        const comment = await this.prisma.comment.findUnique({
+            where: { id: commentId },
+            select: { postId: true },
+        });
+
+        if (!comment) {
+            throw new NotFoundException('Comment not found');
+        }
+
+        await this.visiblePost(userId, comment.postId);
+
+        if (liked) {
+            await this.prisma.commentLike.createMany({
+                data: [{ userId, commentId }],
+                skipDuplicates: true,
+            });
+        } else {
+            await this.prisma.commentLike.deleteMany({
+                where: { userId, commentId },
+            });
+        }
+
+        return {
             data: {
-                id: comment.id,
-                content: comment.content,
-                createdAt: comment.createdAt,
-                updatedAt: comment.updatedAt,
-                author: comment.user,
+                isLiked: liked,
+                likesCount: await this.prisma.commentLike.count({
+                    where: { commentId },
+                }),
             },
         };
     }

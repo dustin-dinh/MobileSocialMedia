@@ -35,6 +35,14 @@ import { UserPlus } from 'phosphor-react-native/lib/module/icons/UserPlus';
 import { Users } from 'phosphor-react-native/lib/module/icons/Users';
 import { WarningCircle } from 'phosphor-react-native/lib/module/icons/WarningCircle';
 import { X } from 'phosphor-react-native/lib/module/icons/X';
+import { CaretRight } from 'phosphor-react-native/lib/module/icons/CaretRight';
+import { Gear } from 'phosphor-react-native/lib/module/icons/Gear';
+import { Pause } from 'phosphor-react-native/lib/module/icons/Pause';
+import { Play } from 'phosphor-react-native/lib/module/icons/Play';
+import { Prohibit } from 'phosphor-react-native/lib/module/icons/Prohibit';
+import { SpeakerHigh } from 'phosphor-react-native/lib/module/icons/SpeakerHigh';
+import { SpeakerSlash } from 'phosphor-react-native/lib/module/icons/SpeakerSlash';
+import { VideoCamera } from 'phosphor-react-native/lib/module/icons/VideoCamera';
 
 import { clayColors } from '../../theme/colors';
 
@@ -107,6 +115,14 @@ const ICON_MAP: Record<string, ComponentType<IconProps>> = {
   Users,
   WarningCircle,
   X,
+  CaretRight,
+  Gear,
+  Pause,
+  Play,
+  Prohibit,
+  SpeakerHigh,
+  SpeakerSlash,
+  VideoCamera,
 };
 
 export type ClayIconProps = {

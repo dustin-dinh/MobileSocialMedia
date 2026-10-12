@@ -1,11 +1,9 @@
+import { USE_MOCK_API } from '../../../config/runtime';
 import { ApiError } from '../../../services/apiError';
 import { httpClient } from '../../../services/httpClient';
 
-/**
- * Flag to control mock vs live API calls.
- * Set to false once backend endpoints are available.
- */
-export const USE_MOCK = true;
+/** Mock vs live API calls, following the app-wide switch. */
+export const USE_MOCK = USE_MOCK_API;
 
 /** Mock OTP verification code accepted for testing */
 export const MOCK_VERIFICATION_CODE = '123456';
@@ -56,13 +54,18 @@ export const passwordResetService = {
       };
     }
 
-    const response = await httpClient.requestJson<PasswordResetResponse, RequestResetCodeRequest>({
+    // The backend answers with the same generic message whether or not the
+    // account exists, so the app never reveals which emails are registered.
+    const response = await httpClient.requestJson<{ message?: string }, RequestResetCodeRequest>({
       body: { email: normalizedEmail },
       method: 'POST',
       path: 'auth/forgot-password',
     });
 
-    return response;
+    return {
+      message: response.message ?? 'If the account exists, a reset code has been sent.',
+      success: true,
+    };
   },
 
   /**
@@ -105,15 +108,46 @@ export const passwordResetService = {
       };
     }
 
-    const response = await httpClient.requestJson<PasswordResetResponse, VerifyResetCodeRequest>({
+    // The backend has no separate "verify" step: the code is checked together
+    // with the new password by `resetPassword`. Here it only has to be well-formed.
+    return {
+      message: 'Enter a new password to finish.',
+      success: true,
+    };
+  },
+
+  /**
+   * Set a new password using the emailed 6-digit code.
+   */
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<PasswordResetResponse> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+
+      if (code.trim() !== MOCK_VERIFICATION_CODE) {
+        throw new ApiError({
+          kind: 'server',
+          message: 'Invalid or expired reset code.',
+          status: 400,
+        });
+      }
+
+      return { message: 'Password updated.', success: true };
+    }
+
+    await httpClient.requestVoid<{ email: string; newPassword: string; otp: string }>({
       body: {
-        code: normalizedCode,
-        email: normalizedEmail,
+        email: email.trim().toLowerCase(),
+        newPassword,
+        otp: code.trim(),
       },
       method: 'POST',
-      path: 'auth/verify-reset-code',
+      path: 'auth/reset-password',
     });
 
-    return response;
+    return { message: 'Password updated.', success: true };
   },
 };

@@ -24,6 +24,27 @@ declare module 'phosphor-react-native/lib/module/icons/*' {
   export const UserPlus: ComponentType<IconProps>;
   export const X: ComponentType<IconProps>;
 
+  export const Camera: ComponentType<IconProps>;
+  export const Export: ComponentType<IconProps>;
+  export const EyeSlash: ComponentType<IconProps>;
+  export const Flag: ComponentType<IconProps>;
+  export const GlobeSimple: ComponentType<IconProps>;
+  export const LinkSimple: ComponentType<IconProps>;
+  export const LockKey: ComponentType<IconProps>;
+  export const PencilSimple: ComponentType<IconProps>;
+  export const Repeat: ComponentType<IconProps>;
+  export const Trash: ComponentType<IconProps>;
+  export const Users: ComponentType<IconProps>;
+  export const WarningCircle: ComponentType<IconProps>;
+  export const CaretRight: ComponentType<IconProps>;
+  export const Gear: ComponentType<IconProps>;
+  export const Pause: ComponentType<IconProps>;
+  export const Play: ComponentType<IconProps>;
+  export const Prohibit: ComponentType<IconProps>;
+  export const SpeakerHigh: ComponentType<IconProps>;
+  export const SpeakerSlash: ComponentType<IconProps>;
+  export const VideoCamera: ComponentType<IconProps>;
+
   const IconComponent: ComponentType<IconProps>;
   export default IconComponent;
 }

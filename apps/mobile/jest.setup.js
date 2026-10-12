@@ -25,6 +25,20 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// Mock expo-notifications (push is never exercised by the unit suite)
+jest.mock('expo-notifications', () => ({}));
+
+// Mock expo-video (no native player in the unit suite)
+jest.mock('expo-video', () => ({
+  useVideoPlayer: jest.fn(() => ({ pause: jest.fn(), play: jest.fn(), replace: jest.fn() })),
+  VideoView: () => null,
+}));
+
+// Mock expo-clipboard
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn(() => Promise.resolve(true)),
+}));
+
 // Mock expo-image-picker
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),

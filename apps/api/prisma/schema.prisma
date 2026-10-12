@@ -28,6 +28,14 @@ model User {
   notificationsSent     Notification[] @relation("NotificationActor")
   notificationsReceived Notification[] @relation("NotificationRecipient")
   authTokens            AuthToken[]
+  onboardedAt           DateTime?
+  blocking              Block[]        @relation("Blocker")
+  blockedBy             Block[]        @relation("Blocked")
+  reports               Report[]
+  saves                 Save[]
+  commentLikes          CommentLike[]
+  hiddenPosts           HiddenPost[]
+  deviceTokens          DeviceToken[]
 }
 
 model Post {
@@ -44,6 +52,8 @@ model Post {
   media         PostMedia[]
   privacy PostPrivacy @default(PUBLIC)
   reposts       Repost[]
+  saves         Save[]
+  hiddenBy      HiddenPost[]
 
 
   @@index([authorId, createdAt])
@@ -96,6 +106,8 @@ model Comment {
   post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifications Notification[]
+  editedAt      DateTime?
+  likes         CommentLike[]
 
   @@index([postId, createdAt])
   @@index([parentId])
@@ -162,3 +174,76 @@ model Repost {
   @@index([userId, createdAt])
 }
 
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String // POST | COMMENT | USER
+  targetId   String
+  reason     String
+  note       String?
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+model Save {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId, createdAt])
+}
+
+model CommentLike {
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+  @@index([commentId])
+}
+
+model HiddenPost {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+}
+
+model DeviceToken {
+  token     String   @id
+  userId    String
+  platform  String
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

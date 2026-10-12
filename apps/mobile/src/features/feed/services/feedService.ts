@@ -5,10 +5,16 @@
  * `USE_MOCK_API` is on, it serves local mock data after a simulated delay.
  */
 import { USE_MOCK_API } from '../../../config/runtime';
+import { ApiError } from '../../../services/apiError';
 import { httpClient } from '../../../services/httpClient';
 import { MOCK_POSTS } from '../mockData';
 import type { FeedResponse, Post } from '../types';
-import { mapApiPostList, setPostSavedLocally, type ApiPostListResponse } from './postMapper';
+import {
+  mapApiPost,
+  mapApiPostList,
+  type ApiPost,
+  type ApiPostListResponse,
+} from './postMapper';
 
 const USE_MOCK_FEED = USE_MOCK_API;
 
@@ -101,13 +107,116 @@ export const feedService = {
       };
     }
 
-    // The backend has no bookmark endpoint yet, so the flag is kept in
-    // memory for this app session and re-applied when posts are reloaded.
-    setPostSavedLocally(post.id, !post.isSaved);
+    await httpClient.requestVoid({
+      method: post.isSaved ? 'DELETE' : 'POST',
+      path: `posts/${post.id}/save`,
+    });
 
     return {
       ...post,
       isSaved: !post.isSaved,
     };
+  },
+
+  /**
+   * Repost a post to the viewer's followers, or undo it.
+   */
+  async toggleRepost(post: Post): Promise<Post> {
+    const next: Post = {
+      ...post,
+      isReposted: !post.isReposted,
+      repostsCount: Math.max(0, (post.repostsCount ?? 0) + (post.isReposted ? -1 : 1)),
+    };
+
+    if (USE_MOCK_FEED) {
+      await delay(200);
+
+      return next;
+    }
+
+    await httpClient.requestVoid({
+      method: post.isReposted ? 'DELETE' : 'POST',
+      path: `posts/${post.id}/repost`,
+    });
+
+    return next;
+  },
+
+  /** Hide a post from the viewer's feed. */
+  async hidePost(postId: string): Promise<void> {
+    if (USE_MOCK_FEED) {
+      await delay(200);
+
+      return;
+    }
+
+    await httpClient.requestVoid({ method: 'POST', path: `posts/${postId}/hide` });
+  },
+
+  /** Fetch one post; rejects with a 404 `ApiError` when it is gone or not visible. */
+  async getPost(postId: string): Promise<Post> {
+    if (USE_MOCK_FEED) {
+      await delay(200);
+
+      const post = MOCK_POSTS.find((item) => item.id === postId);
+
+      if (!post) {
+        throw new ApiError({ kind: 'server', message: 'Post not found', status: 404 });
+      }
+
+      return post;
+    }
+
+    // This endpoint returns the post itself, without a `data` envelope.
+    const response = await httpClient.requestJson<ApiPost>({
+      method: 'GET',
+      path: `posts/${postId}`,
+    });
+
+    return mapApiPost(response);
+  },
+
+  /** Posts the viewer has bookmarked, newest first. */
+  async getSavedPosts(page = 1, limit = DEFAULT_PAGE_SIZE): Promise<FeedResponse> {
+    if (USE_MOCK_FEED) {
+      await delay(MOCK_DELAY_MS);
+
+      const saved = MOCK_POSTS.filter((post) => post.isSaved);
+
+      return { data: saved, meta: { hasMore: false, page, totalCount: saved.length } };
+    }
+
+    const response = await httpClient.requestJson<ApiPostListResponse>({
+      method: 'GET',
+      path: `posts/saved?page=${page}&limit=${limit}`,
+    });
+
+    return mapApiPostList(response);
+  },
+
+  /** Search visible posts by text; a `#tag` query finds hashtags. */
+  async searchPosts(query: string, page = 1, limit = DEFAULT_PAGE_SIZE): Promise<FeedResponse> {
+    const trimmed = query.trim();
+
+    if (!trimmed) {
+      return { data: [], meta: { hasMore: false, page, totalCount: 0 } };
+    }
+
+    if (USE_MOCK_FEED) {
+      await delay(300);
+
+      const found = MOCK_POSTS.filter((post) =>
+        post.content.toLowerCase().includes(trimmed.toLowerCase()),
+      );
+
+      return { data: found, meta: { hasMore: false, page, totalCount: found.length } };
+    }
+
+    const response = await httpClient.requestJson<ApiPostListResponse>({
+      method: 'GET',
+      path: `posts/search?q=${encodeURIComponent(trimmed)}&page=${page}&limit=${limit}`,
+    });
+
+    return mapApiPostList(response);
   },
 } as const;

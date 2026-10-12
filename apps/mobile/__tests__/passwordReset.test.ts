@@ -82,6 +82,18 @@ describe('Password Reset Service & Validation (Phase 1)', () => {
     });
   });
 
+  describe('passwordResetService.resetPassword', () => {
+    it('accepts the mock code and rejects any other', async () => {
+      await expect(
+        passwordResetService.resetPassword('user@example.com', MOCK_VERIFICATION_CODE, 'new-password-1'),
+      ).resolves.toEqual({ message: 'Password updated.', success: true });
+
+      await expect(
+        passwordResetService.resetPassword('user@example.com', '000000', 'new-password-1'),
+      ).rejects.toThrow('Invalid or expired reset code.');
+    });
+  });
+
   describe('passwordResetService.verifyResetCode', () => {
     it('succeeds when code matches MOCK_VERIFICATION_CODE (123456)', async () => {
       const result = await passwordResetService.verifyResetCode(

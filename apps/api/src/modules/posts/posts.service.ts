@@ -13,12 +13,23 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { StorageService } from '../storage/storage.service';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { v4 as uuidv4 } from 'uuid';
-import Multer from 'multer';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import {
+    blockedUserIds,
+    pageMeta,
+    postSelect,
+    repostSelect,
+    toPostDto,
+    toRepostDto,
+    visiblePostWhere,
+} from './post-view';
+
 @Injectable()
 export class PostsService {
     constructor(private readonly prisma: PrismaService,
         private readonly storageService: StorageService,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     async create(
@@ -83,38 +94,20 @@ export class PostsService {
                     },
                 },
 
-                select: {
-                    id: true,
-                    content: true,
-                    createdAt: true,
-                    updatedAt: true,
-
-                    author: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-
-                    media: {
-                        orderBy: {
-                            order: 'asc',
-                        },
-
-                        select: {
-                            id: true,
-                            url: true,
-                            type: true,
-                            order: true,
-                        },
-                    },
-                },
+                select: postSelect(userId),
             });
 
+            // Bài PRIVATE không báo cho người được nhắc tên vì họ không mở được.
+            if (post.privacy !== 'PRIVATE') {
+                await this.notificationsService.notifyMentions(
+                    userId,
+                    post.content,
+                    post.id,
+                );
+            }
+
             return {
-                data: post,
+                data: toPostDto(post),
             };
         } catch (error) {
             for (const file of uploadedFiles) {
@@ -131,70 +124,12 @@ export class PostsService {
         const post = await this.prisma.post.findFirst({
             where: {
                 id: postId,
-                deletedAt: null,
-                OR: [
-                    // Công khai: người dùng đăng nhập đều xem được.
-                    {
-                        privacy: 'PUBLIC',
-                    },
-
-                    // Tác giả luôn xem được bài của chính mình.
-                    {
-                        authorId: userId,
-                    },
-
-                    // FRIENDS: phải follow tác giả và tác giả cũng follow lại.
-                    {
-                        privacy: 'FRIENDS',
-                        author: {
-                            followers: {
-                                some: {
-                                    followerId: userId,
-                                },
-                            },
-                            following: {
-                                some: {
-                                    followingId: userId,
-                                },
-                            },
-                        },
-                    },
-                ],
+                ...visiblePostWhere(
+                    userId,
+                    await blockedUserIds(this.prisma, userId),
+                ),
             },
-            select: {
-                id: true,
-                content: true,
-                createdAt: true,
-                updatedAt: true,
-
-                author: {
-                    select: {
-                        id: true,
-                        username: true,
-                        displayName: true,
-                        avatarUrl: true,
-                    },
-                },
-
-                media: {
-                    orderBy: {
-                        order: 'asc',
-                    },
-                    select: {
-                        id: true,
-                        url: true,
-                        type: true,
-                        order: true,
-                    },
-                },
-
-                _count: {
-                    select: {
-                        likes: true,
-                        comments: true,
-                    },
-                },
-            },
+            select: postSelect(userId),
         });
 
         if (!post) {
@@ -209,30 +144,7 @@ export class PostsService {
             );
         }
 
-        // Kiểm tra user hiện tại đã like bài viết chưa
-        const like = await this.prisma.like.findUnique({
-            where: {
-                userId_postId: {
-                    userId,
-                    postId,
-                },
-            },
-            select: {
-                userId: true,
-            },
-        });
-
-        return {
-            id: post.id,
-            content: post.content,
-            createdAt: post.createdAt,
-            updatedAt: post.updatedAt,
-            author: post.author,
-            media: post.media,
-            likeCount: post._count.likes,
-            commentsCount: post._count.comments,
-            isLiked: !!like,
-        };
+        return toPostDto(post);
     }
 
     private validateImages(
@@ -270,31 +182,21 @@ export class PostsService {
         const page = query.page;
         const limit = query.limit;
         const skip = (page - 1) * limit;
+        // shortcut: trộn hai nguồn nên phải lấy skip+limit mỗi nguồn; trang càng sâu càng chậm,
+        // chuyển sang phân trang theo con trỏ thời gian khi feed vượt vài nghìn bài.
         const fetchCount = skip + limit;
+        const blocked = await blockedUserIds(this.prisma, userId);
 
-        // Quyền xem bài viết thông thường.
-        const postAccessWhere = {
-            deletedAt: null,
-            OR: [
-                { privacy: 'PUBLIC' as const },
-                { authorId: userId },
-                {
-                    privacy: 'FRIENDS' as const,
-                    author: {
-                        followers: {
-                            some: { followerId: userId },
-                        },
-                        following: {
-                            some: { followingId: userId },
-                        },
-                    },
-                },
-            ],
+        const postWhere = {
+            ...visiblePostWhere(userId, blocked),
+            hiddenBy: { none: { userId } },
         };
 
         // Hiển thị repost của chính mình và người mình đang follow.
         // User A follow B => Follow có followerId=A, followingId=B.
         const repostWhere = {
+            userId: { notIn: blocked },
+            post: { hiddenBy: { none: { userId } } },
             OR: [
                 { userId },
                 {
@@ -307,105 +209,29 @@ export class PostsService {
             ],
         };
 
+        const orderBy = [
+            { createdAt: 'desc' as const },
+            { id: 'desc' as const },
+        ];
+
         const [posts, totalPosts, reposts, totalReposts] =
             await Promise.all([
                 this.prisma.post.findMany({
-                    where: postAccessWhere,
-                    orderBy: [
-                        { createdAt: 'desc' },
-                        { id: 'desc' },
-                    ],
+                    where: postWhere,
+                    orderBy,
                     take: fetchCount,
-                    select: {
-                        id: true,
-                        content: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        author: {
-                            select: {
-                                id: true,
-                                username: true,
-                                displayName: true,
-                                avatarUrl: true,
-                            },
-                        },
-                        media: {
-                            orderBy: { order: 'asc' },
-                            select: {
-                                id: true,
-                                url: true,
-                                type: true,
-                                order: true,
-                            },
-                        },
-                        _count: {
-                            select: {
-                                likes: true,
-                                comments: true,
-                            },
-                        },
-                    },
+                    select: postSelect(userId),
                 }),
 
                 this.prisma.post.count({
-                    where: postAccessWhere,
+                    where: postWhere,
                 }),
 
                 this.prisma.repost.findMany({
                     where: repostWhere,
-                    orderBy: [
-                        { createdAt: 'desc' },
-                        { id: 'desc' },
-                    ],
+                    orderBy,
                     take: fetchCount,
-                    select: {
-                        id: true,
-                        userId: true,
-                        postId: true,
-                        createdAt: true,
-                        user: {
-                            select: {
-                                id: true,
-                                username: true,
-                                displayName: true,
-                                avatarUrl: true,
-                            },
-                        },
-                        post: {
-                            select: {
-                                id: true,
-                                authorId: true,
-                                content: true,
-                                createdAt: true,
-                                updatedAt: true,
-                                deletedAt: true,
-                                privacy: true,
-                                author: {
-                                    select: {
-                                        id: true,
-                                        username: true,
-                                        displayName: true,
-                                        avatarUrl: true,
-                                    },
-                                },
-                                media: {
-                                    orderBy: { order: 'asc' },
-                                    select: {
-                                        id: true,
-                                        url: true,
-                                        type: true,
-                                        order: true,
-                                    },
-                                },
-                                _count: {
-                                    select: {
-                                        likes: true,
-                                        comments: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
+                    select: repostSelect(userId),
                 }),
 
                 this.prisma.repost.count({
@@ -413,220 +239,42 @@ export class PostsService {
                 }),
             ]);
 
-        // Chỉ kiểm tra quyền cho các bài gốc FRIENDS chưa bị xóa.
-        const friendsAuthorIds = [
-            ...new Set(
-                reposts
-                    .filter(
-                        (repost) =>
-                            !repost.post.deletedAt &&
-                            repost.post.privacy === 'FRIENDS' &&
-                            repost.post.authorId !== userId,
-                    )
-                    .map((repost) => repost.post.authorId),
-            ),
-        ];
-
-        // Lấy các quan hệ follow giữa viewer và những tác giả này.
-        // Không cần truy vấn riêng cho từng repost.
-        const followRelations = friendsAuthorIds.length
-            ? await this.prisma.follow.findMany({
+        // Bài gốc đã xóa hoặc không còn quyền xem vẫn hiện thẻ "không khả dụng".
+        const visibleOriginals = reposts.length
+            ? await this.prisma.post.findMany({
                 where: {
-                    OR: [
-                        {
-                            followerId: userId,
-                            followingId: { in: friendsAuthorIds },
-                        },
-                        {
-                            followerId: { in: friendsAuthorIds },
-                            followingId: userId,
-                        },
-                    ],
+                    id: { in: reposts.map((repost) => repost.postId) },
+                    ...visiblePostWhere(userId, blocked),
                 },
-                select: {
-                    followerId: true,
-                    followingId: true,
-                },
+                select: { id: true },
             })
             : [];
 
-        const viewerFollows = new Set<string>();
-        const authorsFollowViewer = new Set<string>();
+        const visibleOriginalIds = new Set(
+            visibleOriginals.map((post) => post.id),
+        );
 
-        for (const relation of followRelations) {
-            if (relation.followerId === userId) {
-                viewerFollows.add(relation.followingId);
-            }
-
-            if (relation.followingId === userId) {
-                authorsFollowViewer.add(relation.followerId);
-            }
-        }
-
-        const mutualFollowAuthorIds = new Set(
-            friendsAuthorIds.filter(
-                (authorId) =>
-                    viewerFollows.has(authorId) &&
-                    authorsFollowViewer.has(authorId),
+        const allItems = [
+            ...posts.map((post) => ({
+                type: 'POST' as const,
+                ...toPostDto(post),
+            })),
+            ...reposts.map((repost) =>
+                toRepostDto(repost, visibleOriginalIds.has(repost.postId)),
             ),
-        );
-
-        // Tập ID các bài gốc mà viewer thực sự được xem.
-        const visibleOriginalIds = new Set<string>();
-
-        for (const repost of reposts) {
-            const original = repost.post;
-
-            if (original.deletedAt) {
-                continue;
-            }
-
-            if (
-                original.privacy === 'PUBLIC' ||
-                original.authorId === userId
-            ) {
-                visibleOriginalIds.add(original.id);
-                continue;
-            }
-
-            if (
-                original.privacy === 'FRIENDS' &&
-                mutualFollowAuthorIds.has(original.authorId)
-            ) {
-                visibleOriginalIds.add(original.id);
-            }
-
-            // PRIVATE của người khác không được hiển thị.
-        }
-
-        const visiblePostIds = [
-            ...posts.map((post) => post.id),
-            ...reposts
-                .filter((repost) =>
-                    visibleOriginalIds.has(repost.post.id),
-                )
-                .map((repost) => repost.post.id),
-        ];
-
-        const likedPosts = visiblePostIds.length
-            ? await this.prisma.like.findMany({
-                where: {
-                    userId,
-                    postId: {
-                        in: [...new Set(visiblePostIds)],
-                    },
-                },
-                select: { postId: true },
-            })
-            : [];
-
-        const likedPostIds = new Set(
-            likedPosts.map((like) => like.postId),
-        );
-
-        const postItems = posts.map((post) => ({
-            type: 'POST' as const,
-            id: post.id,
-            createdAt: post.createdAt,
-            content: post.content,
-            updatedAt: post.updatedAt,
-            author: post.author,
-            media: post.media,
-            likeCount: post._count.likes,
-            isLiked: likedPostIds.has(post.id),
-            commentsCount: post._count.comments,
-        }));
-
-        const repostItems = reposts.map((repost) => {
-            const original = repost.post;
-            const available = visibleOriginalIds.has(original.id);
-
-            return {
-                type: 'REPOST' as const,
-                id: repost.id,
-                createdAt: repost.createdAt,
-                repostedBy: repost.user,
-                originalPost: available
-                    ? {
-                        id: original.id,
-                        available: true,
-                        content: original.content,
-                        createdAt: original.createdAt,
-                        updatedAt: original.updatedAt,
-                        author: original.author,
-                        media: original.media,
-                        likeCount: original._count.likes,
-                        isLiked: likedPostIds.has(original.id),
-                        commentsCount: original._count.comments,
-                    }
-                    : {
-                        id: null,
-                        available: false,
-                        content: null,
-                        author: null,
-                        media: [],
-                        likeCount: null,
-                        isLiked: false,
-                        commentsCount: null,
-                    },
-            };
-        });
-
-        // Ghép hai loại item và dùng ID làm tiêu chí phụ khi trùng thời gian.
-        const allItems = [...postItems, ...repostItems].sort(
+        ].sort(
+            // Ghép hai loại item và dùng ID làm tiêu chí phụ khi trùng thời gian.
             (a, b) =>
                 new Date(b.createdAt).getTime() -
                 new Date(a.createdAt).getTime() ||
                 b.id.localeCompare(a.id),
         );
 
-        const data = allItems.slice(skip, skip + limit);
-        const total = totalPosts + totalReposts;
-
         return {
-            data,
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
+            data: allItems.slice(skip, skip + limit),
+            meta: pageMeta(page, limit, totalPosts + totalReposts),
         };
     }
-
-    private storagePathFromPublicUrl(url: string): string | null {
-        try {
-            const parsedUrl = new URL(url);
-            const marker = '/storage/v1/object/public/';
-
-            const markerIndex = parsedUrl.pathname.indexOf(marker);
-
-            if (markerIndex === -1) {
-                return null;
-            }
-
-            const objectPath = parsedUrl.pathname.slice(
-                markerIndex + marker.length,
-            );
-
-            const slashIndex = objectPath.indexOf('/');
-
-            if (slashIndex === -1) {
-                return null;
-            }
-
-            // Phần trước dấu / đầu tiên là bucket.
-            // Phần còn lại là storage path.
-            const path = decodeURIComponent(
-                objectPath.slice(slashIndex + 1),
-            );
-
-            return path || null;
-        } catch {
-            return null;
-        }
-    }
-
 
     async update(
         postId: string,
@@ -748,8 +396,6 @@ export class PostsService {
             (media) => !keepMediaIds.includes(media.id),
         );
 
-        let updated = false;
-
         try {
             await this.prisma.$transaction(async (tx) => {
                 // Kiểm tra lại quyền và trạng thái để tránh cập nhật
@@ -799,8 +445,6 @@ export class PostsService {
                     });
                 }
             });
-
-            updated = true;
         } catch (error) {
             await Promise.allSettled(
                 uploadedFiles.map((file) =>
@@ -812,17 +456,10 @@ export class PostsService {
         }
 
         // Database đã cập nhật thành công. Dọn các ảnh cũ không còn
-        // được tham chiếu. Nếu Storage lỗi, không rollback database;
-        // các object lỗi cần được ghi log và dọn lại sau.
-        if (updated) {
-            const paths = removedMedia
-                .map((media) => this.storagePathFromPublicUrl(media.url))
-                .filter((path): path is string => path !== null);
-
-            await Promise.allSettled(
-                paths.map((path) => this.storageService.remove(path)),
-            );
-        }
+        // được tham chiếu. Nếu Storage lỗi, không rollback database.
+        await this.storageService.removeByUrls(
+            removedMedia.map((media) => media.url),
+        );
 
         return {
             data: await this.findOne(postId, userId),
@@ -869,26 +506,15 @@ export class PostsService {
         };
     }
 
-    async repost(postId: string, userId: string) {
+    // Bài viết phải tồn tại và viewer phải được xem thì mới tương tác được.
+    private async requireVisible(postId: string, userId: string) {
         const post = await this.prisma.post.findFirst({
             where: {
                 id: postId,
-                deletedAt: null,
-                OR: [
-                    { privacy: 'PUBLIC' },
-                    { authorId: userId },
-                    {
-                        privacy: 'FRIENDS',
-                        author: {
-                            followers: {
-                                some: { followerId: userId },
-                            },
-                            following: {
-                                some: { followingId: userId },
-                            },
-                        },
-                    },
-                ],
+                ...visiblePostWhere(
+                    userId,
+                    await blockedUserIds(this.prisma, userId),
+                ),
             },
             select: {
                 id: true,
@@ -900,31 +526,37 @@ export class PostsService {
             throw new NotFoundException('Post not found');
         }
 
+        return post;
+    }
+
+    async repost(postId: string, userId: string) {
+        const post = await this.requireVisible(postId, userId);
+
         if (post.authorId === userId) {
             throw new ConflictException(
                 'You cannot repost your own post',
             );
         }
 
-        // Dùng upsert để tránh tạo repost trùng khi
-        // người dùng gửi yêu cầu nhiều lần.
-        const repost = await this.prisma.repost.upsert({
-            where: {
-                userId_postId: {
-                    userId,
-                    postId,
-                },
-            },
-            create: {
-                userId,
-                postId,
-            },
-            update: {},
+        const created = await this.prisma.repost.createMany({
+            data: [{ userId, postId }],
+            skipDuplicates: true,
         });
+
+        if (created.count > 0) {
+            await this.notificationsService.notify({
+                type: 'REPOST',
+                actorId: userId,
+                recipientId: post.authorId,
+                postId,
+            });
+        }
 
         return {
             reposted: true,
-            data: repost,
+            data: await this.prisma.repost.findUnique({
+                where: { userId_postId: { userId, postId } },
+            }),
         };
     }
 
@@ -942,4 +574,89 @@ export class PostsService {
         };
     }
 
+    async setSaved(postId: string, userId: string, saved: boolean) {
+        if (saved) {
+            await this.requireVisible(postId, userId);
+            await this.prisma.save.createMany({
+                data: [{ userId, postId }],
+                skipDuplicates: true,
+            });
+        } else {
+            await this.prisma.save.deleteMany({ where: { userId, postId } });
+        }
+
+        return { data: { isSaved: saved } };
+    }
+
+    async setHidden(postId: string, userId: string, hidden: boolean) {
+        if (hidden) {
+            await this.requireVisible(postId, userId);
+            await this.prisma.hiddenPost.createMany({
+                data: [{ userId, postId }],
+                skipDuplicates: true,
+            });
+        } else {
+            await this.prisma.hiddenPost.deleteMany({
+                where: { userId, postId },
+            });
+        }
+
+        return { data: { isHidden: hidden } };
+    }
+
+    async findSaved(userId: string, query: FeedQueryDto) {
+        const { page, limit } = query;
+        const where = {
+            userId,
+            post: visiblePostWhere(
+                userId,
+                await blockedUserIds(this.prisma, userId),
+            ),
+        };
+
+        const [saves, total] = await Promise.all([
+            this.prisma.save.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: { post: { select: postSelect(userId) } },
+            }),
+            this.prisma.save.count({ where }),
+        ]);
+
+        return {
+            data: saves.map((save) => toPostDto(save.post)),
+            meta: pageMeta(page, limit, total),
+        };
+    }
+
+    // Tìm theo nội dung; hashtag cũng đi qua đây (q = "#tag").
+    // shortcut: ILIKE quét toàn bảng, thêm chỉ mục pg_trgm khi số bài vượt vài chục nghìn.
+    async search(userId: string, q: string, query: FeedQueryDto) {
+        const { page, limit } = query;
+        const where = {
+            ...visiblePostWhere(
+                userId,
+                await blockedUserIds(this.prisma, userId),
+            ),
+            content: { contains: q.trim(), mode: 'insensitive' as const },
+        };
+
+        const [posts, total] = await Promise.all([
+            this.prisma.post.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: postSelect(userId),
+            }),
+            this.prisma.post.count({ where }),
+        ]);
+
+        return {
+            data: posts.map(toPostDto),
+            meta: pageMeta(page, limit, total),
+        };
+    }
 }

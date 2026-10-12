@@ -16,6 +16,8 @@ import { NotificationSkeleton } from '../components/NotificationSkeleton';
 import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import { notificationService } from '../services/notificationService';
 import { notificationSocket } from '../services/notificationSocket';
+import { unreadStore } from '../unreadStore';
+import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AppNotification } from '../types';
 
@@ -23,6 +25,7 @@ type FilterTab = 'all' | 'unread';
 
 export function NotificationsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useAppNavigation();
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +69,14 @@ export function NotificationsScreen() {
   // ── Mark single item as read (Optimistic) ─────────────────────────────
   const handlePressItem = useCallback(
     async (item: AppNotification) => {
+      // Open what the notification is about: the follower's profile, or the post
+      // (scrolled to the comment when there is one).
+      if (item.type === 'FOLLOW') {
+        navigation.openProfile(item.actor.id);
+      } else if (item.postId) {
+        navigation.open('PostDetail', { commentId: item.commentId, postId: item.postId });
+      }
+
       if (item.isRead) {
         return;
       }
@@ -85,7 +96,7 @@ export function NotificationsScreen() {
         );
       }
     },
-    [],
+    [navigation],
   );
 
   // ── Mark all as read (Optimistic) ─────────────────────────────────────
@@ -169,6 +180,13 @@ export function NotificationsScreen() {
   }, [activeTab, notifications]);
 
   const hasUnread = unreadCount > 0;
+
+  // The tab bar badge shows the same number as this screen.
+  useEffect(() => {
+    if (!isLoading) {
+      unreadStore.set(unreadCount);
+    }
+  }, [isLoading, unreadCount]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

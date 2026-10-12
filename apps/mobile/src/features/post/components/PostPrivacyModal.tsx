@@ -189,13 +189,9 @@ export function PrivacyPill({
         {meta.label}
       </ClayText>
       {Boolean(onPress) && (
-        <ClayIcon
-          color={clayColors.caption}
-          name="CaretLeft"
-          size={11}
-          style={styles.pillCaret}
-          weight="bold"
-        />
+        <View style={styles.pillCaret}>
+          <ClayIcon color={clayColors.caption} name="CaretLeft" size={11} weight="bold" />
+        </View>
       )}
     </Pressable>
   );

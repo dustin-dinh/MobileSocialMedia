@@ -95,6 +95,33 @@ export function validateForgotPassword(
   return errors;
 }
 
+export type NewPasswordFormValues = {
+  confirmPassword: string;
+  password: string;
+};
+
+export function validateNewPassword(
+  values: NewPasswordFormValues,
+): FieldErrors<keyof NewPasswordFormValues> {
+  const errors: FieldErrors<keyof NewPasswordFormValues> = {};
+
+  if (!values.password) {
+    errors.password = 'Enter a password.';
+  } else if (values.password.length < MIN_PASSWORD_LENGTH) {
+    errors.password = 'Password must be at least ' + MIN_PASSWORD_LENGTH + ' characters.';
+  } else if (values.password.length > MAX_PASSWORD_LENGTH) {
+    errors.password = 'Password must be at most ' + MAX_PASSWORD_LENGTH + ' characters.';
+  }
+
+  if (!values.confirmPassword) {
+    errors.confirmPassword = 'Confirm your password.';
+  } else if (values.confirmPassword !== values.password) {
+    errors.confirmPassword = 'Passwords do not match.';
+  }
+
+  return errors;
+}
+
 export function validateVerificationCode(code: string): string | undefined {
   const trimmed = code.trim();
   if (!trimmed) {

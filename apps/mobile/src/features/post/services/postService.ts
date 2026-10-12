@@ -10,7 +10,7 @@ import { File } from 'expo-file-system';
 import { USE_MOCK_API } from '../../../config/runtime';
 import { httpClient } from '../../../services/httpClient';
 import type { AuthUser } from '../../auth/services/authService';
-import { mapApiPost, type ApiPost } from '../../feed/services/postMapper';
+import { mapApiPost, toApiPrivacy, type ApiPost } from '../../feed/services/postMapper';
 import type { Post, PostMedia, PostPrivacy } from '../../feed/types';
 
 const USE_MOCK_CREATE = USE_MOCK_API;
@@ -134,7 +134,7 @@ export const postService = {
     }
 
     if (payload.privacy) {
-      form.append('privacy', payload.privacy);
+      form.append('privacy', toApiPrivacy(payload.privacy));
     }
 
     payload.mediaUris.forEach((uri, index) => {
@@ -186,8 +186,14 @@ export const postService = {
       };
     }
 
-    const response = await httpClient.requestJson<{ data: ApiPost }, UpdatePostPayload>({
-      body: payload,
+    const response = await httpClient.requestJson<
+      { data: ApiPost },
+      { content?: string; privacy?: string }
+    >({
+      body: {
+        ...payload,
+        privacy: payload.privacy ? toApiPrivacy(payload.privacy) : undefined,
+      },
       method: 'PATCH',
       path: `posts/${postId}`,
     });

@@ -1,7 +1,7 @@
 /**
  * Data models for the Profile feature.
  */
-import type { Post } from '../feed/types';
+import type { Post, PostAuthor } from '../feed/types';
 
 /** Full user profile as returned by the profile endpoint. */
 export type UserProfile = {
@@ -10,7 +10,11 @@ export type UserProfile = {
   displayName: string | null;
   followersCount: number;
   followingCount: number;
+  /** True when the profile's owner follows the viewer. */
+  followsYou?: boolean;
   id: string;
+  /** True when the viewer has blocked this user. */
+  isBlocked?: boolean;
   /** True when viewing another user's profile and you follow them. */
   isFollowing: boolean;
   postsCount: number;
@@ -19,9 +23,22 @@ export type UserProfile = {
 
 /** Payload for updating the current user's profile. */
 export type UpdateProfilePayload = {
+  /** A newly picked picture to upload; `null` removes the current one. */
+  avatar?: { fileName?: string | null; mimeType?: string | null; uri: string } | null;
   avatarUrl?: string;
   bio?: string;
   displayName?: string;
+  username?: string;
+};
+
+/** One entry of "people you may know". */
+export type SuggestedUser = PostAuthor & {
+  isFollowing: boolean;
+  /** How many people the viewer follows also follow this user. */
+  mutualCount: number;
+  /** Up to two of their names, for "Followed by A and B". */
+  mutualPreview: string[];
+  reason: 'FOLLOWS_YOU' | 'MUTUAL' | 'POPULAR';
 };
 
 /** Response shape for a user's posts list. */

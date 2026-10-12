@@ -22,11 +22,14 @@ const AVATAR_SIZE = 44;
 
 function TypeBadge({ type }: { type: NotificationType }) {
   let badgeBg: string = notificationsColors.likeBadge;
-  let iconName: 'Heart' | 'ChatCircle' | 'User' = 'Heart';
+  let iconName: 'Heart' | 'ChatCircle' | 'User' | 'Repeat' = 'Heart';
 
-  if (type === 'COMMENT') {
+  if (type === 'COMMENT' || type === 'REPLY' || type === 'MENTION') {
     badgeBg = notificationsColors.commentBadge;
     iconName = 'ChatCircle';
+  } else if (type === 'REPOST') {
+    badgeBg = notificationsColors.followBadge;
+    iconName = 'Repeat';
   } else if (type === 'FOLLOW') {
     badgeBg = notificationsColors.followBadge;
     iconName = 'User';
@@ -154,16 +157,22 @@ export const NotificationItem = memo(function NotificationItem({
             {actorName}{' '}
           </ClayText>
           {notification.type === 'LIKE' && 'đã thích bài viết của bạn.'}
-          {notification.type === 'COMMENT' && (
-            <>
-              đã bình luận: &quot;
-              <ClayText variant="caption" style={styles.commentSnippet}>
-                {notification.commentText}
-              </ClayText>
-              &quot;
-            </>
-          )}
+          {notification.type === 'COMMENT' &&
+            (notification.commentText ? (
+              <>
+                đã bình luận: &quot;
+                <ClayText variant="caption" style={styles.commentSnippet}>
+                  {notification.commentText}
+                </ClayText>
+                &quot;
+              </>
+            ) : (
+              'đã bình luận về bài viết của bạn.'
+            ))}
           {notification.type === 'FOLLOW' && 'đã bắt đầu theo dõi bạn.'}
+          {notification.type === 'REPLY' && 'đã trả lời bình luận của bạn.'}
+          {notification.type === 'REPOST' && 'đã đăng lại bài viết của bạn.'}
+          {notification.type === 'MENTION' && 'đã nhắc đến bạn.'}
         </ClayText>
 
         <ClayText variant="meta" style={styles.timeAgo}>

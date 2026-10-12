@@ -119,6 +119,18 @@ function getResponseMessage(payload: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
+/** The API reports codes either at the top level or under `error`. */
+function getResponseCode(payload: unknown): string | undefined {
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+
+  const nested = isRecord(payload.error) ? payload.error.code : undefined;
+  const code = payload.code ?? nested;
+
+  return typeof code === 'string' ? code : undefined;
+}
+
 async function request<TBody = undefined>(
   options: JsonRequestOptions<TBody> & { form?: FormData },
 ): Promise<unknown | undefined> {
@@ -214,8 +226,12 @@ async function request<TBody = undefined>(
         : 'The server could not complete this request.';
 
     throw new ApiError({
+      code: getResponseCode(payload),
       kind: response.status === 401 ? 'unauthorized' : 'server',
-      message: getResponseMessage(payload, fallbackMessage),
+      message:
+        response.status === 429
+          ? 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.'
+          : getResponseMessage(payload, fallbackMessage),
       status: response.status,
     });
   }

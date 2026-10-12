@@ -93,6 +93,8 @@ corepack pnpm start
 
 4. Restart Expo after changing `.env.local`, then use the BlueStacks/Expo Go LAN workflow below.
 
+   Since 2026-10-12 step 3 is optional for local development: when `EXPO_PUBLIC_API_BASE_URL` is not set, the app calls port 3000 on the computer that serves the JS bundle. Metro logs the address in use as `[api] Backend URL: …`.
+
 Mobile does not use a Supabase SDK or connect to PostgreSQL directly. It calls the local NestJS API, which owns the Prisma/Supabase connection.
 
 ## Run on BlueStacks / Expo Go

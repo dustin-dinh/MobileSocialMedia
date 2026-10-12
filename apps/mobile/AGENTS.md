@@ -31,6 +31,14 @@ Do not modify:
 
 unless explicitly requested.
 
+## Android and iOS
+
+The app ships on both platforms. Follow "Cross-Platform Rule (Android + iOS)" in the root `RULE.md` for every change:
+
+- It must work on Android and on iOS; no platform-only API without an equivalent on the other platform.
+- New permissions, native libraries and `app.json` changes are configured for both platforms in the same change.
+- Reports and `docs/change.md` entries state which platforms the change was actually run on.
+
 ## Mobile Architecture
 
 Use feature-based organization.

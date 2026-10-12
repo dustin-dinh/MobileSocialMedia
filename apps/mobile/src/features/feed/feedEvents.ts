@@ -12,13 +12,18 @@
  *   const unsub = feedEvents.on('postCreated', (post) => { … });
  *   return unsub;
  */
-import type { Post } from './types';
+import type { Post, PostAuthor } from './types';
 
 type FeedEventMap = {
+  /** Fired whenever a post's comment total changes (added or deleted). */
   commentAdded: { commentsCount: number; postId: string };
+  followChanged: { isFollowing: boolean; userId: string };
   postCreated: Post;
   postDeleted: { postId: string };
+  /** The viewer hid the post, or blocked its author (`authorId`). */
+  postHidden: { authorId?: string; postId?: string };
   postUpdated: Post;
+  profileUpdated: PostAuthor;
 };
 
 type Listener<T> = (payload: T) => void;
@@ -65,7 +70,12 @@ export const feedEvents = {
   emitCommentAdded: (postId: string, commentsCount: number) =>
     emit('commentAdded', { commentsCount, postId }),
   emitPostCreated: (post: Post) => emit('postCreated', post),
+  emitFollowChanged: (userId: string, isFollowing: boolean) =>
+    emit('followChanged', { isFollowing, userId }),
   emitPostDeleted: (postId: string) => emit('postDeleted', { postId }),
+  emitPostHidden: (payload: { authorId?: string; postId?: string }) =>
+    emit('postHidden', payload),
+  emitProfileUpdated: (author: PostAuthor) => emit('profileUpdated', author),
   emitPostUpdated: (post: Post) => emit('postUpdated', post),
   on,
 } as const;

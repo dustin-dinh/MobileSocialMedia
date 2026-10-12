@@ -6,6 +6,8 @@ import { clayColors } from '../theme/colors';
 import { clayDimensions } from '../theme/spacing';
 import { ClaySurface } from '../components/ui/ClaySurface';
 import { ClayIcon, PhosphorIconName } from '../components/icons/ClayIcon';
+import { ClayText } from '../components/ui/ClayText';
+import { useUnreadNotifications } from '../features/notifications/unreadStore';
 
 const TAB_ICONS: Record<string, { icon: PhosphorIconName; label: string }> = {
   Home: { icon: 'House', label: 'Home' },
@@ -18,6 +20,7 @@ const TAB_ICONS: Record<string, { icon: PhosphorIconName; label: string }> = {
 export function ClayTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 12);
+  const unreadCount = useUnreadNotifications();
 
   return (
     <View
@@ -97,6 +100,13 @@ export function ClayTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 color={isFocused ? clayColors.tabBarIconActive : clayColors.tabBarIcon}
               />
               {isFocused && <View style={styles.activeDot} />}
+              {route.name === 'Notifications' && unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <ClayText variant="meta" style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </ClayText>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
@@ -136,6 +146,24 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: clayColors.tabBarActiveDot,
     marginTop: 3,
+  },
+  badge: {
+    alignItems: 'center',
+    backgroundColor: clayColors.error,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    left: '50%',
+    marginLeft: 4,
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    top: 2,
+  },
+  badgeText: {
+    color: clayColors.onPrimary,
+    fontSize: 10,
+    lineHeight: 14,
   },
   createBtnWrapper: {
     alignItems: 'center',

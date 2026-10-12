@@ -18,7 +18,14 @@ import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { Post, PostMedia } from '../types';
+import { FeedVideo } from './FeedVideo';
+import { RichText } from '../../../components/common/RichText';
+import { showToast } from '../../../components/common/toast';
+import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { useAuthSession } from '../../auth/authSession';
+import { ReportModal } from '../../report/ReportModal';
+import type { ReportTarget } from '../../report/reportService';
+import { feedService } from '../services/feedService';
 import { PostOptionsModal } from '../../post/components/PostOptionsModal';
 import { SharePostModal } from '../../post/components/SharePostModal';
 import { EditPostModal } from '../../post/components/EditPostModal';
@@ -105,7 +112,11 @@ function SingleImage({ media }: { media: PostMedia }) {
 
 function MediaGrid({ items }: { items: PostMedia[] }) {
   if (items.length === 1) {
-    return <SingleImage media={items[0]} />;
+    return items[0].type === 'VIDEO' ? (
+      <FeedVideo media={items[0]} />
+    ) : (
+      <SingleImage media={items[0]} />
+    );
   }
 
   return (
@@ -135,6 +146,8 @@ function MediaGrid({ items }: { items: PostMedia[] }) {
 // ---------------------------------------------------------------------------
 
 export type PostCardProps = {
+  /** The card is the subject of the Post detail screen: tapping it must not reopen it. */
+  isDetail?: boolean;
   onPressComment?: (post: Post) => void;
   onToggleLike?: (post: Post) => void;
   onToggleSave?: (post: Post) => void;
@@ -142,6 +155,7 @@ export type PostCardProps = {
 };
 
 export const PostCard = memo(function PostCard({
+  isDetail = false,
   onPressComment,
   onToggleLike,
   onToggleSave,
@@ -156,8 +170,33 @@ export const PostCard = memo(function PostCard({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const navigation = useAppNavigation();
 
   const isAuthor = Boolean(user && user.id === post.author.id);
+
+  const handleToggleRepost = useCallback(async () => {
+    try {
+      const updated = await feedService.toggleRepost(post);
+
+      feedEvents.emitPostUpdated(updated);
+      showToast(
+        updated.isReposted ? 'Đã đăng lại lên bảng tin của bạn.' : 'Đã huỷ đăng lại.',
+      );
+    } catch {
+      showToast('Không đăng lại được. Vui lòng thử lại.', 'error');
+    }
+  }, [post]);
+
+  const handleHide = useCallback(async () => {
+    try {
+      await feedService.hidePost(post.id);
+      feedEvents.emitPostHidden({ postId: post.id });
+      showToast('Đã ẩn bài viết khỏi bảng tin.');
+    } catch {
+      showToast('Không ẩn được bài viết. Vui lòng thử lại.', 'error');
+    }
+  }, [post.id]);
 
   const handleLike = useCallback(() => {
     Animated.sequence([
@@ -189,10 +228,49 @@ export const PostCard = memo(function PostCard({
         ? 'LockKey'
         : 'GlobeSimple';
 
+  const repostBanner = post.repost ? (
+    <Pressable
+      accessibilityLabel={`Xem trang cá nhân của ${post.repost.by.displayName ?? post.repost.by.username}`}
+      accessibilityRole="button"
+      onPress={() => navigation.openProfile(post.repost!.by.id)}
+      style={styles.repostBanner}
+    >
+      <ClayIcon name="Repeat" size={14} weight="bold" color={clayColors.caption} />
+      <ClayText variant="meta" style={styles.repostBannerText} numberOfLines={1}>
+        {post.repost.by.id === user?.id
+          ? 'Bạn'
+          : (post.repost.by.displayName ?? post.repost.by.username)}{' '}
+        đã đăng lại · {formatTimeAgo(post.repost.createdAt)}
+      </ClayText>
+    </Pressable>
+  ) : null;
+
+  // The original of this repost was deleted or is no longer visible.
+  if (post.unavailable) {
+    return (
+      <ClaySurface variant="raisedLite" style={styles.card}>
+        {repostBanner}
+        <View style={styles.unavailable}>
+          <ClayIcon name="EyeSlash" size={20} weight="duotone" color={clayColors.caption} />
+          <ClayText variant="caption" style={styles.unavailableText}>
+            Bài viết này không còn khả dụng.
+          </ClayText>
+        </View>
+      </ClaySurface>
+    );
+  }
+
   return (
     <ClaySurface variant="raisedLite" style={styles.card}>
+      {repostBanner}
       {/* ── Header ─────────────────────────────────────────── */}
       <View style={styles.header}>
+        <Pressable
+          accessibilityLabel={`Xem trang cá nhân của ${displayName}`}
+          accessibilityRole="button"
+          onPress={() => navigation.openProfile(post.author.id)}
+          style={styles.authorButton}
+        >
         <Avatar author={post.author} />
         <View style={styles.headerText}>
           <ClayText variant="heading" style={styles.displayName} numberOfLines={1}>
@@ -223,6 +301,7 @@ export const PostCard = memo(function PostCard({
             )}
           </View>
         </View>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="More options"
@@ -236,9 +315,15 @@ export const PostCard = memo(function PostCard({
 
       {/* ── Content ────────────────────────────────────────── */}
       {post.content.trim().length > 0 && (
-        <ClayText variant="body" style={styles.content}>
-          {post.content}
-        </ClayText>
+        <RichText
+          onPressHashtag={navigation.openHashtag}
+          onPressMention={navigation.openMention}
+          onPressText={
+            isDetail ? undefined : () => navigation.open('PostDetail', { postId: post.id })
+          }
+          style={styles.content}
+          text={post.content}
+        />
       )}
 
       {/* ── Media ──────────────────────────────────── */}
@@ -298,7 +383,20 @@ export const PostCard = memo(function PostCard({
             style={styles.actionButton}
             hitSlop={8}
           >
-            <ClayIcon name="ShareNetwork" size={22} weight="duotone" color={clayColors.caption} />
+            <ClayIcon
+              name={post.isReposted ? 'Repeat' : 'ShareNetwork'}
+              size={22}
+              weight={post.isReposted ? 'bold' : 'duotone'}
+              color={post.isReposted ? clayColors.primary : clayColors.caption}
+            />
+            {(post.repostsCount ?? 0) > 0 && (
+              <ClayText
+                variant="caption"
+                style={[styles.actionCount, post.isReposted && styles.actionCountReposted]}
+              >
+                {formatCount(post.repostsCount ?? 0)}
+              </ClayText>
+            )}
           </Pressable>
         </View>
 
@@ -326,6 +424,8 @@ export const PostCard = memo(function PostCard({
         onClose={() => setIsOptionsModalOpen(false)}
         onDelete={() => setIsDeleteModalOpen(true)}
         onEdit={() => setIsEditModalOpen(true)}
+        onHide={handleHide}
+        onReport={() => setReportTarget({ id: post.id, type: 'POST' })}
         onSave={handleSave}
         onShare={() => setIsShareModalOpen(true)}
         post={post}
@@ -333,9 +433,17 @@ export const PostCard = memo(function PostCard({
       />
 
       <SharePostModal
+        canRepost={!isAuthor && post.privacy !== 'ONLY_ME'}
         onClose={() => setIsShareModalOpen(false)}
+        onToggleRepost={handleToggleRepost}
         post={post}
         visible={isShareModalOpen}
+      />
+
+      <ReportModal
+        onClose={() => setReportTarget(null)}
+        onReported={() => feedEvents.emitPostHidden({ postId: post.id })}
+        target={reportTarget}
       />
 
       <EditPostModal
@@ -387,6 +495,35 @@ const styles = StyleSheet.create({
   },
   actionCountLiked: {
     color: clayColors.liked,
+  },
+  actionCountReposted: {
+    color: clayColors.primary,
+  },
+  authorButton: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+  },
+  repostBanner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 32,
+    paddingHorizontal: feedSpacing.cardPadding,
+    paddingTop: 10,
+  },
+  repostBannerText: {
+    color: clayColors.caption,
+    flexShrink: 1,
+  },
+  unavailable: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    padding: feedSpacing.cardPadding,
+  },
+  unavailableText: {
+    color: clayColors.caption,
   },
   actions: {
     alignItems: 'center',

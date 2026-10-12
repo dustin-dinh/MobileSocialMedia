@@ -6,6 +6,7 @@ import {
 
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { authorSelect, blockedUserIds, pageMeta } from '../posts/post-view';
 
 @Injectable()
 export class FollowsService {
@@ -19,10 +20,13 @@ export class FollowsService {
             throw new BadRequestException('Cannot follow yourself');
         }
 
-        const targetUser = await this.prisma.user.findUnique({
-            where: { id: targetUserId },
-            select: { id: true },
-        });
+        const blocked = await blockedUserIds(this.prisma, currentUserId);
+        const targetUser = blocked.includes(targetUserId)
+            ? null
+            : await this.prisma.user.findUnique({
+                where: { id: targetUserId },
+                select: { id: true },
+            });
 
         if (!targetUser) {
             throw new NotFoundException('User not found');
@@ -37,10 +41,11 @@ export class FollowsService {
         });
 
         if (created.count > 0) {
-            await this.notificationsService.createFollowNotification(
-                currentUserId,
-                targetUserId,
-            );
+            await this.notificationsService.notify({
+                type: 'FOLLOW',
+                actorId: currentUserId,
+                recipientId: targetUserId,
+            });
         }
 
         return { data: { following: true } };
@@ -57,59 +62,58 @@ export class FollowsService {
         return { data: { following: false } };
     }
 
-    async getFollowers(userId: string, page: number, limit: number) {
-        const skip = (page - 1) * limit;
-        const [followers, total] = await Promise.all([
+    // side = cột chứa người cần liệt kê; cột còn lại là userId đang xem danh sách.
+    private async list(
+        viewerId: string,
+        userId: string,
+        side: 'follower' | 'following',
+        page: number,
+        limit: number,
+    ) {
+        const blocked = await blockedUserIds(this.prisma, viewerId);
+        const where =
+            side === 'follower'
+                ? { followingId: userId, followerId: { notIn: blocked } }
+                : { followerId: userId, followingId: { notIn: blocked } };
+
+        const [rows, total] = await Promise.all([
             this.prisma.follow.findMany({
-                where: { followingId: userId },
-                orderBy: { followerId: 'asc' },
-                skip,
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
                 take: limit,
-                select: {
-                    follower: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                },
+                select: { [side]: { select: authorSelect } },
             }),
-            this.prisma.follow.count({ where: { followingId: userId } }),
+            this.prisma.follow.count({ where }),
         ]);
 
+        const users = rows.map(
+            (row) =>
+                (row as unknown as Record<string, { id: string }>)[side],
+        );
+        const followed = await this.prisma.follow.findMany({
+            where: {
+                followerId: viewerId,
+                followingId: { in: users.map((user) => user.id) },
+            },
+            select: { followingId: true },
+        });
+        const followedIds = new Set(followed.map((row) => row.followingId));
+
         return {
-            data: followers.map((item) => item.follower),
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+            data: users.map((user) => ({
+                ...user,
+                isFollowing: followedIds.has(user.id),
+            })),
+            meta: pageMeta(page, limit, total),
         };
     }
 
-    async getFollowing(userId: string, page: number, limit: number) {
-        const skip = (page - 1) * limit;
-        const [following, total] = await Promise.all([
-            this.prisma.follow.findMany({
-                where: { followerId: userId },
-                orderBy: { followingId: 'asc' },
-                skip,
-                take: limit,
-                select: {
-                    following: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                        },
-                    },
-                },
-            }),
-            this.prisma.follow.count({ where: { followerId: userId } }),
-        ]);
+    getFollowers(viewerId: string, userId: string, page: number, limit: number) {
+        return this.list(viewerId, userId, 'follower', page, limit);
+    }
 
-        return {
-            data: following.map((item) => item.following),
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        };
+    getFollowing(viewerId: string, userId: string, page: number, limit: number) {
+        return this.list(viewerId, userId, 'following', page, limit);
     }
 }

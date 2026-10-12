@@ -3,6 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { maskEmail, VerifyCodeScreen } from '../src/features/auth/screens/VerifyCodeScreen';
+import { authService } from '../src/features/auth/services/authService';
 import { passwordResetService } from '../src/features/auth/services/passwordResetService';
 import { ApiError } from '../src/services/apiError';
 
@@ -137,7 +138,7 @@ describe('VerifyCodeScreen (Phase 3)', () => {
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('navigates back to Login with success message when code is correct', async () => {
+    it('moves on to the New password step when the code is well-formed', async () => {
       const verifySpy = jest.spyOn(passwordResetService, 'verifyResetCode').mockResolvedValueOnce({
         message: 'Verification code confirmed successfully.',
         success: true,
@@ -162,10 +163,59 @@ describe('VerifyCodeScreen (Phase 3)', () => {
 
       await waitFor(() => {
         expect(verifySpy).toHaveBeenCalledWith('nhatluan@example.com', '123456');
+        expect(mockNavigate).toHaveBeenCalledWith('NewPassword', {
+          code: '123456',
+          email: 'nhatluan@example.com',
+        });
+      });
+    });
+
+    it('in verifyEmail mode confirms the code with the API and returns to Login', async () => {
+      const verifyEmailSpy = jest.spyOn(authService, 'verifyEmail').mockResolvedValueOnce();
+      const resetSpy = jest.spyOn(passwordResetService, 'verifyResetCode');
+      const emailRoute = {
+        params: { email: 'nhatluan@example.com', mode: 'verifyEmail' },
+      } as any;
+
+      const { getByLabelText, getByText } = await render(
+        <TestWrapper>
+          <VerifyCodeScreen navigation={mockNavigation} route={emailRoute} />
+        </TestWrapper>,
+      );
+
+      expect(getByText('Verify your email')).toBeTruthy();
+
+      await act(async () => {
+        fireEvent.changeText(getByLabelText('Verification code input'), '654321');
+      });
+      await act(async () => {
+        fireEvent.press(getByLabelText('Verify code'));
+      });
+
+      await waitFor(() => {
+        expect(verifyEmailSpy).toHaveBeenCalledWith('nhatluan@example.com', '654321');
+        expect(resetSpy).not.toHaveBeenCalled();
         expect(mockNavigate).toHaveBeenCalledWith('Login', {
           email: 'nhatluan@example.com',
-          message: 'Password reset verified. Please sign in.',
+          message: 'Email verified. Sign in to continue.',
         });
+      });
+    });
+
+    it('in verifyEmail mode with resend=true requests a fresh code on open', async () => {
+      const resendSpy = jest.spyOn(authService, 'resendVerification').mockResolvedValueOnce();
+
+      await render(
+        <TestWrapper>
+          <VerifyCodeScreen
+            navigation={mockNavigation}
+            route={{ params: { email: 'a@b.co', mode: 'verifyEmail', resend: true } } as any}
+          />
+        </TestWrapper>,
+      );
+
+      await waitFor(() => {
+        expect(resendSpy).toHaveBeenCalledWith('a@b.co');
       });
     });
 

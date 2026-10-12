@@ -6,11 +6,20 @@
  * the set of ids the signed-in user follows is fetched once and kept in
  * memory, and follower/following totals come from the list endpoints' `meta`.
  */
+import { feedEvents } from '../features/feed/feedEvents';
 import { httpClient } from './httpClient';
 
 type UserListResponse = {
   data: Array<{ id: string }>;
   meta: { page: number; total: number; totalPages: number };
+};
+
+export type ListedUser = {
+  avatarUrl: string | null;
+  displayName: string | null;
+  id: string;
+  isFollowing: boolean;
+  username: string;
 };
 
 const FOLLOWING_PAGE_SIZE = 50;
@@ -51,9 +60,54 @@ export const followApi = {
     followingIds = null;
   },
 
+  /** Resolves an `@username` mention to a user id; null when nobody has that username. */
+  async findUserIdByUsername(username: string): Promise<string | null> {
+    const response = await httpClient.requestJson<{
+      data: Array<{ id: string; username: string }>;
+    }>({
+      method: 'GET',
+      path: `users/search?q=${encodeURIComponent(username)}&page=1&limit=20`,
+    });
+    const match = response.data.find(
+      (user) => user.username.toLowerCase() === username.toLowerCase(),
+    );
+
+    return match?.id ?? null;
+  },
+
   async follow(userId: string): Promise<void> {
     await httpClient.requestVoid({ method: 'POST', path: `users/${userId}/follow` });
     followingIds?.add(userId);
+    // Every screen showing this user updates its follow button.
+    feedEvents.emitFollowChanged(userId, true);
+  },
+
+  /**
+   * One page of a user-list endpoint (`users/:id/followers`, `posts/:id/likes`...).
+   * Endpoints that do not report `isFollowing` get it from the cached follow set.
+   */
+  async listUsers(
+    path: string,
+    page: number,
+    limit = 20,
+  ): Promise<{ hasMore: boolean; users: ListedUser[] }> {
+    const response = await httpClient.requestJson<{
+      data: Array<Omit<ListedUser, 'isFollowing'> & { isFollowing?: boolean }>;
+      meta: { page: number; totalPages: number };
+    }>({
+      method: 'GET',
+      path: `${path}?page=${page}&limit=${limit}`,
+    });
+    const needsLookup = response.data.some((user) => user.isFollowing === undefined);
+    const following = needsLookup ? await this.getMyFollowingIds() : null;
+
+    return {
+      hasMore: response.meta.page < response.meta.totalPages,
+      users: response.data.map((user) => ({
+        ...user,
+        isFollowing: user.isFollowing ?? following?.has(user.id) ?? false,
+      })),
+    };
   },
 
   getFollowersCount(userId: string): Promise<number> {
@@ -94,5 +148,6 @@ export const followApi = {
   async unfollow(userId: string): Promise<void> {
     await httpClient.requestVoid({ method: 'DELETE', path: `users/${userId}/follow` });
     followingIds?.delete(userId);
+    feedEvents.emitFollowChanged(userId, false);
   },
 } as const;

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, type TextInput } from 'react-native';
 import { isGoogleSignInAvailable } from '../../../config/google';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
+import { ApiError } from '../../../services/apiError';
 import { useAuthSession } from '../authSession';
 import { authColors } from '../authTheme';
 import { AuthDivider } from '../components/AuthDivider';
@@ -57,7 +58,22 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
       return;
     }
 
-    void submit(() => signIn(values));
+    void submit(async () => {
+      try {
+        await signIn(values);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
+          navigation.navigate('VerifyCode', {
+            email: values.email.trim().toLowerCase(),
+            mode: 'verifyEmail',
+            resend: true,
+          });
+          return;
+        }
+
+        throw error;
+      }
+    });
   };
 
   const handleGoogleSignIn = () => {

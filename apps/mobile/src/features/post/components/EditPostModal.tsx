@@ -183,7 +183,7 @@ export function EditPostModal({
                   ) : (
                     <ClayText
                       variant="body"
-                      weight="Nunito_700Bold"
+                      weight="bold"
                       style={[
                         styles.saveBtnText,
                         !canSave && styles.saveBtnTextDisabled,
@@ -218,7 +218,7 @@ export function EditPostModal({
                   </View>
 
                   <View style={styles.authorMeta}>
-                    <ClayText variant="body" weight="Nunito_700Bold" style={styles.authorName}>
+                    <ClayText variant="body" weight="bold" style={styles.authorName}>
                       {post.author.displayName ?? post.author.username}
                     </ClayText>
                     <View style={styles.privacyWrap}>
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   input: {
     color: clayColors.text,
-    fontFamily: fontFamilies.Nunito_400Regular,
+    fontFamily: fontFamilies.regular,
     fontSize: 16,
     lineHeight: 22,
     minHeight: 120,

@@ -28,7 +28,9 @@ import { MailModule } from "../mail/mail.module";
           ),
 
         signOptions: {
-          expiresIn: "1d",
+          // shortcut: chưa có refresh token nên token sống 30 ngày để người dùng
+          // không bị đăng xuất mỗi ngày; làm refresh token xoay vòng khi cần thu hồi phiên.
+          expiresIn: "30d",
         },
       }),
     }),

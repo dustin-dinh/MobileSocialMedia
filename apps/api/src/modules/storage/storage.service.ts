@@ -58,6 +58,39 @@ export class StorageService {
         return data.publicUrl;
     }
 
+    // URL công khai có dạng .../storage/v1/object/public/<bucket>/<path>.
+    pathFromPublicUrl(url: string): string | null {
+        try {
+            const marker = '/storage/v1/object/public/';
+            const pathname = new URL(url).pathname;
+            const markerIndex = pathname.indexOf(marker);
+
+            if (markerIndex === -1) {
+                return null;
+            }
+
+            const objectPath = pathname.slice(markerIndex + marker.length);
+            const slashIndex = objectPath.indexOf('/');
+
+            if (slashIndex === -1) {
+                return null;
+            }
+
+            return decodeURIComponent(objectPath.slice(slashIndex + 1)) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    // Xóa theo URL; bỏ qua URL không thuộc bucket (ví dụ ảnh Google) và lỗi storage.
+    async removeByUrls(urls: (string | null | undefined)[]): Promise<void> {
+        const paths = urls
+            .map((url) => (url ? this.pathFromPublicUrl(url) : null))
+            .filter((path): path is string => path !== null);
+
+        await Promise.allSettled(paths.map((path) => this.remove(path)));
+    }
+
     async remove(storagePath: string): Promise<void> {
         const { error } =
             await this.supabase.storage

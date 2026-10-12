@@ -16,6 +16,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList } from '../../../navigation/types';
 import { useAuthSession } from '../../auth/authSession';
 import { feedEvents } from '../../feed/feedEvents';
+import { useVideoPicker } from '../../reel/hooks/useVideoPicker';
+import { REEL_UPLOAD_AVAILABLE, reelService } from '../../reel/services/reelService';
 import { useImagePicker } from '../hooks/useImagePicker';
 import { postService } from '../services/postService';
 import { ApiError } from '../../../services/apiError';
@@ -125,10 +127,13 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     clearImages,
     remainingSlots,
   } = useImagePicker();
+  const { clearVideo, error: videoError, isPicking: isPickingVideo, pickVideo, video } =
+    useVideoPicker();
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // ── Derived state ───────────────────────────────────────────────────
   const charCount = content.length;
-  const hasContent = content.trim().length > 0 || images.length > 0;
+  const hasContent = content.trim().length > 0 || images.length > 0 || video !== null;
   const canSubmit = hasContent && !isSubmitting && charCount <= MAX_CONTENT_LENGTH;
 
   const charCountColor =
@@ -152,6 +157,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             onPress: () => {
               setContent('');
               clearImages();
+              clearVideo();
               navigation.navigate('Home');
             },
           },
@@ -160,7 +166,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     } else {
       navigation.navigate('Home');
     }
-  }, [clearImages, hasContent, navigation]);
+  }, [clearImages, clearVideo, hasContent, navigation]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !user) {
@@ -169,16 +175,24 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
     setIsSubmitting(true);
 
+    setUploadProgress(0);
+
     try {
-      const newPost = await postService.createPost(
-        {
-          content: content.trim(),
-          mediaFiles: images,
-          mediaUris: images.map((img) => img.uri),
-          privacy,
-        },
-        user,
-      );
+      const newPost = video
+        ? await reelService.uploadReel(
+            { content: content.trim(), privacy, video },
+            user,
+            setUploadProgress,
+          )
+        : await postService.createPost(
+            {
+              content: content.trim(),
+              mediaFiles: images,
+              mediaUris: images.map((img) => img.uri),
+              privacy,
+            },
+            user,
+          );
 
       // Notify HomeScreen to prepend the new post
       feedEvents.emit('postCreated', newPost);
@@ -186,6 +200,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
       // Reset form
       setContent('');
       clearImages();
+      clearVideo();
 
       // Navigate to Home tab
       navigation.navigate('Home');
@@ -198,7 +213,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [canSubmit, clearImages, content, images, navigation, user]);
+  }, [canSubmit, clearImages, clearVideo, content, images, navigation, privacy, user, video]);
 
   // ── Render ──────────────────────────────────────────────────────────
   const displayName = user?.displayName ?? user?.username ?? 'You';
@@ -290,6 +305,41 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 
         {/* Media preview */}
         <MediaPreview images={images} onRemove={removeImage} />
+
+        {video ? (
+          <ClaySurface variant="inset" style={styles.videoChip}>
+            <ClayIcon name="VideoCamera" size={22} weight="duotone" color={clayColors.primary} />
+            <View style={styles.videoChipText}>
+              <ClayText variant="caption" numberOfLines={1}>
+                {video.fileName ?? 'Video đã chọn'}
+              </ClayText>
+              <ClayText variant="meta">
+                {Math.round(video.durationMs / 1000)} giây
+                {video.sizeBytes ? ` · ${(video.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : ''}
+              </ClayText>
+              {isSubmitting ? (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]} />
+                </View>
+              ) : null}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove video"
+              disabled={isSubmitting}
+              hitSlop={8}
+              onPress={clearVideo}
+              style={styles.toolbarButton}
+            >
+              <ClayIcon name="X" size={18} weight="bold" color={clayColors.caption} />
+            </Pressable>
+          </ClaySurface>
+        ) : null}
+        {videoError ? (
+          <ClayText variant="caption" style={styles.videoError} accessibilityLiveRegion="polite">
+            {videoError}
+          </ClayText>
+        ) : null}
       </ScrollView>
 
       {/* ── Bottom toolbar ────────────────────────────────── */}
@@ -298,10 +348,11 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           accessibilityRole="button"
           accessibilityLabel="Add photo"
           onPress={pickImages}
-          disabled={remainingSlots <= 0 || isPicking || isSubmitting}
+          disabled={remainingSlots <= 0 || isPicking || isSubmitting || video !== null}
           style={[
             styles.toolbarButton,
-            (remainingSlots <= 0 || isSubmitting) && styles.toolbarButtonDisabled,
+            (remainingSlots <= 0 || isSubmitting || video !== null) &&
+              styles.toolbarButtonDisabled,
           ]}
           hitSlop={8}
         >
@@ -316,6 +367,25 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             Photo {images.length > 0 ? `${images.length}/4` : ''}
           </ClayText>
         </Pressable>
+
+        {REEL_UPLOAD_AVAILABLE ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add video"
+            onPress={pickVideo}
+            disabled={images.length > 0 || isPickingVideo || isSubmitting}
+            style={[
+              styles.toolbarButton,
+              (images.length > 0 || isSubmitting) && styles.toolbarButtonDisabled,
+            ]}
+            hitSlop={8}
+          >
+            <ClayIcon name="VideoCamera" size={24} weight="duotone" color={clayColors.primary} />
+            <ClayText variant="button" style={styles.toolbarLabel}>
+              Video
+            </ClayText>
+          </Pressable>
+        ) : null}
 
         <ClayText variant="caption" style={[styles.charCount, { color: charCountColor }]}>
           {charCount}/{MAX_CONTENT_LENGTH}
@@ -494,5 +564,32 @@ const styles = StyleSheet.create({
   },
   toolbarLabelDisabled: {
     color: clayColors.caption,
+  },
+  progressFill: {
+    backgroundColor: clayColors.primary,
+    borderRadius: 2,
+    height: 4,
+  },
+  progressTrack: {
+    backgroundColor: clayColors.border,
+    borderRadius: 2,
+    height: 4,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  videoChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingLeft: 14,
+    paddingVertical: 6,
+  },
+  videoChipText: {
+    flex: 1,
+  },
+  videoError: {
+    color: clayColors.error,
+    marginTop: 8,
   },
 });

@@ -12,8 +12,11 @@ import {
   Nunito_900Black,
 } from '@expo-google-fonts/nunito';
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ToastHost } from './components/common/toast';
 import { AuthSessionProvider, useAuthSession } from './features/auth/authSession';
 import { SplashScreen } from './features/auth/screens/SplashScreen';
+import { linking, navigationRef } from './navigation/navigationRef';
 import { RootNavigator } from './navigation/RootNavigator';
 
 function AppContent() {
@@ -33,7 +36,7 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} ref={navigationRef}>
       <RootNavigator />
     </NavigationContainer>
   );
@@ -42,9 +45,12 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthSessionProvider>
-        <AppContent />
-      </AuthSessionProvider>
+      <ErrorBoundary>
+        <AuthSessionProvider>
+          <AppContent />
+        </AuthSessionProvider>
+        <ToastHost />
+      </ErrorBoundary>
       <StatusBar style="dark" />
     </SafeAreaProvider>
   );

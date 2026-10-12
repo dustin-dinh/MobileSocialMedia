@@ -6,6 +6,7 @@ import { ApiError } from '../../services/apiError';
 import { followApi } from '../../services/followApi';
 import { setUnauthorizedHandler } from '../../services/httpClient';
 import { notificationSocket } from '../notifications/services/notificationSocket';
+import { pushService } from '../notifications/services/pushService';
 import { authService, type AuthUser } from './services/authService';
 import { authTokenStorage } from './services/authTokenStorage';
 import { googleSignIn } from './services/googleSignIn';
@@ -35,6 +36,8 @@ type AuthSessionContextValue = {
   signInWithGoogle: () => Promise<void>;
   /** Sign out: calls the API, clears storage and resets state. */
   signOut: () => Promise<void>;
+  /** Merge profile changes (name, avatar, onboarding...) into the signed-in user. */
+  updateUser: (changes: Partial<AuthUser>) => void;
   /** The authenticated user profile, or null when signed out. */
   user: AuthUser | null;
 };
@@ -93,6 +96,7 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
 
     followApi.clearCache();
     notificationSocket.connect(sessionAccessToken);
+    void pushService.register();
 
     return () => {
       notificationSocket.disconnect();
@@ -136,6 +140,12 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     await finishSignIn(loginResult.accessToken);
   }, [finishSignIn]);
 
+  const updateUser = useCallback((changes: Partial<AuthUser>) => {
+    setSession((current) =>
+      current ? { ...current, user: { ...current.user, ...changes } } : current,
+    );
+  }, []);
+
   const register = useCallback(async (values: RegisterFormValues): Promise<AuthUser> => {
     return authService.register(values);
   }, []);
@@ -144,6 +154,9 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     if (!session) {
       return;
     }
+
+    // While the token is still valid: stop pushes to this device for this account.
+    await pushService.unregister();
 
     try {
       await authService.logout(session.accessToken);
@@ -232,9 +245,10 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
       signIn,
       signInWithGoogle,
       signOut,
+      updateUser,
       user: session?.user ?? null,
     }),
-    [isBootstrapping, register, session, signIn, signInWithGoogle, signOut],
+    [isBootstrapping, register, session, signIn, signInWithGoogle, signOut, updateUser],
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;

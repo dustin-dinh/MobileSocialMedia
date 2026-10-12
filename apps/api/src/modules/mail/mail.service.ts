@@ -5,6 +5,9 @@ import {
 import { ConfigService } from "@nestjs/config";
 import nodemailer, { type Transporter } from "nodemailer";
 
+const OTP_WARNING =
+    "Không chia sẻ mã này với bất kỳ ai. MobileSocialMedia không bao giờ yêu cầu bạn cung cấp mã qua điện thoại, tin nhắn hay email. (Do not share this code with anyone.)";
+
 @Injectable()
 export class MailService {
     private readonly transporter: Transporter;
@@ -27,7 +30,9 @@ export class MailService {
                 from: this.config.getOrThrow<string>("MAIL_FROM"),
                 to: email,
                 subject: "Your MobileSocialMedia verification code",
-                text: `Your verification code is ${otp}. It expires in 5 minutes.`,
+                text: `Your verification code is ${otp}. It expires in 5 minutes.
+
+${OTP_WARNING}`,
                 html: `
           <div style="font-family:Arial,sans-serif;line-height:1.6">
             <h2>Verify your email</h2>
@@ -36,6 +41,7 @@ export class MailService {
               ${otp}
             </p>
             <p>This code expires in 5 minutes.</p>
+            <p><strong>${OTP_WARNING}</strong></p>
             <p>If you did not create this account, ignore this email.</p>
           </div>
         `,
@@ -57,6 +63,7 @@ export class MailService {
                     `Your password reset code is: ${otp}`,
                     "",
                     "This code expires in 5 minutes.",
+                    OTP_WARNING,
                     "If you did not request a password reset, ignore this email.",
                 ].join("\n"),
                 html: `
@@ -67,6 +74,7 @@ export class MailService {
             ${otp}
           </p>
           <p>This code expires in 5 minutes.</p>
+            <p><strong>${OTP_WARNING}</strong></p>
           <p>If you did not request a password reset, ignore this email.</p>
         </div>
       `,

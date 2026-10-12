@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Query,
+    Request,
     UseGuards,
 } from '@nestjs/common';
 
@@ -18,8 +19,9 @@ export class SearchController {
 
     @Get('search')
     async searchUsers(
+        @Request() request: { user: { userId: string } },
         @Query() query: UserSearchQueryDto,
     ) {
-        return this.searchService.searchUsers(query);
+        return this.searchService.searchUsers(request.user.userId, query);
     }
 }

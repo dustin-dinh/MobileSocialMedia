@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     Injectable,
     UnauthorizedException,
@@ -9,7 +10,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
-import { UsersService } from "../users/users.service";
+import { toMe, UsersService } from "../users/users.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { GoogleLoginDto } from "./dto/google-login.dto";
@@ -301,7 +302,12 @@ export class AuthService {
         }
 
         if (!user.emailVerifiedAt) {
-            throw new UnauthorizedException("Please verify your email before logging in");
+            // code để client phân biệt với sai mật khẩu mà không phải so chuỗi.
+            throw new UnauthorizedException({
+                statusCode: 401,
+                code: "EMAIL_NOT_VERIFIED",
+                message: "Please verify your email before logging in",
+            });
         }
 
         const accessToken =
@@ -313,14 +319,7 @@ export class AuthService {
             data: {
                 accessToken,
 
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    displayName: user.displayName,
-                    bio: user.bio,
-                    avatarUrl: user.avatarUrl,
-                },
+                user: toMe(user),
             },
         };
     }
@@ -398,14 +397,7 @@ export class AuthService {
             data: {
                 accessToken,
 
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    displayName: user.displayName,
-                    bio: user.bio,
-                    avatarUrl: user.avatarUrl,
-                },
+                user: toMe(user),
             },
         };
     }
@@ -572,4 +564,31 @@ export class AuthService {
         return { message: "Password reset successfully" };
     }
 
+    async changePassword(
+        userId: string,
+        currentPassword: string | undefined,
+        newPassword: string,
+    ) {
+        const user = await this.usersService.findById(userId);
+
+        if (!user) {
+            throw new UnauthorizedException();
+        }
+
+        // Tài khoản chỉ có Google chưa có mật khẩu: cho đặt lần đầu mà không cần mật khẩu cũ.
+        // Sai mật khẩu trả 400, không phải 401: client coi 401 là hết phiên và tự đăng xuất.
+        if (
+            user.passwordHash &&
+            !(await bcrypt.compare(currentPassword ?? "", user.passwordHash))
+        ) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash: await bcrypt.hash(newPassword, 10) },
+        });
+
+        return { data: { changed: true } };
+    }
 }

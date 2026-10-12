@@ -130,7 +130,7 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
       </TestWrapper>,
     );
     expect(toJSON()).toBeTruthy();
-    expect(getByPlaceholderText('Tìm kiếm người dùng, @username...')).toBeTruthy();
+    expect(getByPlaceholderText('Tìm người dùng, bài viết, #hashtag...')).toBeTruthy();
   });
 
   it('renders CreateScreen with composition input', async () => {

@@ -1,17 +1,16 @@
-import { useCallback } from 'react';
 import {
-  ActivityIndicator,
+  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
-import { useAuthSession } from '../../auth/authSession';
-import { useAuthSubmission } from '../../auth/hooks/useAuthSubmission';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
-import { profileColors, profileRadii } from '../profileTheme';
+import { clayDimensions, clayRadii } from '../../../theme/spacing';
+import { fontFamilies } from '../../../theme/typography';
+import { profileColors } from '../profileTheme';
 import type { UserProfile } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -19,6 +18,8 @@ import type { UserProfile } from '../types';
 // ---------------------------------------------------------------------------
 
 const AVATAR_SIZE = 96;
+
+export type ProfileTab = 'posts' | 'reposts';
 
 function ProfileAvatar({ profile }: { profile: UserProfile }) {
   const initials = (profile.displayName ?? profile.username)
@@ -48,7 +49,15 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
   );
 }
 
-function StatItem({ label, value }: { label: string; value: number }) {
+function StatItem({
+  label,
+  onPress,
+  value,
+}: {
+  label: string;
+  onPress?: () => void;
+  value: number;
+}) {
   const formatted =
     value >= 1_000_000
       ? `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
@@ -57,14 +66,20 @@ function StatItem({ label, value }: { label: string; value: number }) {
         : String(value);
 
   return (
-    <View style={styles.statItem}>
+    <Pressable
+      accessibilityLabel={`${formatted} ${label}`}
+      accessibilityRole={onPress ? 'button' : 'text'}
+      disabled={!onPress}
+      onPress={onPress}
+      style={styles.statItem}
+    >
       <ClayText variant="heading" style={styles.statValue}>
         {formatted}
       </ClayText>
       <ClayText variant="caption" style={styles.statLabel}>
         {label}
       </ClayText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -73,18 +88,37 @@ function StatItem({ label, value }: { label: string; value: number }) {
 // ---------------------------------------------------------------------------
 
 type ProfileHeaderProps = {
-  onEditProfile: () => void;
+  activeTab: ProfileTab;
+  /** A follow/unfollow/unblock request is in flight. */
+  isActionPending?: boolean;
+  /** The signed-in user's own profile: shows Edit and Settings instead of Follow. */
+  isOwn: boolean;
+  onChangeTab: (tab: ProfileTab) => void;
+  onEditProfile?: () => void;
+  onOpenSettings?: () => void;
+  onPressStat?: (type: 'followers' | 'following') => void;
+  onToggleFollow?: () => void;
+  onUnblock?: () => void;
   profile: UserProfile;
 };
 
-export function ProfileHeader({ onEditProfile, profile }: ProfileHeaderProps) {
-  const { signOut } = useAuthSession();
-  const { isSubmitting, submit } = useAuthSubmission();
+const TABS: Array<{ key: ProfileTab; label: string }> = [
+  { key: 'posts', label: 'Bài viết' },
+  { key: 'reposts', label: 'Đăng lại' },
+];
 
-  const handleSignOut = useCallback(() => {
-    void submit(signOut);
-  }, [signOut, submit]);
-
+export function ProfileHeader({
+  activeTab,
+  isActionPending = false,
+  isOwn,
+  onChangeTab,
+  onEditProfile,
+  onOpenSettings,
+  onPressStat,
+  onToggleFollow,
+  onUnblock,
+  profile,
+}: ProfileHeaderProps) {
   const displayName = profile.displayName ?? profile.username;
 
   return (
@@ -98,6 +132,13 @@ export function ProfileHeader({ onEditProfile, profile }: ProfileHeaderProps) {
         <ClayText variant="meta" style={styles.username}>
           @{profile.username}
         </ClayText>
+        {!isOwn && profile.followsYou ? (
+          <View style={styles.followsYouBadge}>
+            <ClayText variant="meta" style={styles.followsYouText}>
+              Theo dõi bạn
+            </ClayText>
+          </View>
+        ) : null}
         {profile.bio ? (
           <ClayText variant="body" style={styles.bio} numberOfLines={3}>
             {profile.bio}
@@ -109,39 +150,93 @@ export function ProfileHeader({ onEditProfile, profile }: ProfileHeaderProps) {
       <ClaySurface variant="raised" style={styles.statsBar}>
         <StatItem label="Bài viết" value={profile.postsCount} />
         <View style={styles.statDivider} />
-        <StatItem label="Người theo dõi" value={profile.followersCount} />
+        <StatItem
+          label="Người theo dõi"
+          onPress={onPressStat ? () => onPressStat('followers') : undefined}
+          value={profile.followersCount}
+        />
         <View style={styles.statDivider} />
-        <StatItem label="Đang theo dõi" value={profile.followingCount} />
+        <StatItem
+          label="Đang theo dõi"
+          onPress={onPressStat ? () => onPressStat('following') : undefined}
+          value={profile.followingCount}
+        />
       </ClaySurface>
 
       {/* ── Action buttons ─────────────────────────────────── */}
       <View style={styles.actionsRow}>
-        <ClayButton
-          accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
-          onPress={onEditProfile}
-          size="md"
-          style={styles.actionButton}
-          title="Chỉnh sửa hồ sơ"
-          variant="primary"
-        />
-
-        <ClayButton
-          accessibilityLabel="Đăng xuất khỏi tài khoản"
-          disabled={isSubmitting}
-          loading={isSubmitting}
-          onPress={handleSignOut}
-          size="md"
-          style={styles.actionButton}
-          title="Đăng xuất"
-          variant="secondary"
-        />
+        {isOwn ? (
+          <>
+            <ClayButton
+              accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
+              onPress={onEditProfile}
+              size="md"
+              style={styles.actionButton}
+              title="Chỉnh sửa hồ sơ"
+              variant="primary"
+            />
+            <ClayButton
+              accessibilityLabel="Mở cài đặt tài khoản"
+              onPress={onOpenSettings}
+              size="md"
+              style={styles.actionButton}
+              title="Cài đặt"
+              variant="secondary"
+            />
+          </>
+        ) : profile.isBlocked ? (
+          <ClayButton
+            accessibilityLabel={`Bỏ chặn ${displayName}`}
+            disabled={isActionPending}
+            loading={isActionPending}
+            onPress={onUnblock}
+            size="md"
+            style={styles.actionButton}
+            title="Bỏ chặn"
+            variant="secondary"
+          />
+        ) : (
+          <ClayButton
+            accessibilityLabel={
+              profile.isFollowing ? `Bỏ theo dõi ${displayName}` : `Theo dõi ${displayName}`
+            }
+            disabled={isActionPending}
+            loading={isActionPending}
+            onPress={onToggleFollow}
+            size="md"
+            style={styles.actionButton}
+            title={
+              profile.isFollowing
+                ? 'Đang theo dõi'
+                : profile.followsYou
+                  ? 'Theo dõi lại'
+                  : 'Theo dõi'
+            }
+            variant={profile.isFollowing ? 'secondary' : 'primary'}
+          />
+        )}
       </View>
 
-      {/* ── Section divider ────────────────────────────────── */}
-      <View style={styles.sectionHeader}>
-        <ClayText variant="heading" style={styles.sectionTitle}>
-          Bài viết
-        </ClayText>
+      {/* ── Tabs ───────────────────────────────────────────── */}
+      <View style={styles.tabs}>
+        {TABS.map((tab) => {
+          const isActive = tab.key === activeTab;
+
+          return (
+            <Pressable
+              accessibilityLabel={`Xem ${tab.label.toLowerCase()}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              key={tab.key}
+              onPress={() => onChangeTab(tab.key)}
+              style={[styles.tab, isActive && styles.tabActive]}
+            >
+              <ClayText variant="caption" style={[styles.tabText, isActive && styles.tabTextActive]}>
+                {tab.label}
+              </ClayText>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -194,15 +289,15 @@ const styles = StyleSheet.create({
     color: profileColors.text,
     marginTop: 12,
   },
-  sectionHeader: {
-    borderBottomColor: profileColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginTop: 20,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
+  followsYouBadge: {
+    backgroundColor: profileColors.surfaceWell,
+    borderRadius: clayRadii.pill,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
   },
-  sectionTitle: {
-    color: profileColors.text,
+  followsYouText: {
+    color: profileColors.textSecondary,
   },
   statDivider: {
     backgroundColor: profileColors.border,
@@ -212,6 +307,8 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
   },
   statLabel: {
     color: profileColors.caption,
@@ -225,7 +322,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 20,
     marginTop: 16,
-    paddingVertical: 14,
+    paddingVertical: 8,
+  },
+  tab: {
+    alignItems: 'center',
+    borderBottomColor: 'transparent',
+    borderBottomWidth: 2,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+  },
+  tabActive: {
+    borderBottomColor: profileColors.primary,
+  },
+  tabText: {
+    color: profileColors.caption,
+  },
+  tabTextActive: {
+    color: profileColors.primary,
+    fontFamily: fontFamilies.bold,
+  },
+  tabs: {
+    borderBottomColor: profileColors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
   topSection: {
     alignItems: 'center',
@@ -237,4 +359,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
-

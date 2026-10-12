@@ -592,3 +592,48 @@ px expo run:android or EAS build) with configured GOOGLE_WEB_CLIENT_ID and EXPO_
 - `apps/mobile/src/features/auth/screens/RegisterScreen.tsx`
 - `docs/api-contract.md`
 - `docs/decisions.md`
+
+
+## DEC-020 - Feature-gap batch: shared post visibility, stack navigation, and the shortcuts taken
+
+### Context
+
+`docs/FEATURE_GAP_CHECKLIST.md` listed flows that had a UI but did not work against the live API (registration without email verification, mock-only password reset, a feed mapper that crashed on reposts), a privacy leak (`GET /users/:id/posts` ignored post privacy), and the small features every social app needs (other users' profiles, block, report, account deletion, settings). They were implemented together on 2026-10-12 on branch `feat/gap-checklist`.
+
+### Decision
+
+1. **One visibility rule for posts.** `apps/api/src/modules/posts/post-view.ts` holds `visiblePostWhere()` (not deleted, no block either way, and PUBLIC / own / FRIENDS-with-mutual-follow), the shared post `select` and the DTO mapper. Feed, post detail, profile posts, comments, likes, save, repost and search all use it, so a privacy fix is made in one place.
+2. **Additive migration only.** `20261012090000_add_gap_features` adds `Block`, `Report`, `Save`, `CommentLike`, `HiddenPost`, `DeviceToken`, `User.onboardedAt`, `Comment.editedAt`. Existing users are back-filled with `onboardedAt = createdAt` so they are not sent through first-run setup.
+3. **Errors Mobile must tell apart carry a `code`** (`EMAIL_NOT_VERIFIED`). A wrong password on a signed-in action (change password, delete account) answers `400`, never `401`, because the Mobile HTTP client signs the user out on any `401`.
+4. **A stack navigator wraps the tabs on Mobile** (`MainStackNavigator`). The tab bar is its first screen and is unchanged; other profiles, post detail, settings and the lists are pushed on top. `useAppNavigation()` reads navigation from context so components still render without a navigator (unit tests).
+5. **Shared Mobile building blocks** replace per-screen copies: `usePostList` (paging, refresh, optimistic like/save, cross-screen sync through `feedEvents`), `CommentThread` + `useCommentThread`, `ConfirmModal`, `ActionSheet`, `UserListScreen`, `showToast`.
+6. **Reels UI is built against a sample service.** The Reel backend belongs to another developer and does not exist yet; `reelService` serves sample videos until `EXPO_PUBLIC_REELS_API=true`. The endpoints it will call are the proposed ones in `docs/reel/REEL_FINAL_SPEC_AND_PLAN.md` and are not confirmed.
+
+### Shortcuts taken on purpose (each is marked `shortcut:` in the code)
+
+- **No refresh token.** The JWT lifetime was raised from 1 day to 30 days instead. A stolen token is valid for 30 days and cannot be revoked; changing the password does not sign other devices out. Build rotating refresh tokens before a public release.
+- **Reports have no moderation UI.** They are stored and read with Prisma Studio / SQL.
+- **Feed pagination still merges two sources by offset**, so deep pages get slower; switch to a time cursor when the feed grows.
+- **Post search is `ILIKE`** without an index; hashtags are found through it rather than a hashtag table.
+- **Push does not prune dead device tokens.**
+- **The legal texts are drafts**, not reviewed by a lawyer.
+- **Crash reporting is only the device log** (`ErrorBoundary` shows a fallback screen).
+
+### Consequences
+
+- New dependencies: `@nestjs/throttler` (API); `expo-video`, `expo-clipboard`, `expo-notifications` (Mobile). `expo-notifications` is loaded lazily and skipped in Expo Go and in mock mode.
+- Push notifications and Google Sign-In need a development build plus project configuration (EAS project id and FCM credentials; Google OAuth client ids). The code paths exist; they were not exercised on a device.
+- Sign-out moved from the profile header into Settings (with confirmation). `scripts/qa/e2e.ps1` step 10 taps the old button position, which is now "Cài đặt"; the script needs one more tap sequence.
+- The live suites now sign in to seeded accounts (`apps/api/scripts/seed-test-users.cjs`) instead of registering, because unverified accounts cannot log in.
+- **Open question for Dev B:** since the post-privacy change, `GET /posts/feed` returns every PUBLIC post, followed or not. Two `it.failing` tests in `apps/mobile/__tests__/live/liveApi.test.ts` record the mismatch with the earlier "people I follow" behaviour. This batch did not change that.
+
+### Related Files
+
+- `apps/api/src/modules/posts/post-view.ts`
+- `apps/api/prisma/migrations/20261012090000_add_gap_features/migration.sql`
+- `apps/api/scripts/seed-test-users.cjs`, `apps/api/scripts/api-smoke.cjs`
+- `apps/mobile/src/navigation/MainStackNavigator.tsx`, `apps/mobile/src/navigation/useAppNavigation.ts`
+- `apps/mobile/src/features/feed/hooks/usePostList.ts`
+- `apps/mobile/src/features/comment/components/CommentThread.tsx`
+- `apps/mobile/src/features/reel/`
+- `docs/api-contract.md`, `docs/FEATURE_GAP_CHECKLIST.md`

@@ -12,23 +12,19 @@ const USE_MOCK = USE_MOCK_API;
 
 const COMMENTS_PAGE_SIZE = 50;
 
-/**
- * Comment as returned by the API. The list endpoint names the writer
- * `author`; the create endpoint names it `user`.
- */
+/** Comment as returned by the API. */
 type ApiComment = {
   author?: CommentAuthor;
   content: string;
   createdAt: string;
+  editedAt?: string | null;
   id: string;
+  isLiked?: boolean;
+  likesCount?: number;
+  parentId?: string | null;
+  repliesCount?: number;
   user?: CommentAuthor;
 };
-
-/**
- * Comment likes have no backend endpoint yet, so they live in memory for the
- * current app session only.
- */
-const locallyLikedCommentIds = new Set<string>();
 
 function mapApiComment(comment: ApiComment, postId: string, fallbackAuthor?: CommentAuthor): PostComment {
   const author = comment.author ?? comment.user ?? fallbackAuthor;
@@ -37,18 +33,20 @@ function mapApiComment(comment: ApiComment, postId: string, fallbackAuthor?: Com
     throw new Error('Comment response is missing its author.');
   }
 
-  const isLiked = locallyLikedCommentIds.has(comment.id);
-
   return {
     author,
     content: comment.content,
     createdAt: comment.createdAt,
+    editedAt: comment.editedAt ?? null,
     id: comment.id,
-    isLiked,
-    likesCount: isLiked ? 1 : 0,
+    isLiked: comment.isLiked ?? false,
+    likesCount: comment.likesCount ?? 0,
+    parentId: comment.parentId ?? null,
     postId,
+    repliesCount: comment.repliesCount ?? 0,
   };
 }
+
 const MOCK_DELAY_MS = 350;
 
 function delay(ms: number): Promise<void> {
@@ -159,31 +157,71 @@ function getMockCommentsForPost(postId: string): PostComment[] {
 // Service Implementation
 // ---------------------------------------------------------------------------
 
+/** Mock helper: every comment of a post, replies included. */
+function findMockComment(commentId: string): PostComment | undefined {
+  for (const list of mockCommentsStore.values()) {
+    const found = list.find((comment) => comment.id === commentId);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
 export const commentService = {
+  /** Page size of `getComments`; a full page means there may be more. */
+  PAGE_SIZE: COMMENTS_PAGE_SIZE,
+
   /**
-   * Get all comments for a post.
+   * Get one page of top-level comments for a post, newest first.
    */
-  async getComments(postId: string): Promise<PostComment[]> {
+  async getComments(postId: string, page = 1): Promise<PostComment[]> {
     if (USE_MOCK) {
       await delay(MOCK_DELAY_MS);
-      return [...getMockCommentsForPost(postId)];
+
+      return page === 1
+        ? getMockCommentsForPost(postId)
+            .filter((comment) => !comment.parentId)
+            .map((comment) => ({ ...comment }))
+        : [];
     }
 
     const response = await httpClient.requestJson<{ data: ApiComment[] }>({
       method: 'GET',
-      path: `posts/${postId}/comments?page=1&limit=${COMMENTS_PAGE_SIZE}`,
+      path: `posts/${postId}/comments?page=${page}&limit=${COMMENTS_PAGE_SIZE}`,
+    });
+
+    return response.data.map((comment) => mapApiComment(comment, postId));
+  },
+
+  /** Replies under a top-level comment, oldest first. */
+  async getReplies(commentId: string, postId: string): Promise<PostComment[]> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+
+      return getMockCommentsForPost(postId)
+        .filter((comment) => comment.parentId === commentId)
+        .reverse();
+    }
+
+    const response = await httpClient.requestJson<{ data: ApiComment[] }>({
+      method: 'GET',
+      path: `comments/${commentId}/replies?page=1&limit=${COMMENTS_PAGE_SIZE}`,
     });
 
     return response.data.map((comment) => mapApiComment(comment, postId));
   },
 
   /**
-   * Post a new comment to a post.
+   * Post a new comment to a post, or a reply when `parentId` is given.
    */
   async addComment(
     postId: string,
     content: string,
     author: CommentAuthor,
+    parentId?: string | null,
   ): Promise<PostComment> {
     if (USE_MOCK) {
       await delay(400);
@@ -195,7 +233,9 @@ export const commentService = {
         id: `cmt-${Date.now()}`,
         isLiked: false,
         likesCount: 0,
+        parentId: parentId ?? null,
         postId,
+        repliesCount: 0,
       };
 
       const existing = getMockCommentsForPost(postId);
@@ -207,10 +247,59 @@ export const commentService = {
     const response = await httpClient.requestJson<{ data: ApiComment }, CreateCommentPayload>({
       body: { content: content.trim() },
       method: 'POST',
-      path: `posts/${postId}/comments`,
+      path: parentId ? `comments/${parentId}/replies` : `posts/${postId}/comments`,
     });
 
     return mapApiComment(response.data, postId, author);
+  },
+
+  /** Edit the text of one of the viewer's own comments. */
+  async updateComment(comment: PostComment, content: string): Promise<PostComment> {
+    if (USE_MOCK) {
+      await delay(300);
+
+      const stored = findMockComment(comment.id);
+      const updated = { ...comment, content: content.trim(), editedAt: new Date().toISOString() };
+
+      if (stored) {
+        Object.assign(stored, updated);
+      }
+
+      return updated;
+    }
+
+    const response = await httpClient.requestJson<{ data: ApiComment }, { content: string }>({
+      body: { content: content.trim() },
+      method: 'PATCH',
+      path: `comments/${comment.id}`,
+    });
+
+    return mapApiComment(response.data, comment.postId, comment.author);
+  },
+
+  /**
+   * Delete a comment (and its replies). Resolves to the post's new comment
+   * total, which the client cannot compute because replies go with it.
+   */
+  async deleteComment(comment: PostComment): Promise<number> {
+    if (USE_MOCK) {
+      await delay(300);
+
+      const remaining = getMockCommentsForPost(comment.postId).filter(
+        (item) => item.id !== comment.id && item.parentId !== comment.id,
+      );
+
+      mockCommentsStore.set(comment.postId, remaining);
+
+      return remaining.length;
+    }
+
+    const response = await httpClient.requestJson<{ data: { commentsCount: number } }>({
+      method: 'DELETE',
+      path: `comments/${comment.id}`,
+    });
+
+    return response.data.commentsCount;
   },
 
   /**
@@ -225,11 +314,10 @@ export const commentService = {
       return !currentlyLiked;
     }
 
-    if (currentlyLiked) {
-      locallyLikedCommentIds.delete(commentId);
-    } else {
-      locallyLikedCommentIds.add(commentId);
-    }
+    await httpClient.requestVoid({
+      method: currentlyLiked ? 'DELETE' : 'POST',
+      path: `comments/${commentId}/like`,
+    });
 
     return !currentlyLiked;
   },

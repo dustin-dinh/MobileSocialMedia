@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Platform,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -10,149 +11,38 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CommentModal } from '../../comment/components/CommentModal';
+import { ListFooter } from '../../../components/common/ListFooter';
+import { LoadError } from '../../../components/common/LoadError';
 import { ClayText } from '../../../components/ui/ClayText';
+import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
+import { ReelsFeed } from '../../reel/screens/ReelsFeed';
 import { FeedEmptyState } from '../components/FeedEmptyState';
 import { PostCard } from '../components/PostCard';
 import { feedColors, feedSpacing } from '../feedTheme';
-import { feedEvents } from '../feedEvents';
+import { usePostList } from '../hooks/usePostList';
 import { feedService } from '../services/feedService';
+import { postKey } from '../services/postMapper';
 import type { Post } from '../types';
+
+const fetchFeedPage = (page: number) => feedService.getFeed(page);
+const acceptCreated = () => true;
+
+type HomePane = 'feed' | 'reels';
+
+const PANES: Array<{ key: HomePane; label: string }> = [
+  { key: 'feed', label: 'Bảng tin' },
+  { key: 'reels', label: 'Reels' },
+];
 
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const feed = usePostList(fetchFeedPage, { acceptCreated });
   const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
-  const isMountedRef = useRef(true);
-
-  // ── Initial load ──────────────────────────────────────────────────────
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    const loadFeed = async () => {
-      try {
-        const response = await feedService.getFeed(1);
-
-        if (isMountedRef.current) {
-          setPosts(response.data);
-        }
-      } catch (error) {
-        console.error('Failed to load feed:', error);
-      } finally {
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void loadFeed();
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // ── Listen for new posts created from CreateScreen ─────────────────
-  useEffect(() => {
-    const unsubscribe = feedEvents.on('postCreated', (newPost) => {
-      setPosts((current) => [newPost, ...current]);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // ── Listen for commentAdded events to sync commentsCount ─────────────
-  useEffect(() => {
-    const unsubscribe = feedEvents.on('commentAdded', ({ commentsCount, postId }) => {
-      setPosts((current) =>
-        current.map((p) => (p.id === postId ? { ...p, commentsCount } : p)),
-      );
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // ── Listen for postDeleted events to remove deleted posts ───────────
-  useEffect(() => {
-    const unsubscribe = feedEvents.on('postDeleted', ({ postId }) => {
-      setPosts((current) => current.filter((p) => p.id !== postId));
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // ── Listen for postUpdated events to sync updated posts ─────────────
-  useEffect(() => {
-    const unsubscribe = feedEvents.on('postUpdated', (updatedPost) => {
-      setPosts((current) =>
-        current.map((p) => (p.id === updatedPost.id ? updatedPost : p)),
-      );
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // ── Pull-to-refresh ───────────────────────────────────────────────────
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-
-    try {
-      const response = await feedService.getFeed(1);
-
-      if (isMountedRef.current) {
-        setPosts(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to refresh feed:', error);
-    } finally {
-      if (isMountedRef.current) {
-        setIsRefreshing(false);
-      }
-    }
-  }, []);
-
-  // ── Interactions ──────────────────────────────────────────────────────
-  const handleToggleLike = useCallback(async (post: Post) => {
-    // Optimistic update
-    setPosts((current) =>
-      current.map((p) =>
-        p.id === post.id
-          ? {
-              ...p,
-              isLiked: !p.isLiked,
-              likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1,
-            }
-          : p,
-      ),
-    );
-
-    try {
-      await feedService.toggleLike(post);
-    } catch {
-      // Revert on failure
-      setPosts((current) =>
-        current.map((p) => (p.id === post.id ? post : p)),
-      );
-    }
-  }, []);
-
-  const handleToggleSave = useCallback(async (post: Post) => {
-    setPosts((current) =>
-      current.map((p) =>
-        p.id === post.id ? { ...p, isSaved: !p.isSaved } : p,
-      ),
-    );
-
-    try {
-      await feedService.toggleSave(post);
-    } catch {
-      setPosts((current) =>
-        current.map((p) => (p.id === post.id ? post : p)),
-      );
-    }
-  }, []);
+  const [pane, setPane] = useState<HomePane>('feed');
+  const isFocused = useIsScreenFocused();
 
   // ── Render helpers ────────────────────────────────────────────────────
   const renderPost = useCallback(
@@ -160,17 +50,15 @@ export function HomeScreen() {
       <PostCard
         post={item}
         onPressComment={setActiveCommentPost}
-        onToggleLike={handleToggleLike}
-        onToggleSave={handleToggleSave}
+        onToggleLike={feed.toggleLike}
+        onToggleSave={feed.toggleSave}
       />
     ),
-    [handleToggleLike, handleToggleSave],
+    [feed.toggleLike, feed.toggleSave],
   );
 
-  const keyExtractor = useCallback((item: Post) => item.id, []);
-
   // ── Loading state ─────────────────────────────────────────────────────
-  if (isLoading) {
+  if (feed.isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={feedColors.primary} size="large" />
@@ -184,29 +72,73 @@ export function HomeScreen() {
         <ClayText variant="title" style={styles.headerTitle}>
           Mobile Social
         </ClayText>
+        <View style={styles.paneSwitch}>
+          {PANES.map((item) => {
+            const isActive = item.key === pane;
+
+            return (
+              <Pressable
+                accessibilityLabel={`Xem ${item.label}`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
+                key={item.key}
+                onPress={() => setPane(item.key)}
+                style={[styles.paneButton, isActive && styles.paneButtonActive]}
+              >
+                <ClayText
+                  variant="caption"
+                  style={isActive ? styles.paneTextActive : undefined}
+                >
+                  {item.label}
+                </ClayText>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <FlatList
-        contentContainerStyle={posts.length === 0 ? styles.emptyContainer : styles.listContent}
-        data={posts}
-        keyExtractor={keyExtractor}
-        ListEmptyComponent={FeedEmptyState}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === 'android'}
-        refreshControl={
-          <RefreshControl
-            colors={[feedColors.primary]}
-            onRefresh={handleRefresh}
-            refreshing={isRefreshing}
-            tintColor={feedColors.primary}
-          />
-        }
-        renderItem={renderPost}
-        showsVerticalScrollIndicator={false}
-        style={styles.list}
-      />
+      {pane === 'reels' ? (
+        // Rendered inside this tab (not a separate screen) so the tab bar stays put.
+        <ReelsFeed isActive={isFocused} />
+      ) : feed.loadFailed && feed.posts.length === 0 ? (
+        <LoadError onRetry={feed.refresh} />
+      ) : (
+        <FlatList
+          contentContainerStyle={
+            feed.posts.length === 0 ? styles.emptyContainer : styles.listContent
+          }
+          data={feed.posts}
+          keyExtractor={postKey}
+          ListEmptyComponent={FeedEmptyState}
+          ListFooterComponent={
+            <ListFooter
+              endMessage="Bạn đã lướt quá nhiều rồi, đi ngủ đi"
+              hasItems={feed.posts.length > 0}
+              hasMore={feed.hasMore}
+              isLoadingMore={feed.isLoadingMore}
+              loadMoreFailed={feed.loadMoreFailed}
+              onRetry={feed.loadMore}
+            />
+          }
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          onEndReached={feed.loadMore}
+          onEndReachedThreshold={0.5}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={
+            <RefreshControl
+              colors={[feedColors.primary]}
+              onRefresh={feed.refresh}
+              refreshing={feed.isRefreshing}
+              tintColor={feedColors.primary}
+            />
+          }
+          renderItem={renderPost}
+          showsVerticalScrollIndicator={false}
+          style={styles.list}
+        />
+      )}
 
       <CommentModal
         onClose={() => setActiveCommentPost(null)}
@@ -250,6 +182,26 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  paneButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget - 8,
+    paddingHorizontal: 14,
+  },
+  paneButtonActive: {
+    backgroundColor: clayColors.primarySoft,
+  },
+  paneSwitch: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: 20,
+    flexDirection: 'row',
+    padding: 4,
+  },
+  paneTextActive: {
+    color: clayColors.primary,
+    fontFamily: fontFamilies.bold,
   },
   listContent: {
     paddingBottom: 96,

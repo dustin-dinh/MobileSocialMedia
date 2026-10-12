@@ -1,10 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import { StyleSheet, type TextInput } from 'react-native';
 
 import { isGoogleSignInAvailable } from '../../../config/google';
+import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { useAuthSession } from '../authSession';
+import { authColors } from '../authTheme';
 import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
@@ -57,9 +59,10 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
     void submit(() => authService.register(values)).then((user) => {
       if (user) {
-        navigation.replace('Login', {
+        // The backend refuses logins until the emailed code is confirmed.
+        navigation.replace('VerifyCode', {
           email: user.email,
-          message: 'Account created. Sign in with your email and password.',
+          mode: 'verifyEmail',
         });
       }
     });
@@ -141,6 +144,27 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         value={values.confirmPassword}
       />
       <FormMessage message={submissionMessage} tone={submissionTone} />
+      <ClayText style={styles.legal} variant="meta">
+        By creating an account you agree to our{' '}
+        <ClayText
+          accessibilityRole="link"
+          onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
+          style={styles.legalLink}
+          variant="meta"
+        >
+          Terms of Use
+        </ClayText>{' '}
+        and{' '}
+        <ClayText
+          accessibilityRole="link"
+          onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
+          style={styles.legalLink}
+          variant="meta"
+        >
+          Privacy Policy
+        </ClayText>
+        .
+      </ClayText>
       <PrimaryButton isLoading={isSubmitting} label="Create account" onPress={handleSubmit} />
       {showGoogle && (
         <>
@@ -155,3 +179,13 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
     </AuthScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  legal: {
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  legalLink: {
+    color: authColors.primary,
+  },
+});

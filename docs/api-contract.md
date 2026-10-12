@@ -9,7 +9,7 @@
 ## Authentication behavior
 
 - Protected endpoints require `Authorization: Bearer <accessToken>`.
-- The Backend issues a stateless JWT with a one-day expiry.
+- The Backend issues a stateless JWT with a 30-day expiry (see "Endpoints added on 2026-10-12").
 - There is no refresh-token flow or server-side token revocation in the current implementation.
 
 ## Register
@@ -220,3 +220,123 @@ Success: `200 OK`
 ~~~
 
 Only unread notifications belonging to the current user are updated.
+
+
+## Endpoints added on 2026-10-12
+
+> Implemented in `apps/api` and verified against the running API with `apps/api/scripts/api-smoke.cjs` and the Mobile live suites (`apps/mobile/__tests__/live/`). All routes below require `Authorization: Bearer <accessToken>` unless marked public. List responses use `{ data, meta: { page, limit, total, totalPages } }`.
+
+### Shapes shared by several endpoints
+
+**Current user** (`GET /users/me`, `user` in the login and Google-login responses, and the result of profile edits):
+
+~~~json
+{
+  "id": "…", "username": "…", "email": "…", "displayName": null, "bio": null, "avatarUrl": null,
+  "createdAt": "…", "updatedAt": "…",
+  "onboardedAt": null,
+  "hasPassword": true
+}
+~~~
+
+`onboardedAt` is `null` until the first-run setup is completed or skipped. `hasPassword` is `false` for Google-only accounts.
+
+**Post** (feed, post detail, profile posts, saved, search, and the result of create/update):
+
+~~~json
+{
+  "id": "…", "content": "…", "privacy": "PUBLIC", "createdAt": "…", "updatedAt": "…",
+  "author": { "id": "…", "username": "…", "displayName": null, "avatarUrl": null },
+  "media": [{ "id": "…", "url": "…", "type": "image", "order": 0 }],
+  "likeCount": 0, "commentsCount": 0, "repostsCount": 0,
+  "isLiked": false, "isSaved": false, "isReposted": false
+}
+~~~
+
+`privacy` is `PUBLIC`, `FRIENDS` or `PRIVATE` (Mobile shows `PRIVATE` as "only me"). Feed rows also carry `type: "POST"`.
+
+**Repost row** (`GET /posts/feed`, `GET /users/:id/reposts`):
+
+~~~json
+{
+  "type": "REPOST", "id": "<repost id>", "createdAt": "…",
+  "repostedBy": { "id": "…", "username": "…", "displayName": null, "avatarUrl": null },
+  "originalPost": { "available": true, "…": "every Post field" }
+}
+~~~
+
+When the original was deleted or the viewer may no longer see it, `originalPost` is `{ "available": false, "id": null, "author": null, "media": [], … }`.
+
+**Comment**:
+
+~~~json
+{
+  "id": "…", "content": "…", "createdAt": "…", "updatedAt": "…", "editedAt": null, "parentId": null,
+  "author": { "id": "…", "username": "…", "displayName": null, "avatarUrl": null },
+  "repliesCount": 0, "likesCount": 0, "isLiked": false
+}
+~~~
+
+### Visibility rule
+
+One rule decides whether a viewer may see a post, and every endpoint uses it (feed, post detail, profile posts, comments, likes, save, repost, search): the post is not deleted, its author and the viewer have not blocked each other, and it is `PUBLIC`, or the viewer's own, or `FRIENDS` with a follow in both directions. A post that fails the rule answers `404`.
+
+### Auth
+
+| Endpoint | Notes |
+|---|---|
+| `POST /auth/login` | Unverified email now answers `401` with `{ "code": "EMAIL_NOT_VERIFIED", "message": "…" }`. Wrong credentials stay a plain `401`. |
+| `PATCH /auth/password` `{ currentPassword?, newPassword }` | `newPassword` 8–72 chars. A wrong current password answers **`400`** (not `401`, which Mobile treats as an expired session). Google-only accounts may omit `currentPassword` to set their first password. |
+| Access token | Expires after **30 days** (was 1 day). There is still no refresh token or revocation. |
+
+Rate limits (per IP): 300 requests/minute overall; `login`, `verify-email`, `reset-password` 10/minute; `register`, `resend-verification`, `forgot-password` 10/hour. Exceeding a limit answers `429`.
+
+### Users
+
+| Endpoint | Notes |
+|---|---|
+| `PATCH /users/me` `{ displayName?, bio?, username? }` | `displayName` 1–50, `bio` ≤ 160, `username` as in register. `409` when the username is taken. Returns the current user. |
+| `POST /users/me/avatar` (multipart, field `avatar`) | JPEG/PNG/WebP, ≤ 5 MB. Replaces and deletes the previous picture. Returns the current user. |
+| `DELETE /users/me/avatar` | Removes the picture. |
+| `POST /users/me/onboarding/complete` | Sets `onboardedAt`. |
+| `DELETE /users/me` `{ password }` or `{ confirm: "<username>" }` | Deletes the account, everything it owns and its stored files. Wrong confirmation answers `400`. |
+| `GET /users/me/blocked` | `{ data: User[] }`. |
+| `GET /users/suggestions?limit=` | `{ data: [{ id, username, displayName, avatarUrl, isFollowing, mutualCount, mutualPreview: string[], reason }] }`, `reason` = `FOLLOWS_YOU` \| `MUTUAL` \| `POPULAR`. |
+| `GET /users/:id` | Now requires a token. Adds `followersCount`, `followingCount`, `isFollowing`, `followsYou`, `isBlocked`; `postsCount` counts only posts the viewer may see. `404` when that user blocked the viewer. |
+| `GET /users/:id/posts` | Now applies the visibility rule (it used to return private posts). |
+| `GET /users/:id/reposts` | Repost rows, newest first. |
+| `POST` / `DELETE /users/:id/block` | Blocking also removes the follow in both directions. |
+| `GET /users/:id/followers`, `/following` | Each user now has `isFollowing` (for the viewer). Newest first. |
+| `GET /users/search` | Leaves out users in a block relation with the viewer. |
+
+### Posts
+
+| Endpoint | Notes |
+|---|---|
+| `GET /posts/feed` | Rows are Post or Repost rows as above; hidden posts and blocked authors are left out. |
+| `GET /posts/search?q=&page=&limit=` | Case-insensitive text search over visible posts; `q=#tag` finds a hashtag. |
+| `GET /posts/saved` | The viewer's bookmarks, newest first. |
+| `POST` / `DELETE /posts/:id/save` | `{ data: { isSaved } }`. |
+| `POST` / `DELETE /posts/:id/hide` | Hides the post from the viewer's feed. |
+| `GET /posts/:id/likes` | Users who liked the post. |
+| `POST /posts/:id/repost` | Now also notifies the author (`REPOST`). |
+| `GET /posts/:id` | Unchanged envelope: returns the Post object itself, without `data`. |
+
+### Comments
+
+| Endpoint | Notes |
+|---|---|
+| `POST /posts/:id/comments`, `POST /comments/:id/replies` | Return a Comment (the writer is now `author` in both). A reply to a reply is attached to the top-level comment. Replies notify with type `REPLY`. |
+| `GET /posts/:id/comments`, `GET /comments/:id/replies` | Comments now include `editedAt`, `likesCount`, `isLiked`, `repliesCount`. |
+| `PATCH /comments/:id` `{ content }` | Author only (`403` otherwise). Sets `editedAt`. |
+| `DELETE /comments/:id` | Allowed for the comment's author **or the post's author**. Returns `{ data: { deleted: true, commentsCount } }` — the post's new total, since replies are deleted with their parent. |
+| `POST` / `DELETE /comments/:id/like` | `{ data: { isLiked, likesCount } }`. |
+
+### Notifications, reports
+
+| Endpoint | Notes |
+|---|---|
+| Notification `type` | Now one of `LIKE`, `COMMENT`, `REPLY`, `FOLLOW`, `REPOST`, `MENTION`. `@username` in a post or comment creates a `MENTION`. No notification is created between users in a block relation. |
+| `POST /notifications/devices` `{ token, platform: "android" \| "ios" }` | Registers an Expo push token for the signed-in user. |
+| `DELETE /notifications/devices?token=` | Unregisters it. |
+| `POST /reports` `{ targetType: "POST" \| "COMMENT" \| "USER", targetId, reason, note? }` | `reason` = `SPAM` \| `HARASSMENT` \| `SENSITIVE` \| `MISINFORMATION` \| `OTHER`. Reporting the same target again updates the existing report. |

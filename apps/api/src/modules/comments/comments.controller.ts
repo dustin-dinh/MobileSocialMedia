@@ -4,6 +4,7 @@ import {
     Delete,
     Get,
     Param,
+    Patch,
     Post,
     Query,
     Request,
@@ -14,6 +15,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentsQueryDto } from './dto/comments-query.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
+
+type AuthedRequest = { user: { userId: string } };
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -24,7 +28,7 @@ export class CommentsController {
 
     @Post('posts/:id/comments')
     async create(
-        @Request() request: { user: { userId: string } },
+        @Request() request: AuthedRequest,
         @Param('id') postId: string,
         @Body() dto: CreateCommentDto,
     ) {
@@ -37,10 +41,12 @@ export class CommentsController {
 
     @Get('posts/:id/comments')
     async findByPost(
+        @Request() request: AuthedRequest,
         @Param('id') postId: string,
         @Query() query: CommentsQueryDto,
     ) {
         return this.commentsService.findByPost(
+            request.user.userId,
             postId,
             query,
         );
@@ -48,10 +54,12 @@ export class CommentsController {
 
     @Get('comments/:id/replies')
     async findReplies(
+        @Request() request: AuthedRequest,
         @Param('id') commentId: string,
         @Query() query: CommentsQueryDto,
     ) {
         return this.commentsService.findReplies(
+            request.user.userId,
             commentId,
             query,
         );
@@ -59,7 +67,7 @@ export class CommentsController {
 
     @Post('comments/:id/replies')
     async reply(
-        @Request() request: { user: { userId: string } },
+        @Request() request: AuthedRequest,
         @Param('id') commentId: string,
         @Body() dto: CreateCommentDto,
     ) {
@@ -70,14 +78,51 @@ export class CommentsController {
         );
     }
 
+    @Patch('comments/:id')
+    async update(
+        @Request() request: AuthedRequest,
+        @Param('id') commentId: string,
+        @Body() dto: UpdateCommentDto,
+    ) {
+        return this.commentsService.update(
+            request.user.userId,
+            commentId,
+            dto.content,
+        );
+    }
+
     @Delete('comments/:id')
     async remove(
-        @Request() request: { user: { userId: string } },
+        @Request() request: AuthedRequest,
         @Param('id') commentId: string,
     ) {
         return this.commentsService.remove(
             request.user.userId,
             commentId,
+        );
+    }
+
+    @Post('comments/:id/like')
+    async like(
+        @Request() request: AuthedRequest,
+        @Param('id') commentId: string,
+    ) {
+        return this.commentsService.setLike(
+            request.user.userId,
+            commentId,
+            true,
+        );
+    }
+
+    @Delete('comments/:id/like')
+    async unlike(
+        @Request() request: AuthedRequest,
+        @Param('id') commentId: string,
+    ) {
+        return this.commentsService.setLike(
+            request.user.userId,
+            commentId,
+            false,
         );
     }
 }
