@@ -1,0 +1,31 @@
+{"id":"b4-goi-y-gioi-han","title":"Phát hiện đột biến và gợi ý bật Giới hạn",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":2,"row":0,"label":"Có bình luận hoặc tin chờ mới"},
+ {"id":"str","type":"decision","lane":2,"row":1,"label":"Người gửi là người lạ?"},
+ {"id":"estr","type":"end","lane":2,"col":1,"row":1,"label":"Không đếm"},
+ {"id":"cnt","type":"data","lane":2,"row":2,"label":"Đếm người lạ trong 60 phút"},
+ {"id":"spk","type":"decision","lane":2,"row":3,"label":"Vượt ngưỡng đột biến?"},
+ {"id":"espk","type":"end","lane":2,"col":1,"row":3,"label":"Không làm gì"},
+ {"id":"on","type":"decision","lane":2,"row":4,"label":"Đang bật hoặc vừa gợi ý?"},
+ {"id":"eon","type":"end","lane":2,"col":1,"row":4,"label":"Không gợi ý lại"},
+ {"id":"mark","type":"data","lane":2,"row":5,"label":"Ghi limitsSuggestedAt, đẩy thông báo"},
+ {"id":"card","type":"io","lane":1,"row":6,"label":"Thẻ: Bật Giới hạn?"},
+ {"id":"d","type":"decision","lane":0,"row":7,"label":"Người dùng bật?"},
+ {"id":"no","type":"end","lane":1,"row":7,"label":"Đóng thẻ, không đổi gì"},
+ {"id":"opt","type":"io","lane":0,"row":8,"label":"Chọn nhóm, nội dung, số ngày"},
+ {"id":"save","type":"process","lane":1,"row":8,"label":"Gửi cài đặt Giới hạn"},
+ {"id":"db","type":"data","lane":2,"row":8,"label":"Lưu UserLimit, endsAt"},
+ {"id":"back","type":"process","lane":2,"row":9,"label":"Ẩn bình luận người lạ 24 giờ qua"},
+ {"id":"e","type":"end","lane":2,"row":10,"label":"Hết hạn: tự tắt, báo trước"}
+],
+"edges":[
+ {"from":"s","to":"str"},
+ {"from":"str","to":"estr","label":"Không"},{"from":"str","to":"cnt","label":"Có"},
+ {"from":"cnt","to":"spk"},
+ {"from":"spk","to":"espk","label":"Không"},{"from":"spk","to":"on","label":"Có"},
+ {"from":"on","to":"eon","label":"Có"},{"from":"on","to":"mark","label":"Không"},
+ {"from":"mark","to":"card"},{"from":"card","to":"d","exit":"bottom","entry":"top"},
+ {"from":"d","to":"no","label":"Không"},{"from":"d","to":"opt","label":"Có"},
+ {"from":"opt","to":"save"},{"from":"save","to":"db"},{"from":"db","to":"back"},{"from":"back","to":"e"}
+]}

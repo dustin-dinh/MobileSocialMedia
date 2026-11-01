@@ -1,0 +1,176 @@
+{
+ "id": "c1-bao-cao-nguoi-dung",
+ "title": "Người dùng báo cáo và ngưỡng tự ẩn",
+ "lanes": [
+  {
+   "name": "Người báo cáo"
+  },
+  {
+   "name": "Ứng dụng"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Bấm Báo cáo, chọn lý do"
+  },
+  {
+   "id": "send",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Gửi POST /reports"
+  },
+  {
+   "id": "valid",
+   "type": "decision",
+   "lane": 2,
+   "row": 0,
+   "label": "Hợp lệ, chưa vượt giới hạn?"
+  },
+  {
+   "id": "rej",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 0,
+   "label": "Từ chối, trả lỗi"
+  },
+  {
+   "id": "save",
+   "type": "data",
+   "lane": 2,
+   "row": 1,
+   "label": "Lưu Report, kèm bản chụp"
+  },
+  {
+   "id": "prio",
+   "type": "process",
+   "lane": 2,
+   "row": 2,
+   "label": "Tính mức ưu tiên theo lý do"
+  },
+  {
+   "id": "thr",
+   "type": "decision",
+   "lane": 2,
+   "row": 3,
+   "label": "Đủ ngưỡng tự ẩn?"
+  },
+  {
+   "id": "hide",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 3,
+   "label": "Ẩn tạm nội dung"
+  },
+  {
+   "id": "queue",
+   "type": "data",
+   "lane": 2,
+   "row": 4,
+   "label": "Gộp vào mục hàng đợi"
+  },
+  {
+   "id": "tell",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 4,
+   "label": "Báo người đăng: đang xem xét"
+  },
+  {
+   "id": "thanks",
+   "type": "io",
+   "lane": 1,
+   "row": 5,
+   "label": "Cảm ơn, đã nhận báo cáo"
+  },
+  {
+   "id": "block",
+   "type": "io",
+   "lane": 0,
+   "row": 6,
+   "label": "Gợi ý chặn hoặc tắt tiếng"
+  },
+  {
+   "id": "rev",
+   "type": "sub",
+   "lane": 2,
+   "row": 6,
+   "label": "Người duyệt xử lý (C1-3)"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "send"
+  },
+  {
+   "from": "send",
+   "to": "valid"
+  },
+  {
+   "from": "valid",
+   "to": "rej",
+   "label": "Không"
+  },
+  {
+   "from": "valid",
+   "to": "save",
+   "label": "Có"
+  },
+  {
+   "from": "save",
+   "to": "prio"
+  },
+  {
+   "from": "prio",
+   "to": "thr"
+  },
+  {
+   "from": "thr",
+   "to": "hide",
+   "label": "Có"
+  },
+  {
+   "from": "thr",
+   "to": "queue",
+   "label": "Không"
+  },
+  {
+   "from": "hide",
+   "to": "tell"
+  },
+  {
+   "from": "tell",
+   "to": "queue"
+  },
+  {
+   "from": "queue",
+   "to": "thanks",
+   "exit": "left",
+   "entry": "top"
+  },
+  {
+   "from": "thanks",
+   "to": "block",
+   "exit": "left",
+   "entry": "top"
+  },
+  {
+   "from": "queue",
+   "to": "rev",
+   "exit": "bottom",
+   "entry": "top"
+  }
+ ]
+}

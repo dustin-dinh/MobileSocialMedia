@@ -1,0 +1,33 @@
+{"id":"d7-luu-tru-noi-bat","title":"Lưu trữ story và tạo tin nổi bật trên hồ sơ",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"job","type":"start","lane":2,"row":0,"label":"Story hết 24 giờ"},
+ {"id":"arch","type":"decision","lane":2,"row":1,"label":"Chủ bật Lưu trữ?"},
+ {"id":"del","type":"end","lane":2,"col":1,"row":1,"label":"Tác vụ dọn: xóa tệp, xóa dòng"},
+ {"id":"keep","type":"data","lane":2,"row":2,"label":"Giữ Story, chỉ chủ xem"},
+ {"id":"s2","type":"start","lane":0,"row":3,"label":"Mở Lưu trữ, chọn story"},
+ {"id":"form","type":"io","lane":1,"row":3,"label":"Tên tin nổi bật, ảnh bìa"},
+ {"id":"send","type":"process","lane":1,"row":4,"label":"Gửi POST /highlights"},
+ {"id":"val","type":"decision","lane":2,"row":4,"label":"Hợp lệ, dưới 100 mục?"},
+ {"id":"e","type":"end","lane":2,"col":1,"row":4,"label":"Trả lỗi 400"},
+ {"id":"save","type":"data","lane":2,"row":5,"label":"Ghi Highlight, HighlightItem"},
+ {"id":"v","type":"start","lane":0,"row":6,"label":"Người khác mở trang cá nhân"},
+ {"id":"rule","type":"decision","lane":2,"row":6,"label":"Được xem trang này?"},
+ {"id":"no","type":"end","lane":2,"col":1,"row":6,"label":"Không trả tin nổi bật"},
+ {"id":"filt","type":"process","lane":2,"row":7,"label":"Bỏ mục Bạn thân nếu không có tên"},
+ {"id":"show","type":"io","lane":1,"row":8,"label":"Hàng vòng tin nổi bật"}
+],
+"edges":[
+ {"from":"job","to":"arch"},
+ {"from":"arch","to":"del","label":"Không"},
+ {"from":"arch","to":"keep","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"s2","to":"form"},
+ {"from":"form","to":"send"},
+ {"from":"send","to":"val"},
+ {"from":"val","to":"e","label":"Không"},
+ {"from":"val","to":"save","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"v","to":"rule"},
+ {"from":"rule","to":"no","label":"Không"},
+ {"from":"rule","to":"filt","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"filt","to":"show","exit":"bottom","entry":"top"}
+]}

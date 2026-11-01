@@ -1,0 +1,68 @@
+<h3>1. Pháp lý (cần luật sư xác nhận trước khi chốt)</h3>
+<p>Phần này chỉ nêu những chỗ cần hỏi, không phải ý kiến pháp lý.</p>
+<ul>
+  <li><b>Nghị định 147/2024/NĐ-CP về quản lý dịch vụ Internet và thông tin trên mạng.</b> Theo hiểu biết của nhóm, nghị định yêu cầu mạng xã hội xác thực tài khoản bằng số điện thoại Việt Nam (hoặc số định danh), có thủ tục đăng ký hoặc cấp phép, và phải gỡ nội dung vi phạm trong thời hạn ngắn khi có yêu cầu. Câu trả lời quyết định A5 thuộc GĐ1 hay GĐ4, và nhắn ẩn danh (B2) được thiết kế tới đâu.</li>
+  <li><b>Bảo vệ dữ liệu cá nhân.</b> Sản phẩm lưu ngày sinh, tin nhắn, ảnh, thiết bị và địa chỉ IP. Cần xác nhận nghĩa vụ về đồng ý, quyền tải và xóa dữ liệu (E1, E2), thời gian lưu nhật ký (C3), và việc lưu dữ liệu ở máy chủ nước ngoài (Supabase, kho tệp đặt tại Singapore).</li>
+  <li><b>Nhắn ẩn danh và nội dung người dùng tạo ra.</b> Khi có yêu cầu của cơ quan chức năng, sản phẩm phải biết danh tính thật của người gửi ẩn danh; thiết kế hiện tại đã lưu danh tính thật (chỉ che với người nhận), cần luật sư xác nhận cách lưu và cách cung cấp.</li>
+</ul>
+<h3>2. Yêu cầu của App Store và Google Play</h3>
+<ul>
+  <li>App có nội dung người dùng tạo ra phải có báo cáo, chặn, lọc nội dung và xử lý báo cáo kịp thời (đã có một phần; C1, C2, B7 làm đầy đủ).</li>
+  <li>Có đăng nhập bằng bên thứ ba (Google) trên iOS thì phải có Đăng nhập bằng Apple (A6).</li>
+  <li>Phải xóa được tài khoản trong app, và Google Play yêu cầu thêm một trang web để yêu cầu xóa mà không cần cài app (E2).</li>
+  <li>Phải có đường dẫn công khai tới chính sách quyền riêng tư, khai báo dữ liệu thu thập (Data Safety, App Privacy) và phân loại độ tuổi 18+.</li>
+  <li>Gọi thoại và video (D4) trên iOS cần CallKit và VoIP push; Apple kiểm tra chặt việc dùng VoIP push đúng mục đích.</li>
+</ul>
+<h3>3. Lỗi đang có trong code, phát hiện khi lập kế hoạch</h3>
+<p>Khi đọc code để viết mục "Hiện trạng", nhóm lập kế hoạch thấy một số lỗi <b>đang tồn tại</b>, không phụ thuộc tính năng mới. Các lỗi này nên sửa trước GĐ1, vì vài lỗi trong số đó làm lộ nội dung hoặc làm mất dữ liệu của người khác. Tất cả đều mới được thấy khi đọc code, chưa được chạy lại để xác nhận.</p>
+<table>
+  <tr><th style="width:6%">#</th><th>Lỗi</th><th style="width:13%">Mục liên quan</th></tr>
+  <tr><td>1</td><td>Thông báo đẩy của tin nhắn chờ hiện cả nội dung tin ("[Tin nhắn chờ] …"), nên tin lừa đảo hiện ngay trên màn hình khóa, dù hộp thư cố ý ẩn nội dung đó.</td><td>B1, D8</td></tr>
+  <tr><td>2</td><td>Người nhận đã bấm "Xóa" tin nhắn chờ, nhưng người gửi nhắn tiếp thì người nhận vẫn nhận thông báo đẩy và sự kiện thời gian thực.</td><td>B1</td></tr>
+  <tr><td>3</td><td>Tắt "Nhận tin nhắn ẩn danh" không chặn tin mới trong các cuộc trò chuyện ẩn danh đã mở từ trước, cũng không chặn trả lời story ẩn danh.</td><td>B2</td></tr>
+  <tr><td>4</td><td>Bài viết của tài khoản bị khóa vẫn hiện trên bảng tin, Reels và kết quả tìm kiếm. Tài khoản bị khóa vì chưa đủ tuổi vẫn hiện khi tìm người.</td><td>B6, C2, D5</td></tr>
+  <tr><td>5</td><td>Người được nhắc tên trong bài chỉ dành cho bạn bè vẫn nhận thông báo, dù không xem được bài (bấm vào thì báo lỗi không tìm thấy).</td><td>D6</td></tr>
+  <tr><td>6</td><td>Trang quản trị trả về danh tính thật của người nhắn ẩn danh và bản chụp cuộc trò chuyện mà không ghi lại ai đã xem.</td><td>C1, C3</td></tr>
+  <tr><td>7</td><td>Xóa tài khoản làm người kia mất luôn cả cuộc trò chuyện, xóa các báo cáo mà người đó đã gửi, và xóa ảnh bằng chứng trong báo cáo về người đó.</td><td>E2</td></tr>
+  <tr><td>8</td><td>Gỡ bình luận vi phạm là xóa hẳn, nên không khôi phục được nếu người viết kháng nghị thành công.</td><td>C1, C2</td></tr>
+  <tr><td>9</td><td>Ghi nhận tương tác Reels không kiểm tra người gửi có được xem bài đó không.</td><td>D5</td></tr>
+  <tr><td>10</td><td>Tin nhắn đang chờ gửi chỉ nằm trong bộ nhớ của màn hình chat: rời màn hình hoặc tắt app là mất.</td><td>D2</td></tr>
+  <tr><td>11</td><td>Đổi hoặc đặt lại mật khẩu không đăng xuất các thiết bị khác và không gửi email báo; đăng xuất không có tác dụng gì ở máy chủ (phiên vẫn dùng được tới hết 30 ngày).</td><td>A2</td></tr>
+  <tr><td>12</td><td>Khi đăng nhập bằng email chưa đăng ký, máy chủ trả lời nhanh hơn hẳn, nên người ngoài đo thời gian là biết email nào đã có tài khoản.</td><td>A4</td></tr>
+</table>
+<h3>4. Quyết định kỹ thuật dùng chung</h3>
+<p>Nhiều tính năng cùng cần một số nền tảng mà hiện chưa có. Mỗi điểm dưới đây nên được quyết một lần, ghi vào <i>docs/decisions.md</i> và thống nhất với người phụ trách backend, thay vì để từng tính năng tự làm một kiểu.</p>
+<ol>
+  <li><b>Việc nền chạy định kỳ.</b> Đóng bình chọn, dọn story và tin thu hồi, xóa tài khoản sau 30 ngày, tạo tệp tải dữ liệu, gửi lời nhắc đều cần một bộ chạy việc theo lịch. Đề xuất: dùng thư viện <i>@nestjs/schedule</i>, kèm khóa trong PostgreSQL để chỉ một tiến trình chạy mỗi việc. Không để mỗi tính năng tự dùng <i>setInterval</i> riêng.</li>
+  <li><b>Chạy một hay nhiều bản API.</b> Danh sách tài khoản bị khóa, giới hạn tần suất, kết nối Socket.IO, việc gộp thông báo và bộ quét nội dung hiện đều nằm trong bộ nhớ của một tiến trình. Kế hoạch giả định <b>chỉ chạy một bản API</b>; khi cần nhiều bản thì phải thêm Redis cho tất cả các phần này cùng lúc.</li>
+  <li><b>Hội thoại nhiều người.</b> Bảng hội thoại hiện chỉ chứa đúng hai người. Nhắn tin nhóm (D1) cần thêm bảng thành viên và sửa lại toàn bộ luồng 1-1 hiện có. Đây là thay đổi lớn nhất về dữ liệu trong kế hoạch.</li>
+  <li><b>Xóa tài khoản kiểu "bia mộ".</b> Thay vì xóa dây chuyền mọi thứ liên quan, giữ lại một bản ghi người dùng đã xóa hết thông tin cá nhân, để tin nhắn trong nhóm, báo cáo và nhật ký vẫn còn nguyên (E2, D1, C1).</li>
+  <li><b>Thông báo do hệ thống gửi.</b> Hiện mỗi thông báo bắt buộc phải có một người gây ra, nên không gửi được các thông báo như "tệp dữ liệu đã sẵn sàng" hay "bạn bị cảnh cáo". Cần cho phép thông báo không có người gây ra.</li>
+  <li><b>Một hàm duy nhất quyết định ai được xem gì.</b> Bài riêng tư, bạn thân, nhóm kín, tài khoản bị khóa, người bị chặn, hạn chế và tắt tiếng phải được kiểm tra ở cùng một chỗ, dùng chung cho bảng tin, Reels, tìm kiếm, thông báo và socket. Lỗi số 4, 5 và 9 ở trên đều do kiểm tra rải rác ở nhiều nơi.</li>
+  <li><b>Bản development thay cho Expo Go.</b> Thông báo đẩy, Đăng nhập bằng Apple, ghi âm, gọi điện và chụp ảnh giấy tờ đều cần bản build riêng (EAS Build) và khai báo quyền trong <i>app.json</i>; Expo Go không đủ. Nên chuyển sang bản development ngay từ GĐ1.</li>
+  <li><b>Thư viện mới.</b> Kế hoạch đề xuất thêm một số thư viện: <i>@nestjs/schedule</i>, <i>archiver</i>, <i>@aws-sdk/lib-storage</i>, ffmpeg ở máy chủ, <i>expo-audio</i>, thư viện WebRTC và CallKit cho gọi điện, và thư viện cho Đăng nhập bằng Apple. Mỗi thư viện phải được kiểm tra hỗ trợ Android, iOS và Expo SDK 57 trước khi cài, và được ghi vào <i>docs/decisions.md</i>.</li>
+</ol>
+<h3>5. Rủi ro kỹ thuật và vận hành theo tính năng</h3>
+<!--AGENT_RISKS-->
+<h3>6. Dịch vụ bên ngoài và chi phí phát sinh</h3>
+<p>Chi phí chạy hằng tháng của bản thật (máy chủ, cơ sở dữ liệu, kho tệp, email) đã được ước lượng riêng ở mức khoảng 30–50 USD mỗi tháng lúc đầu. Bảng dưới chỉ liệt kê những gì <b>kế hoạch này thêm vào</b>; giá là tham khảo, cần kiểm tra lại khi chọn nhà cung cấp.</p>
+<table>
+  <tr><th style="width:30%">Dịch vụ</th><th style="width:16%">Dùng cho</th><th>Chi phí tham khảo (cần kiểm tra lại)</th></tr>
+  <tr><td>Apple Developer Program</td><td>A6, D4, D8, phát hành iOS</td><td>99 USD mỗi năm. Bắt buộc để có khóa thông báo đẩy APNs và Đăng nhập bằng Apple.</td></tr>
+  <tr><td>Firebase Cloud Messaging</td><td>D8, D4</td><td>Miễn phí. Cần một dự án Firebase và tệp <i>google-services.json</i>.</td></tr>
+  <tr><td>Expo EAS (Build, thông báo đẩy)</td><td>D8, D4, phát hành</td><td>Có gói miễn phí giới hạn số lượt build mỗi tháng; cần kiểm tra giới hạn hiện tại.</td></tr>
+  <tr><td>Nhà cung cấp SMS OTP</td><td>A5</td><td>Tính theo tin nhắn, cộng thủ tục đăng ký tên thương hiệu với nhà mạng (1–4 tuần). Cần báo giá thật.</td></tr>
+  <tr><td>Google Web Risk (kiểm tra đường link)</td><td>B3</td><td>Trả phí sau hạn mức miễn phí mỗi tháng; chưa kiểm tra giá. Bản Safe Browsing miễn phí chỉ dùng cho mục đích phi thương mại.</td></tr>
+  <tr><td>Cơ sở dữ liệu vị trí theo IP (GeoIP)</td><td>A3</td><td>Có bản miễn phí cần đăng ký và cập nhật định kỳ.</td></tr>
+  <tr><td>Dịch vụ xác minh tuổi hoặc danh tính (eKYC)</td><td>B6, E4 (tùy chọn)</td><td>Tính theo lượt xác minh; chỉ cần khi chọn cách xác minh tự động.</td></tr>
+  <tr><td>Máy chủ TURN</td><td>D4</td><td>Tính theo dung lượng gọi video chuyển qua: khoảng 0,05 USD/GB (Cloudflare) đến 0,40 USD/GB (Twilio), hoặc tự chạy coturn.</td></tr>
+  <tr><td>Dịch vụ gọi có sẵn (Stream, Agora, LiveKit)</td><td>D4 (thay cho tự làm)</td><td>Tính theo phút gọi; rút ngắn công sức D4 còn khoảng 15–18 ngày.</td></tr>
+  <tr><td>Cloudflare Turnstile (chống bot)</td><td>E2</td><td>Miễn phí.</td></tr>
+  <tr><td>Dung lượng kho tệp tăng thêm</td><td>D2, D7, E1</td><td>Video và tin thoại trong tin nhắn, story được lưu trữ, tệp tải dữ liệu giữ 7 ngày. Tính theo GB lưu trữ.</td></tr>
+</table>
+<h3>7. Rủi ro về nguồn lực</h3>
+<ul>
+  <li><b>Kiểm duyệt cần người thật.</b> Hàng đợi kiểm duyệt (C1) chỉ có ích khi có người duyệt hằng ngày. Cần quyết định ai trực, trong giờ nào, và thời hạn xử lý mục tiêu trước khi mở đăng ký công khai.</li>
+  <li><b>Khối lượng lớn so với nhóm nhỏ.</b> Tổng ngày công ở mục IV là cho một người đã quen code. Nên khóa phạm vi từng giai đoạn và không thêm tính năng giữa chừng.</li>
+  <li><b>Chưa từng chạy trên iPhone.</b> Mọi tính năng hiện có mới chạy trên Android. Cần có máy iPhone (hoặc máy Mac để chạy giả lập iOS) ngay từ GĐ1, vì các phần native (thông báo đẩy, Đăng nhập bằng Apple, gọi điện) chỉ kiểm tra được trên thiết bị thật.</li>
+</ul>

@@ -6,15 +6,15 @@
 import { useEffect, useState } from 'react';
 
 import { notificationSocket } from '../notifications/services/notificationSocket';
-import { messageService } from './services/messageService';
+import { messageService, type UnreadCounts } from './services/messageService';
 
-let count = 0;
-const listeners = new Set<(value: number) => void>();
+let counts: UnreadCounts = { count: 0, requests: 0 };
+const listeners = new Set<(value: UnreadCounts) => void>();
 
 async function refresh(): Promise<void> {
   try {
-    count = await messageService.getUnreadCount();
-    listeners.forEach((listener) => listener(count));
+    counts = await messageService.getUnreadCounts();
+    listeners.forEach((listener) => listener(counts));
   } catch {
     // The badge is best-effort: keep the last known value.
   }
@@ -22,12 +22,17 @@ async function refresh(): Promise<void> {
 
 export const unreadMessages = { refresh };
 
+/** Unread conversations in the main inbox; message requests are counted apart. */
 export function useUnreadMessages(): number {
-  const [value, setValue] = useState(count);
+  return useUnreadCounts().count;
+}
+
+export function useUnreadCounts(): UnreadCounts {
+  const [value, setValue] = useState(counts);
 
   useEffect(() => {
     listeners.add(setValue);
-    setValue(count);
+    setValue(counts);
     void refresh();
 
     const unsubscribers = [

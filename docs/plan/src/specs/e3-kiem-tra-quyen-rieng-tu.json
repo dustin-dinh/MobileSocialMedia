@@ -1,0 +1,28 @@
+{"id":"e3-kiem-tra-quyen-rieng-tu","title":"Kiểm tra quyền riêng tư theo từng bước","lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"rm","type":"start","lane":2,"row":0,"label":"Đến hạn nhắc (6 tháng)"},
+ {"id":"nt","type":"io","lane":1,"row":0,"label":"Nhắc: rà quyền riêng tư"},
+ {"id":"s","type":"start","lane":0,"row":1,"label":"Tự mở từ Cài đặt"},
+ {"id":"in","type":"io","lane":1,"row":1,"label":"Màn giới thiệu các bước"},
+ {"id":"ld","type":"data","lane":2,"row":1,"label":"Đọc cài đặt hiện tại"},
+ {"id":"st","type":"io","lane":1,"row":2,"label":"Một bước: giải thích + lựa chọn"},
+ {"id":"ch","type":"decision","lane":1,"row":3,"label":"Người dùng đổi lựa chọn?"},
+ {"id":"sv","type":"decision","lane":2,"row":3,"label":"Lưu được?"},
+ {"id":"svE","type":"end","lane":2,"col":1,"row":3,"label":"Trả lựa chọn cũ, báo lỗi"},
+ {"id":"nx","type":"decision","lane":1,"row":4,"label":"Còn bước tiếp?"},
+ {"id":"sm","type":"io","lane":1,"row":5,"label":"Màn tóm tắt đã đổi"},
+ {"id":"rc","type":"data","lane":2,"row":5,"label":"Ghi ngày rà, hẹn lần sau"},
+ {"id":"fn","type":"end","lane":0,"row":5,"label":"Hoàn tất"}
+],
+"edges":[
+ {"from":"rm","to":"nt"},{"from":"nt","to":"in"},{"from":"s","to":"in"},{"from":"in","to":"ld"},
+ {"from":"ld","to":"st","exit":"bottom","entry":"right","via":[[2,2]]},
+ {"from":"st","to":"ch"},
+ {"from":"ch","to":"sv","label":"Có","exit":"right","entry":"left"},
+ {"from":"sv","to":"svE","label":"Không"},
+ {"from":"sv","to":"nx","label":"Có","exit":"bottom","entry":"right","via":[[2,4]]},
+ {"from":"ch","to":"nx","label":"Không"},
+ {"from":"nx","to":"st","label":"Có","exit":"left","entry":"left","via":[[0,4],[0,2]]},
+ {"from":"nx","to":"sm","label":"Không"},
+ {"from":"sm","to":"rc"},{"from":"sm","to":"fn"}
+]}

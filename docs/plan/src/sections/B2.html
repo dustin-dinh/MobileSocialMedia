@@ -1,0 +1,161 @@
+<h3>B2. Nhắn ẩn danh có giới hạn (nâng cấp)</h3>
+<p><i>Nhóm: An toàn tin nhắn · Giai đoạn: GĐ2 · Ước lượng: 10 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Cho phép người theo dõi gửi lời nhắn mà không lộ tên (hỏi thật lòng, góp ý, tỏ tình), nhưng không biến thành công cụ quấy rối hay lừa đảo. Người nhận chủ động bật, tạm dừng được bất cứ lúc nào, và có nút báo cáo đóng ngay cuộc trò chuyện. Ẩn danh chỉ với người dùng khác: nền tảng luôn biết ai gửi, quản trị viên chỉ thấy khi có báo cáo. Đây là tính năng khác biệt của sản phẩm nên phải có hạn mức và điểm lạm dụng rõ ràng.</p>
+
+<h4>b) Hiện trạng</h4>
+<p><b>Đã có trong code</b> (<i>apps/api/src/modules/messages</i>, <i>reports</i>, <i>admin</i>; quyết định DEC-025 trong <i>docs/decisions.md</i>; chi tiết ở <i>docs/moderation/MODERATION_PLAN.md</i> mục 5):</p>
+<ul>
+<li><b>Bật nhận:</b> người dùng bật <i>allowAnonymousMessages</i> qua màn <i>AnonymousMessagesScreen.tsx</i>, màn này liệt kê 3 rủi ro và 6 biện pháp bảo vệ trước nút "Tôi đã hiểu, bật tin nhắn ẩn danh". Tắt là một chạm.</li>
+<li><b>Hai điểm vào:</b> nút "Nhắn ẩn danh" trên trang cá nhân (<i>POST /conversations/anonymous</i>, phải đang theo dõi người nhận) và trả lời story ẩn danh khi chủ story bật <i>allowAnonymous</i> cho story đó (<i>stories.service.ts</i>).</li>
+<li><b>Điều kiện người gửi</b> (<i>openAnonymousConversation</i>): đã xác thực email hoặc đăng nhập Google, tài khoản từ 7 ngày, không bị tước quyền (<i>anonymousSuspendedAt</i>), không chặn nhau, tối đa <b>10 hội thoại ẩn danh mới mỗi 24 giờ</b>.</li>
+<li><b>Hội thoại riêng:</b> <i>kind = ANON_A / ANON_B</i>, mỗi chiều tối đa một hội thoại, tách khỏi hội thoại thường. Bắt đầu là tin nhắn chờ (3 tin, chỉ chữ, không link / SĐT / số tài khoản).</li>
+<li><b>Che danh tính ở máy chủ:</b> với người nhận, <i>senderId</i> là <i>anonymous</i> và người đối diện là "Người ẩn danh" trong API, sự kiện socket <i>message:new</i> và thông báo đẩy (tiêu đề "Người ẩn danh"). <i>scripts/safety-smoke.cjs</i> kiểm tra không lộ id hay username.</li>
+<li><b>Tiết lộ:</b> chỉ người gửi tự làm, có hộp xác nhận, không thu hồi (<i>POST /conversations/:id/reveal</i>, phát <i>conversation:updated</i> cho hai bên). Không có "yêu cầu tiết lộ".</li>
+<li><b>Chặn người ẩn danh:</b> người nhận bấm Chặn thì hội thoại đóng vĩnh viễn (<i>closedAt</i>), người kia không mở lại được.</li>
+<li><b>Báo cáo:</b> đóng hội thoại và tước quyền gửi ẩn danh của người gửi <b>ngay lập tức</b>, lưu bản chụp 50 tin. Admin thấy danh tính thật trong <i>GET /admin/reports</i>. Admin "Bỏ qua" thì trả lại quyền, trừ khi người đó bị từ 3 người khác nhau báo cáo trong 30 ngày (<i>admin.service.ts</i>). Admin trả / tước quyền bằng tay ở danh sách người dùng.</li>
+</ul>
+<p><b>Còn thiếu hoặc chưa đúng:</b></p>
+<ul>
+<li>Không có <b>tạm dừng</b>. Tắt <i>allowAnonymousMessages</i> chỉ chặn mở hội thoại từ trang cá nhân: <i>send()</i> không xét cài đặt này nên hội thoại ẩn danh cũ vẫn nhận tin, và trả lời story ẩn danh chỉ xét cờ của story (<i>openAnonymousConversation</i> không đọc <i>allowAnonymousMessages</i>).</li>
+<li>Không lưu thời điểm người dùng đồng ý màn rủi ro, nên không chứng minh được đã cảnh báo.</li>
+<li>Người <b>gửi</b> không phải đọc quy tắc nào trước lần đầu nhắn ẩn danh; nút trên trang cá nhân gọi API ngay (<i>ProfileView.tsx</i>).</li>
+<li>Hạn mức chỉ đếm <b>hội thoại mới</b>. Sau khi được chấp nhận, số tin ẩn danh không giới hạn; người nhận cũng không có trần số hội thoại ẩn danh nhận mỗi ngày.</li>
+<li>Theo dõi xong là nhắn ẩn danh được ngay (không có thời gian chờ), dễ bị "theo dõi để quấy rối".</li>
+<li>Không có điểm lạm dụng; tước quyền chỉ có hai trạng thái (có / không), không có thời hạn, người gửi không được báo vì sao (chỉ thấy lỗi <i>ANONYMOUS_SUSPENDED</i> khi thử gửi).</li>
+<li>Không có nhật ký ghi lại quản trị viên nào đã xem danh tính thật của người gửi ẩn danh.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Bật, tạm dừng, tắt</b> (sơ đồ 1)</p>
+<ol>
+<li>Người dùng mở Cài đặt → "Tin nhắn ẩn danh". App hiện màn rủi ro hiện có (giữ nội dung), thêm hai lựa chọn: <b>Ai được nhắn ẩn danh</b> (Người theo dõi tôi từ 3 ngày trở lên — mặc định; hoặc Mọi người theo dõi tôi) và <b>Số cuộc trò chuyện ẩn danh mới tối đa mỗi ngày</b> (5, 10, 20 — mặc định 10).</li>
+<li>Bấm "Tôi đã hiểu, bật". Máy chủ kiểm tra đủ điều kiện bật: tài khoản không bị khóa, đã có ngày sinh từ 18 tuổi, đã xác thực email hoặc Google. Không đủ → báo lý do.</li>
+<li>Máy chủ lưu cài đặt và <b>thời điểm đồng ý</b> kèm phiên bản nội dung màn rủi ro. Trang cá nhân hiện nút "Nhắn ẩn danh" cho người đủ điều kiện.</li>
+<li>Về sau, người dùng bấm <b>Tạm dừng</b> (24 giờ hoặc 7 ngày) hoặc <b>Tắt hẳn</b>. Tạm dừng: mọi tin ẩn danh tới (cả hội thoại cũ, cả trả lời story) bị từ chối với mã <i>ANONYMOUS_PAUSED</i>, người gửi thấy "Người này đang tạm dừng nhận tin ẩn danh". Tắt hẳn: như tạm dừng nhưng không tự hết; hội thoại cũ vẫn đọc được.</li>
+<li>Có thể "Tiếp tục nhận" trước hạn. Hết hạn tạm dừng thì tự mở lại, không cần việc chạy nền (máy chủ so giờ khi có tin tới).</li>
+</ol>
+<p><b>Luồng 2: Gửi tin ẩn danh</b> (sơ đồ 2)</p>
+<ol>
+<li>Người gửi bấm "Nhắn ẩn danh" (trang cá nhân) hoặc chọn "Trả lời ẩn danh" ở story.</li>
+<li>Máy chủ kiểm tra người nhận: đang bật, không tạm dừng, chưa vượt số hội thoại ẩn danh mới nhận trong ngày, và người gửi thuộc nhóm được phép (theo dõi đủ 3 ngày, dựa vào <i>Follow.createdAt</i> có sẵn). Story: thêm điều kiện chủ story bật ẩn danh (như hiện nay).</li>
+<li>Kiểm tra người gửi (như hiện nay): email hoặc Google, từ 7 ngày tuổi, không bị tước quyền, không chặn nhau.</li>
+<li>Lần đầu nhắn ẩn danh: máy chủ trả <i>ANONYMOUS_RULES_REQUIRED</i>, app hiện <b>màn quy tắc người gửi</b>: "Bạn ẩn danh với người nhận, không ẩn danh với chúng tôi. Quấy rối, đe dọa, lừa đảo sẽ bị báo cáo, mất quyền nhắn ẩn danh hoặc bị khóa tài khoản. Chúng tôi cung cấp danh tính cho cơ quan có thẩm quyền khi có yêu cầu hợp pháp." Bấm "Đồng ý" thì app gọi lại.</li>
+<li>Đã có hội thoại: đang mở thì vào lại; đã bị đóng thì từ chối <i>CONVERSATION_CLOSED</i> (như hiện nay).</li>
+<li>Chưa có: đếm hội thoại ẩn danh mới trong 24 giờ (10, giảm còn 3 khi điểm lạm dụng từ 30). Đạt trần → 429 <i>ANONYMOUS_DAILY_LIMIT</i>. Không thì tạo hội thoại <i>PENDING</i>.</li>
+<li>Gửi tin: giữ kiểm tra hiện có (chỉ chữ, không liên lạc, 3 tin khi đang chờ). Mỗi lần bị chặn vì liên lạc cộng điểm lạm dụng. Thêm trần <b>30 tin ẩn danh mỗi 24 giờ</b> trên mọi hội thoại ẩn danh của người gửi (429 <i>ANONYMOUS_MESSAGE_LIMIT</i>).</li>
+<li>Máy chủ chấm lừa đảo cho tin (B3), rồi tính điểm lạm dụng 30 ngày của người gửi. Từ 60 → tự tước quyền ẩn danh, tạo mục trong hàng chờ kiểm duyệt (C1), từ chối tin.</li>
+<li>Lưu tin, phát socket và đẩy thông báo <b>đã che danh</b> như hiện nay. Thông báo đẩy của tin ẩn danh không chứa nội dung: "Người ẩn danh: Đã gửi cho bạn một tin nhắn".</li>
+</ol>
+<p><b>Luồng 3: Báo cáo, tước quyền và xét duyệt</b> (sơ đồ 3)</p>
+<ol>
+<li>Người nhận bấm Báo cáo, chọn lý do. Máy chủ lưu báo cáo và bản chụp 50 tin, đóng hội thoại, tước quyền ẩn danh của người gửi ngay (như hiện nay). Người nhận thấy "Đã đóng và đã chặn".</li>
+<li><b>Mới:</b> người gửi nhận thông báo trong app "Quyền nhắn ẩn danh của bạn đang tạm dừng vì có báo cáo. Chúng tôi sẽ xem xét." Không nói ai báo cáo.</li>
+<li>Máy chủ cộng 40 điểm lạm dụng, đưa báo cáo lên đầu hàng chờ.</li>
+<li>Quản trị viên mở báo cáo: thấy bản chụp, danh tính thật, điểm lạm dụng và các lần bị báo trước đó. <b>Mỗi lần mở danh tính được ghi nhật ký</b> (ai xem, lúc nào, báo cáo nào) — thuộc C3.</li>
+<li>Không vi phạm: nếu dưới 3 người khác nhau báo cáo trong 30 ngày thì trả lại quyền (như hiện nay), báo cáo thành <i>DISMISSED</i>; nếu từ 3 người thì giữ tước quyền, chờ xét tay.</li>
+<li>Có vi phạm: lần đầu, mức nhẹ → tước 30 ngày và ghi một lần cảnh cáo; nặng hoặc tái phạm → tước vĩnh viễn hoặc khóa tài khoản (dùng lại <i>setBanned</i>). Người gửi nhận thông báo kết quả và nút kháng nghị (C2).</li>
+</ol>
+<p><b>Luồng 4: Tiết lộ danh tính</b> (sơ đồ 4)</p>
+<ol>
+<li>Người gửi chọn "Tiết lộ danh tính" trong menu. App hiện hộp xác nhận nói rõ không thu hồi được.</li>
+<li>Máy chủ kiểm tra người gọi đúng là bên ẩn danh (sai → 400), đã tiết lộ thì trả lại hội thoại như cũ.</li>
+<li>Ghi <i>revealedAt</i> (như hiện nay). <b>Mới:</b> trả thêm <i>revealedAt</i> để app vẽ dòng hệ thống "Người này đã tiết lộ danh tính lúc ..." trong cuộc trò chuyện.</li>
+<li>Phát <i>conversation:updated</i> cho hai bên. Người nhận thấy tên và ảnh thật. Từ đó luật gửi ảnh và link như hội thoại thường (code hiện tại đã bỏ chặn liên lạc khi đã tiết lộ; ảnh vẫn cấm vì <i>kind</i> vẫn là ẩn danh — <b>cần chủ dự án chọn</b> có cho gửi ảnh sau khi tiết lộ hay không).</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: người nhận bật, tạm dừng, tắt tin nhắn ẩn danh.</p>
+<!--FLOW:b2-bat-nhan-an-danh-->
+<p>Sơ đồ 2: mọi bước kiểm tra khi gửi một tin ẩn danh, từ mở hội thoại tới lúc tin tới người nhận.</p>
+<!--FLOW:b2-gui-tin-an-danh-->
+<p>Sơ đồ 3: báo cáo, tước quyền tự động và quản trị viên xét duyệt.</p>
+<!--FLOW:b2-bao-cao-tuoc-quyen-->
+<p>Sơ đồ 4: người gửi tự tiết lộ danh tính.</p>
+<!--FLOW:b2-tiet-lo-danh-tinh-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<table>
+<tr><th>Giới hạn</th><th>Hiện nay</th><th>Đề xuất</th></tr>
+<tr><td>Hội thoại ẩn danh mới mỗi người gửi / 24 giờ</td><td>10</td><td>10; điểm lạm dụng từ 30: 3</td></tr>
+<tr><td>Tin ẩn danh mỗi người gửi / 24 giờ (mọi hội thoại)</td><td>Không giới hạn</td><td>30</td></tr>
+<tr><td>Tin trước khi được trả lời</td><td>3</td><td>3</td></tr>
+<tr><td>Hội thoại ẩn danh mới mỗi người nhận / 24 giờ</td><td>Không giới hạn</td><td>Người nhận chọn 5 / 10 / 20; đạt trần thì tự tạm dừng 24 giờ và gợi ý bật Giới hạn (B4)</td></tr>
+<tr><td>Thời gian theo dõi trước khi được nhắn ẩn danh</td><td>0</td><td>3 ngày (mặc định)</td></tr>
+<tr><td>Tuổi tài khoản người gửi</td><td>7 ngày</td><td>7 ngày</td></tr>
+</table>
+<p><b>Điểm lạm dụng</b> (tổng trong 30 ngày, bảng <i>SafetyEvent</i> của B1, các con số là đề xuất):</p>
+<table>
+<tr><th>Sự kiện</th><th>Điểm</th></tr>
+<tr><td>Hội thoại ẩn danh bị báo cáo</td><td>+40</td></tr>
+<tr><td>Người nhận chặn (đóng) hội thoại ẩn danh</td><td>+15</td></tr>
+<tr><td>Tin ẩn danh có điểm lừa đảo B3 từ 3</td><td>+10</td></tr>
+<tr><td>Link nguy hiểm (B3)</td><td>+30</td></tr>
+<tr><td>Bị chặn vì gửi link / SĐT / số tài khoản (tối đa 3 lần tính mỗi ngày)</td><td>+5</td></tr>
+<tr><td>Tin chờ ẩn danh bị xóa</td><td>+5</td></tr>
+<tr><td>Báo cáo được admin kết luận không vi phạm</td><td>Xóa điểm của báo cáo đó</td></tr>
+</table>
+<p>Ngưỡng: từ 30 → hạn mức giảm và tin chờ của người đó vào "Đã lọc" (B1); từ 60 → tự tước quyền ẩn danh, vào hàng chờ kiểm duyệt. Admin xem được điểm và từng sự kiện.</p>
+<ul>
+<li><b>Che danh tính ở mọi nơi mới:</b> mọi tính năng sau này chạm vào hội thoại ẩn danh (đang soạn, cảm xúc tin nhắn, thu hồi, tìm trong tin nhắn — D2, D9) phải đi qua cùng hàm che (<i>viewMessage / viewConversation</i>) và phải có phép thử trong <i>safety-smoke.cjs</i>. Không đưa danh tính vào <i>data</i> của thông báo đẩy (dữ liệu này đi qua máy chủ Expo, Apple, Google).</li>
+<li><b>Người nhận báo cáo khi người gửi đã tiết lộ:</b> vẫn xử lý như hội thoại ẩn danh (đóng, tước quyền), vì nội dung đã gửi khi còn ẩn danh.</li>
+<li><b>Người gửi bị khóa tài khoản:</b> hội thoại ẩn danh ẩn khỏi hộp thư người nhận; người nhận không biết đó là ai.</li>
+<li><b>Người nhận tắt hẳn rồi bật lại:</b> hội thoại cũ nhận tin lại bình thường; hội thoại đã đóng thì vẫn đóng.</li>
+<li><b>Tạo tài khoản phụ để lách tước quyền:</b> điều kiện 7 ngày tuổi, email đã xác thực và theo dõi đủ 3 ngày làm chậm việc này; phát hiện tài khoản phụ thật sự nằm ở kế hoạch mục 8 của MODERATION_PLAN, ngoài phạm vi B2.</li>
+<li><b>Yêu cầu từ cơ quan chức năng:</b> danh tính lấy từ <i>Conversation</i> và <i>Message.senderId</i>; quy trình trả lời là việc của người vận hành, không làm trong app.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><i>Đây là đề xuất. Phải ghi vào docs/api-contract.md và docs/decisions.md (bổ sung DEC-025) trước khi code.</i></p>
+<table>
+<tr><th>Trường mới trên User</th><th>Ý nghĩa</th></tr>
+<tr><td><i>anonymousOptInAt</i> DateTime?, <i>anonymousOptInVersion</i> Int?</td><td>Lúc đồng ý màn rủi ro và phiên bản nội dung</td></tr>
+<tr><td><i>anonymousAudience</i> String, mặc định <i>FOLLOWERS_3D</i></td><td><i>FOLLOWERS | FOLLOWERS_3D</i></td></tr>
+<tr><td><i>anonymousDailyInbox</i> Int, mặc định 10</td><td>Trần hội thoại ẩn danh mới nhận mỗi ngày</td></tr>
+<tr><td><i>anonymousPausedUntil</i> DateTime?</td><td>Tạm dừng tới lúc này</td></tr>
+<tr><td><i>anonymousRulesAcceptedAt</i> DateTime?</td><td>Người gửi đã đồng ý quy tắc</td></tr>
+<tr><td><i>anonymousSuspendedUntil</i> DateTime?</td><td>Hết hạn tước quyền; <i>anonymousSuspendedAt</i> có giá trị mà trường này trống = vô thời hạn (giữ trường cũ)</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Ghi chú</th></tr>
+<tr><td><i>PATCH /users/me</i></td><td>Thêm <i>anonymousAudience</i>, <i>anonymousDailyInbox</i>; bật <i>allowAnonymousMessages</i> thì máy chủ ghi <i>anonymousOptInAt</i></td></tr>
+<tr><td><i>POST /users/me/anonymous/pause</i> <i>{ hours: 24 | 168 }</i>, <i>DELETE /users/me/anonymous/pause</i></td><td>Tạm dừng, tiếp tục</td></tr>
+<tr><td><i>POST /users/me/anonymous/rules</i></td><td>Người gửi đồng ý quy tắc</td></tr>
+<tr><td><i>GET /users/me/anonymous-status</i></td><td><i>{ suspended, until, canAppeal }</i> cho màn thông báo của người gửi</td></tr>
+<tr><td>Mã lỗi mới</td><td>403 <i>ANONYMOUS_PAUSED</i>, 403 <i>ANONYMOUS_RULES_REQUIRED</i>, 403 <i>ANONYMOUS_FOLLOW_TOO_NEW</i>, 429 <i>ANONYMOUS_MESSAGE_LIMIT</i> (thêm vào <i>anonymousErrors.ts</i> của app)</td></tr>
+<tr><td>Đối tượng hội thoại</td><td><i>anonymous</i> thêm <i>revealedAt</i></td></tr>
+<tr><td><i>POST /admin/reports/:id/resolve</i></td><td>Thêm hành động <i>SUSPEND_ANON_30D</i>, <i>SUSPEND_ANON_PERMANENT</i></td></tr>
+<tr><td><i>GET /admin/users/:id/safety</i></td><td>Điểm lạm dụng và danh sách <i>SafetyEvent</i> 30 ngày</td></tr>
+</table>
+<p>Code cần sửa: <i>openAnonymousConversation</i> và <i>send</i> (thêm kiểm tra người nhận, trần tin), <i>reports.service.ts</i> (ghi SafetyEvent, gửi thông báo cho người gửi), <i>admin.service.ts</i> (hành động mới, thời hạn), <i>AnonymousMessagesScreen.tsx</i> (lựa chọn, tạm dừng), màn quy tắc người gửi mới, <i>ProfileView.tsx</i>.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị, không cần thư viện mới. Mọi màn dùng thành phần sẵn có, chạy như nhau trên hai nền tảng.</li>
+<li>Thông báo đẩy qua Expo → APNs và FCM (thuộc D8). Tiêu đề "Người ẩn danh", không nội dung, không id thật trong dữ liệu kèm theo — áp dụng giống nhau cho iOS và Android.</li>
+<li><b>App Store:</b> ứng dụng có nhắn ẩn danh thường bị người duyệt hỏi kỹ. Cần ghi chú cho người duyệt (App Review notes) mô tả: tắt mặc định, màn rủi ro, báo cáo và chặn ngay trong cuộc trò chuyện, tước quyền tự động, 18+. Xếp hạng tuổi phải phù hợp nội dung do người dùng tạo. <b>Google Play:</b> chính sách nội dung do người dùng tạo yêu cầu báo cáo, chặn và kiểm duyệt — đã có, cần mô tả trong mục khai báo an toàn.</li>
+<li>Trang quản trị (web): cột điểm lạm dụng, nút tước 30 ngày / vĩnh viễn, nhật ký ai xem danh tính (C3).</li>
+<li>Không có chi phí dịch vụ ngoài.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Tạm dừng 24 giờ: tin ẩn danh tới từ hội thoại cũ, hội thoại mới và trả lời story đều bị từ chối <i>ANONYMOUS_PAUSED</i>; hết hạn thì nhận lại.</li>
+<li>Theo dõi chưa đủ 3 ngày → <i>ANONYMOUS_FOLLOW_TOO_NEW</i>; đủ thì gửi được.</li>
+<li>Người gửi lần đầu thấy màn quy tắc; đồng ý rồi không thấy lại.</li>
+<li>Tin thứ 31 trong 24 giờ bị từ chối; hội thoại mới thứ 11 bị từ chối; người nhận đạt trần thì tự tạm dừng và nhận gợi ý Giới hạn.</li>
+<li>Điểm lạm dụng đạt 60 → tự tước quyền, xuất hiện trong hàng chờ admin.</li>
+<li>Báo cáo → hội thoại đóng, người gửi nhận thông báo tạm dừng; admin xử lý được cả 3 hướng (bỏ qua, 30 ngày, vĩnh viễn); người gửi thấy kết quả.</li>
+<li>Mỗi lần admin mở danh tính có một dòng nhật ký.</li>
+<li><i>safety-smoke.cjs</i> kiểm tra không lộ id, username, ảnh thật trong API, socket và thông báo đẩy của mọi luồng mới (tạm dừng, tiết lộ, báo cáo).</li>
+<li>Chạy tay trên Android <b>và</b> iPhone; ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 5 ngày (tạm dừng, nhóm được phép, trần tin, quy tắc người gửi, điểm lạm dụng, tước có thời hạn, thông báo người gửi), mobile 3 ngày (màn cài đặt, tạm dừng, màn quy tắc, mã lỗi mới, dòng hệ thống khi tiết lộ, màn thông báo bị tước quyền), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B1 (bảng <i>SafetyEvent</i>, thư mục "Đã lọc"), B3 (chấm lừa đảo), C1 (hàng chờ cho mục tự tạo), C2 (cảnh cáo và kháng nghị), C3 (nhật ký xem danh tính). Có thể làm trước C1–C3 bằng cách tạm dùng bảng <i>Report</i> hiện có, nhưng mục tự tạo cần một tài khoản hệ thống làm người báo cáo (<i>Report.reporterId</i> bắt buộc) — cần chủ dự án quyết.</li>
+<li>Rủi ro: hạn mức quá chặt làm tính năng kém hấp dẫn; quá lỏng thì bị lạm dụng. Đề xuất đo 4 tuần đầu: số báo cáo trên 100 hội thoại ẩn danh, tỉ lệ bị chặn.</li>
+<li>Rủi ro pháp lý: nhắn ẩn danh có thể chịu nghĩa vụ xác thực tài khoản theo Nghị định 147/2024 (xem A5); cần luật sư xác nhận.</li>
+</ul>

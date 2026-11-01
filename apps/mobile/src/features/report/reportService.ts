@@ -7,11 +7,13 @@ import { httpClient } from '../../services/httpClient';
 
 export type ReportTarget = {
   id: string;
-  type: 'COMMENT' | 'POST' | 'USER';
+  /** CONVERSATION: `id` is the conversation; the server keeps a copy of its messages as evidence. */
+  type: 'COMMENT' | 'CONVERSATION' | 'POST' | 'USER';
 };
 
 /** Codes accepted by the backend, with the label shown to the user. */
 export const REPORT_REASONS = [
+  { code: 'SCAM', label: 'Lừa đảo, đòi tiền hoặc mã OTP' },
   { code: 'SPAM', label: 'Spam hoặc quảng cáo' },
   { code: 'HARASSMENT', label: 'Quấy rối hoặc bắt nạt' },
   { code: 'SENSITIVE', label: 'Nội dung nhạy cảm' },

@@ -1,0 +1,104 @@
+<h3>D9. Tìm kiếm nâng cao: lịch sử tìm kiếm, gợi ý khi gõ @, tìm trong tin nhắn</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 10–11 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Bốn cải tiến nhỏ cho việc tìm: <b>lịch sử tìm kiếm</b> để mở lại nhanh người hoặc từ khóa vừa tìm; <b>gợi ý tên khi gõ @</b> để nhắc tên đúng người mà không phải nhớ tên đăng nhập; <b>tìm trong tin nhắn</b> để tìm lại địa chỉ, số tài khoản, hẹn giờ đã nhắn; và <b>tải thêm kết quả tìm người</b> khi cuộn. Mọi kết quả phải tôn trọng chặn, tài khoản bị khóa và che tên người ẩn danh.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Tìm người</b> (<i>apps/api/src/modules/search/search.service.ts</i>, <i>GET /users/search?q=&amp;page=&amp;limit=</i>): tìm chuỗi con không phân biệt hoa thường trong tên đăng nhập và tên hiển thị, bỏ người chặn nhau hai chiều, xếp theo tên đăng nhập A→Z (không theo mức khớp). Có phân trang (tối đa 50 mỗi trang). Cần kiểm tra: không lọc tài khoản bị admin khóa (<i>bannedAt</i>) hay bị khóa do dưới 18 tuổi (<i>ageLockedAt</i>).</li>
+<li><b>App tìm người</b> (<i>apps/mobile/src/features/search</i>): chờ 350 ms sau khi gõ rồi gọi API, <b>chỉ lấy trang 1</b> (20 người), không tải thêm khi cuộn. Ô trống thì hiện gợi ý theo dõi và hashtag thịnh hành.</li>
+<li><b>Tìm bài viết</b> (<i>GET /posts/search</i>): tìm chuỗi con trong nội dung, có hashtag, theo quyền xem, có tải thêm khi cuộn. Ghi chú <i>shortcut</i>: quét toàn bảng, cần chỉ mục <i>pg_trgm</i> (chỉ mục tìm chuỗi con của PostgreSQL) khi bài nhiều.</li>
+<li><b>Nhắc tên</b>: máy chủ nhận ra <i>@tên</i> khi đăng bài và bình luận để gửi thông báo; app tô màu và bấm được <i>@tên</i> (<i>components/common/RichText.tsx</i>). <b>Chưa có gợi ý khi gõ @</b> (ghi trong báo cáo tính năng, mục V).</li>
+<li><b>Lịch sử tìm kiếm</b>: chưa có. App chưa có thư viện lưu dữ liệu kiểu khóa–giá trị (AsyncStorage); đã có <i>expo-file-system</i> và <i>expo-secure-store</i>.</li>
+<li><b>Tin nhắn</b> (<i>apps/api/src/modules/messages</i>): hội thoại 1-1, tin chữ và ảnh, lưu dạng chữ thường trên máy chủ (không mã hóa đầu cuối). Tải tin theo trang ngược thời gian (<i>before</i>), danh sách hội thoại lấy 100 gần nhất. <b>Chưa có tìm kiếm.</b> Hội thoại ẩn danh được che tên ở mọi API (<i>ANONYMOUS_PEER</i>).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Lịch sử tìm kiếm</b></p>
+<ol>
+<li>Khi người dùng bấm vào một người, một hashtag, hoặc gửi từ khóa (từ 2 ký tự), app lưu mục đó lên đầu lịch sử. Trùng thì đưa lên đầu, không thêm dòng.</li>
+<li>Lưu trên máy, riêng theo tài khoản (một tệp JSON nhỏ bằng <i>expo-file-system</i>), tối đa 20 mục. Không gửi lên máy chủ.</li>
+<li>Ô tìm trống: hiện "Gần đây" trên cùng, mỗi dòng có nút xóa; có nút "Xóa tất cả". Bên dưới vẫn là gợi ý và hashtag thịnh hành như hiện nay.</li>
+<li>Đăng xuất hoặc xóa tài khoản thì xóa tệp lịch sử của tài khoản đó.</li>
+<li>Mục là người đã chặn nhau hoặc tài khoản không còn: bấm vào thì trang cá nhân báo không tìm thấy và app tự bỏ mục đó.</li>
+</ol>
+<p><b>Luồng 2: Tải thêm kết quả tìm người</b></p>
+<ol>
+<li>App dùng lại cách tải thêm của danh sách bài (<i>usePostList</i>): cuộn gần cuối thì xin trang kế tiếp tới khi hết.</li>
+<li>Máy chủ xếp theo mức khớp: trùng hẳn tên đăng nhập, rồi bắt đầu bằng từ khóa, rồi chứa từ khóa; trong cùng mức thì người mình theo dõi trước. Bỏ tài khoản bị khóa.</li>
+</ol>
+<p><b>Luồng 3: Gợi ý tên khi gõ @</b></p>
+<ol>
+<li>Trong ô viết bài, sửa bài, bình luận, khi người dùng gõ <i>@</i> ở đầu dòng hoặc sau dấu cách, app nhận ra cụm đang gõ (chữ, số, dấu chấm, gạch dưới).</li>
+<li>Chỉ có <i>@</i>: hiện tối đa 8 người hay tương tác (lấy từ lần gọi gần nhất). Có chữ: chờ 250 ms, xem bộ đệm trong bộ nhớ (60 giây), không có thì gọi <i>GET /users/mention-suggest?q=</i>.</li>
+<li>Máy chủ tìm theo tên đăng nhập và tên hiển thị, ưu tiên: người theo dõi hai chiều, người mình theo dõi, người mình nhắn tin trong 30 ngày, rồi người khác. Bỏ: chặn hai chiều, tài khoản bị khóa, người đặt "Không ai được nhắc tên tôi" (cài đặt ở D6). Với bình luận dưới bài <i>FRIENDS</i>, chỉ gợi ý người xem được bài.</li>
+<li>App hiện danh sách ngay trên bàn phím. Người dùng bấm một người: app thay cụm đang gõ bằng <i>@tên </i>. Gõ tiếp hoặc thêm dấu cách thì danh sách đóng.</li>
+<li>Khi đăng, máy chủ gửi thông báo nhắc tên như hiện nay, cộng thêm kiểm tra quyền xem và giới hạn 10 người (D6).</li>
+</ol>
+<p><b>Luồng 4: Tìm trong tin nhắn</b></p>
+<ol>
+<li>Ở tab Tin nhắn có ô tìm. Gõ từ khóa: app lọc ngay tên trong danh sách hội thoại đang có, đồng thời sau 350 ms gọi <i>GET /messages/search?q=</i>.</li>
+<li>Máy chủ chỉ tìm trong hội thoại mà người hỏi là thành viên và đang hiện trong hộp thư (cùng điều kiện <i>inboxWhere</i>); bỏ tin đã thu hồi (D2), bỏ hội thoại người hỏi đã xóa phía mình (nếu D2 thêm), chỉ tìm tin chữ.</li>
+<li>Kết quả trong hội thoại ẩn danh chưa tiết lộ: phía người nhận hiện "Người ẩn danh", không lộ tên.</li>
+<li>Trả 20 kết quả mỗi trang, mới nhất trước, kèm đoạn trích quanh từ khóa và con trỏ trang sau.</li>
+<li>Bấm một kết quả: app mở hội thoại tại tin đó (máy chủ trả 20 tin trước và 20 tin sau), cuộn tới và tô sáng tin trong 2 giây. Cuộn lên, xuống thì tải tiếp như bình thường.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: gợi ý tên khi gõ @.</p>
+<!--FLOW:d9-goi-y-nhac-ten-->
+<p>Sơ đồ 2: tìm trong tin nhắn và mở đúng tin.</p>
+<!--FLOW:d9-tim-tin-nhan-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: lịch sử 20 mục; gợi ý @ tối đa 8 người, chờ 250 ms, bộ đệm 60 giây; tìm tin nhắn từ 2 ký tự, 20 kết quả mỗi trang, tối đa 30 lần tìm mỗi phút mỗi người; tìm người tối đa 50 mỗi trang (giữ như hiện có).</li>
+<li><b>Chống dò danh sách người dùng</b>: gợi ý @ và tìm người dùng chung giới hạn tốc độ (đề xuất 60 yêu cầu mỗi phút mỗi người), ngoài giới hạn 300 yêu cầu/phút/IP hiện có.</li>
+<li><b>Tài khoản riêng tư</b> vẫn hiện trong tìm người và gợi ý @ (giống hiện nay), vì chỉ lộ tên và ảnh đại diện.</li>
+<li><b>Tiếng Việt không dấu</b>: gõ "nguyen" chưa ra "Nguyễn". Có thể thêm phần mở rộng <i>unaccent</i> của PostgreSQL (Supabase có sẵn) cho tìm người và tìm tin nhắn; đề xuất làm cùng đợt, nhưng cần Dev B đồng ý vì phải thêm phần mở rộng vào cơ sở dữ liệu.</li>
+<li><b>Mạng lỗi</b>: gợi ý @ lỗi thì đóng danh sách, không báo lỗi (người dùng vẫn gõ tay được). Tìm tin nhắn lỗi thì hiện "Không tải được kết quả" và nút thử lại.</li>
+<li><b>Người bị chặn</b>: không hiện ở mọi kết quả. Tìm tin nhắn dùng cùng điều kiện với hộp thư hiện nay (<i>inboxWhere</i> trong <i>messages.service.ts</i>, đã bỏ hội thoại với người chặn nhau), nên tin trong hội thoại đó cũng không ra, cho tới khi bỏ chặn.</li>
+<li><b>Ảnh nhạy cảm</b> trong tin nhắn không được tìm (không có chữ). Nếu sau này có mã hóa đầu cuối, tìm tin nhắn phải chuyển xuống máy và bỏ API này.</li>
+<li><b>Nhóm chat</b> (D1): phạm vi tìm mở rộng sang các nhóm người hỏi đang là thành viên; tin trước lúc vào nhóm không trả.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và được Dev B duyệt trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu</th><th>Nội dung</th></tr>
+<tr><td>Chỉ mục <i>pg_trgm</i></td><td>Trên <i>User.username</i>, <i>User.displayName</i>, <i>Message.content</i> (và <i>Post.content</i> đang có ghi chú). Migration mới, cần bật phần mở rộng <i>pg_trgm</i>.</td></tr>
+<tr><td>Lịch sử tìm kiếm</td><td>Không có bảng mới: lưu trên máy.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mục đích</th></tr>
+<tr><td><i>GET /users/search</i></td><td>Giữ nguyên tham số; đổi thứ tự theo mức khớp, bỏ tài khoản bị khóa; mỗi người có thêm <i>isFollowing</i>.</td></tr>
+<tr><td><i>GET /users/mention-suggest?q=&amp;postId=</i></td><td>Tối đa 8 người <i>{ id, username, displayName, avatarUrl }</i>. <i>postId</i> (tùy chọn) để chỉ gợi ý người xem được bài đó. Đặt trước route <i>/users/:id</i> (xem DEC-018).</td></tr>
+<tr><td><i>GET /messages/search?q=&amp;cursor=</i></td><td><i>{ data: [{ messageId, conversationId, peer, snippet, createdAt }], meta: { nextCursor } }</i>. <i>peer</i> đã được che nếu ẩn danh.</td></tr>
+<tr><td><i>GET /conversations/:id/messages?around=&lt;messageId&gt;</i></td><td>Thêm tham số <i>around</i>: trả 20 tin trước và 20 tin sau tin đó, để mở đúng chỗ.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị, không thêm thư viện: lịch sử dùng <i>expo-file-system</i> đã cài (lưu trong thư mục tài liệu của app, bị xóa khi gỡ app trên cả hai nền tảng). Không dùng <i>expo-secure-store</i> cho việc này, vì trên iOS dữ liệu trong Keychain có thể còn lại sau khi gỡ app.</li>
+<li>Danh sách gợi ý @ phải nằm trên bàn phím: dùng <i>KeyboardAvoidingView</i> với <i>behavior</i> khác nhau theo nền tảng như các màn hiện có; kiểm tra trên iPhone có tai thỏ và Android có thanh điều hướng.</li>
+<li>Nhận vị trí con trỏ trong ô nhập bằng <i>onSelectionChange</i> của <i>TextInput</i>; hành vi có khác nhau nhỏ giữa Android và iOS khi gõ tiếng Việt bằng bộ gõ Telex (chữ đang ghép dấu), cần thử trên cả hai với bàn phím tiếng Việt.</li>
+<li>Chi phí: không có dịch vụ ngoài. Chỉ mục <i>pg_trgm</i> tăng dung lượng cơ sở dữ liệu một ít.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Lịch sử: lưu, đưa lên đầu khi trùng, xóa từng mục, xóa tất cả, tách theo tài khoản, xóa khi đăng xuất.</li>
+<li>Tìm người: cuộn tải thêm tới hết; trùng hẳn tên đăng nhập đứng đầu; tài khoản bị khóa và người chặn nhau không xuất hiện (test tự động).</li>
+<li>Gợi ý @: hiện trong ô bài viết, sửa bài, bình luận; chèn đúng <i>@tên</i>; không gợi ý người chặn nhau, người tắt nhắc tên, và (với bài <i>FRIENDS</i>) người không xem được bài.</li>
+<li>Tìm tin nhắn: chỉ trả tin trong hội thoại của mình (test tự động với tài khoản thứ ba); hội thoại ẩn danh không lộ tên; bấm kết quả mở đúng tin và tô sáng.</li>
+<li>Gõ tiếng Việt có dấu bằng Telex trong ô có gợi ý @ không làm mất chữ, trên cả Android và iPhone.</li>
+<li>Báo cáo ghi rõ đã chạy trên Android, trên iPhone.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (gợi ý @ 1, xếp hạng và lọc tìm người 1, tìm tin nhắn và <i>around</i> 1,5, chỉ mục 0,5), mobile 5 ngày (lịch sử 1, tải thêm 0,5, ô nhập có gợi ý @ dùng chung cho 3 chỗ 2, màn tìm tin nhắn 1,5), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: D6 (cài đặt "ai được nhắc tên tôi" và giới hạn 10 người), D2 (tin đã thu hồi), D1 (tìm trong nhóm). Có thể làm trước và thêm điều kiện khi các mã kia xong.</li>
+<li>Rủi ro: tìm chuỗi con trong bảng tin nhắn lớn sẽ chậm nếu thiếu chỉ mục <i>pg_trgm</i>; ô nhập có gợi ý dễ lỗi với bộ gõ tiếng Việt.</li>
+</ul>

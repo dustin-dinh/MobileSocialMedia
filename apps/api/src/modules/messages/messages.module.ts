@@ -8,6 +8,7 @@ import { MessagesService } from './messages.service';
 @Module({
     controllers: [MessagesController],
     providers: [MessagesService],
+    exports: [MessagesService],
     imports: [NotificationsModule, StorageModule],
 })
 export class MessagesModule { }

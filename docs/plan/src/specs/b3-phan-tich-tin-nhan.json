@@ -1,0 +1,193 @@
+{
+"id": "b3-phan-tich-tin-nhan",
+"title": "Phân tích tin nhắn tìm dấu hiệu lừa đảo",
+"lanes": [
+{
+"name": "Người gửi"
+},
+{
+"name": "Máy chủ",
+"cols": 2
+},
+{
+"name": "Người nhận"
+}
+],
+"nodes": [
+{
+"id": "s",
+"type": "start",
+"lane": 0,
+"row": 0,
+"label": "Gửi tin nhắn có chữ"
+},
+{
+"id": "norm",
+"type": "process",
+"lane": 1,
+"row": 0,
+"label": "Chuẩn hóa: bỏ dấu, teencode"
+},
+{
+"id": "ctx",
+"type": "decision",
+"lane": 1,
+"row": 1,
+"label": "Hạn chế và có liên lạc?"
+},
+{
+"id": "eblk",
+"type": "end",
+"lane": 1,
+"col": 1,
+"row": 1,
+"label": "Chặn tin, báo lý do"
+},
+{
+"id": "kw",
+"type": "process",
+"lane": 1,
+"row": 2,
+"label": "Dò cụm từ theo 8 nhóm"
+},
+{
+"id": "link",
+"type": "sub",
+"lane": 1,
+"row": 3,
+"label": "Kiểm tra đường link (sơ đồ riêng)"
+},
+{
+"id": "sc",
+"type": "process",
+"lane": 1,
+"row": 4,
+"label": "Cộng điểm theo bối cảnh người gửi"
+},
+{
+"id": "d",
+"type": "decision",
+"lane": 1,
+"row": 5,
+"label": "Điểm rủi ro từ 3?"
+},
+{
+"id": "norisk",
+"type": "end",
+"lane": 1,
+"col": 1,
+"row": 5,
+"label": "Lưu, gửi bình thường"
+},
+{
+"id": "save",
+"type": "data",
+"lane": 1,
+"row": 6,
+"label": "Lưu tin, mức rủi ro, lý do"
+},
+{
+"id": "ev",
+"type": "data",
+"lane": 1,
+"row": 7,
+"label": "Ghi SafetyEvent cho người gửi"
+},
+{
+"id": "show",
+"type": "io",
+"lane": 2,
+"row": 8,
+"label": "Thanh cảnh báo; mức cao che tin"
+},
+{
+"id": "ch",
+"type": "decision",
+"lane": 2,
+"row": 9,
+"label": "Người nhận chọn?"
+},
+{
+"id": "hide",
+"type": "end",
+"lane": 2,
+"col": 0,
+"row": 10,
+"label": "Mở tin, giữ thanh cảnh báo"
+},
+{
+"id": "rep",
+"type": "sub",
+"lane": 1,
+"row": 9,
+"label": "Báo cáo lừa đảo (sơ đồ riêng)",
+"col": 1
+}
+],
+"edges": [
+{
+"from": "s",
+"to": "norm"
+},
+{
+"from": "norm",
+"to": "ctx"
+},
+{
+"from": "ctx",
+"to": "eblk",
+"label": "Có"
+},
+{
+"from": "ctx",
+"to": "kw",
+"label": "Không"
+},
+{
+"from": "kw",
+"to": "link"
+},
+{
+"from": "link",
+"to": "sc"
+},
+{
+"from": "sc",
+"to": "d"
+},
+{
+"from": "d",
+"to": "norisk",
+"label": "Không"
+},
+{
+"from": "d",
+"to": "save",
+"label": "Có"
+},
+{
+"from": "save",
+"to": "ev"
+},
+{
+"from": "ev",
+"to": "show",
+"exit": "bottom",
+"entry": "top"
+},
+{
+"from": "show",
+"to": "ch"
+},
+{
+"from": "ch",
+"to": "hide",
+"label": "Vẫn xem"
+},
+{
+"from": "ch",
+"to": "rep",
+"label": "Báo cáo"
+}
+]
+}

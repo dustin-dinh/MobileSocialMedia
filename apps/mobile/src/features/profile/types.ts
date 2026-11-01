@@ -5,6 +5,8 @@ import type { Post, PostAuthor } from '../feed/types';
 
 /** Full user profile as returned by the profile endpoint. */
 export type UserProfile = {
+  /** This user accepts anonymous messages from people who follow them. */
+  acceptsAnonymousMessages?: boolean;
   avatarUrl: string | null;
   bio: string | null;
   coverUrl?: string | null;

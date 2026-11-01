@@ -1,0 +1,31 @@
+{"id":"a2-lam-moi-phien","title":"Làm mới phiên bằng refresh token xoay vòng, phát hiện token bị dùng lại",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":1,"row":0,"label":"API trả 401 TOKEN_EXPIRED"},
+ {"id":"send","type":"process","lane":1,"row":1,"label":"Gửi refresh token (một lượt cùng lúc)"},
+ {"id":"valid","type":"decision","lane":2,"row":1,"label":"Phiên còn hiệu lực?"},
+ {"id":"exp","type":"end","lane":2,"col":1,"row":1,"label":"401: về màn đăng nhập"},
+ {"id":"reuse","type":"decision","lane":2,"row":2,"label":"Token cũ bị dùng lại?"},
+ {"id":"kill","type":"data","lane":2,"col":1,"row":2,"label":"Thu hồi cả phiên, lý do REUSE"},
+ {"id":"warn","type":"process","lane":2,"col":1,"row":3,"label":"Email + push cảnh báo (A3)"},
+ {"id":"rot","type":"data","lane":2,"row":3,"label":"Đánh dấu token cũ, lưu token mới"},
+ {"id":"out","type":"end","lane":2,"col":1,"row":4,"label":"401: mọi máy của phiên phải đăng nhập"},
+ {"id":"ret","type":"process","lane":2,"row":4,"label":"Trả access 15 phút + refresh mới"},
+ {"id":"store","type":"process","lane":1,"row":5,"label":"Lưu cả hai vào SecureStore"},
+ {"id":"retry","type":"process","lane":1,"row":6,"label":"Gửi lại các yêu cầu đang chờ"},
+ {"id":"done","type":"end","lane":0,"row":7,"label":"Không thấy gì, dùng tiếp"}
+],
+"edges":[
+ {"from":"s","to":"send"},
+ {"from":"send","to":"valid"},
+ {"from":"valid","to":"exp","label":"Không"},
+ {"from":"valid","to":"reuse","label":"Có"},
+ {"from":"reuse","to":"kill","label":"Có"},
+ {"from":"kill","to":"warn"},
+ {"from":"warn","to":"out"},
+ {"from":"reuse","to":"rot","label":"Không"},
+ {"from":"rot","to":"ret"},
+ {"from":"ret","to":"store"},
+ {"from":"store","to":"retry"},
+ {"from":"retry","to":"done","exit":"left","entry":"top","via":[[0,6]]}
+]}

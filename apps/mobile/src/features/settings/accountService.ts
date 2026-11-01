@@ -46,6 +46,44 @@ export const accountService = {
     });
   },
 
+  /**
+   * Declare the date of birth (YYYY-MM-DD), once. `ageLocked`: under 18, the
+   * server has locked the account and further requests are refused.
+   */
+  async setBirthDate(birthDate: string): Promise<{ ageLocked: boolean }> {
+    if (USE_MOCK_API) {
+      await mockDelay();
+
+      return { ageLocked: false };
+    }
+
+    const response = await httpClient.requestJson<
+      { data: { ageLocked: boolean } },
+      { birthDate: string }
+    >({
+      body: { birthDate },
+      method: 'PATCH',
+      path: 'users/me/birth-date',
+    });
+
+    return { ageLocked: response.data.ageLocked };
+  },
+
+  /** Let anonymous senders message this account (asked only after the risk warning). */
+  async setAllowAnonymousMessages(allow: boolean): Promise<void> {
+    if (USE_MOCK_API) {
+      await mockDelay();
+
+      return;
+    }
+
+    await httpClient.requestVoid<{ allowAnonymousMessages: boolean }>({
+      body: { allowAnonymousMessages: allow },
+      method: 'PATCH',
+      path: 'users/me',
+    });
+  },
+
   /** Mark the first-run setup as finished (or skipped) so it is not shown again. */
   async completeOnboarding(): Promise<void> {
     if (USE_MOCK_API) {

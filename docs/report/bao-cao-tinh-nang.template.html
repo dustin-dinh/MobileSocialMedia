@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Báo cáo tính năng hiện có</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 20mm 20mm 30mm;
+    @bottom-center { content: counter(page); font-family: "Times New Roman", serif; font-size: 12pt; color: #000; }
+  }
+  html, body { background: #fff; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 13pt;
+    line-height: 1.5;
+    color: #000;
+    margin: 0;
+    text-align: justify;
+  }
+  h1 { font-size: 18pt; font-weight: bold; text-align: center; text-transform: uppercase; margin: 0 0 4pt; }
+  .subtitle { font-size: 14pt; font-weight: bold; text-align: center; margin: 0 0 6pt; }
+  .meta { text-align: center; font-style: italic; margin: 0 0 18pt; }
+  h2 { font-size: 15pt; font-weight: bold; text-transform: uppercase; margin: 18pt 0 6pt; break-after: avoid; }
+  h3 { font-size: 13pt; font-weight: bold; margin: 12pt 0 4pt; break-after: avoid; }
+  h4 { font-size: 13pt; font-weight: bold; font-style: italic; margin: 8pt 0 2pt; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  ul { margin: 0 0 6pt; padding-left: 22pt; }
+  li { margin: 0 0 2pt; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 8pt; font-size: 13pt; }
+  th, td { border: 1px solid #000; padding: 3pt 6pt; vertical-align: top; text-align: left; }
+  th { font-weight: bold; }
+  .figure { break-before: page; text-align: center; }
+  .figure .mxgraph { margin: 0 auto; }
+  .caption { text-align: center; font-style: italic; margin: 6pt 0 10pt; }
+  .figure p:not(.caption) { text-align: justify; }
+  .module { break-inside: auto; }
+  h3 + h4 { margin-top: 4pt; }
+</style>
+</head>
+<body>
+
+<h1>Báo cáo các tính năng hiện có</h1>
+<p class="subtitle">Ứng dụng mạng xã hội trên di động (Mobile Social)</p>
+<p class="meta">Ngày lập: 31/10/2026 · Nhánh mã nguồn: feat/gap-checklist</p>
+
+<h2>I. Tổng quan hệ thống</h2>
+<p>Báo cáo liệt kê các tính năng đã có trong mã nguồn, chia theo module lớn và các module nhỏ bên trong. Nội dung được lập bằng cách đối chiếu mã nguồn backend (<i>apps/api</i>), ứng dụng di động (<i>apps/mobile</i>) và nhật ký thay đổi của dự án (<i>docs/change.md</i>).</p>
+<p>Hệ thống gồm bốn thành phần:</p>
+<ul>
+  <li><b>Ứng dụng di động:</b> Expo SDK 57, React Native 0.86, chạy trên Android và iOS; 32 màn hình.</li>
+  <li><b>Backend:</b> NestJS 11, Prisma 7, cơ sở dữ liệu PostgreSQL (Supabase); 16 module, 98 điểm cuối API, 22 bảng dữ liệu; kênh thời gian thực bằng Socket.IO.</li>
+  <li><b>Kho lưu tệp:</b> chuẩn S3, khi phát triển dùng MinIO chạy trong Docker; lưu ảnh, ảnh đại diện, video và ảnh tin nhắn.</li>
+  <li><b>Trang quản trị:</b> trang web do backend phục vụ, dành cho quản trị viên.</li>
+</ul>
+<p>Hệ thống có ba tác nhân: <b>Khách</b> (chưa đăng nhập), <b>Người dùng</b> (đã đăng nhập) và <b>Quản trị viên</b> (người dùng có quyền quản trị).</p>
+
+<div class="figure">
+  <h2 style="text-align:left">II. Sơ đồ use case tổng quan</h2>
+  <!--DIAGRAM-->
+  <p class="caption">Hình 1. Sơ đồ use case tổng quan</p>
+  <p>Người dùng kế thừa các use case của Khách, và Quản trị viên kế thừa các use case của Người dùng (mũi tên tam giác rỗng). Mỗi use case trong sơ đồ tương ứng với một hoặc nhiều module ở mục III.</p>
+</div>
+
+<h2>III. Các module chức năng</h2>
+
+<h3>1. Xác thực và tài khoản</h3>
+<h4>1.1. Đăng ký</h4>
+<ul>
+  <li>Đăng ký bằng email, tên người dùng, mật khẩu và ngày sinh (nhập theo dạng DD/MM/YYYY).</li>
+  <li>Chỉ nhận người từ 18 tuổi trở lên.</li>
+</ul>
+<h4>1.2. Xác thực email</h4>
+<ul>
+  <li>Gửi mã xác thực qua email; người dùng nhập mã để kích hoạt tài khoản; gửi lại mã khi cần.</li>
+</ul>
+<h4>1.3. Đăng nhập và đăng xuất</h4>
+<ul>
+  <li>Đăng nhập bằng email và mật khẩu.</li>
+  <li>Đăng nhập bằng Google: đã có mã nguồn, nút chỉ hiện khi đã cấu hình mã ứng dụng Google.</li>
+  <li>Phiên đăng nhập có hiệu lực 30 ngày, lưu trong bộ nhớ bảo mật của thiết bị.</li>
+  <li>Tài khoản bị khóa hoặc bị khóa vì chưa đủ tuổi không đăng nhập được.</li>
+</ul>
+<h4>1.4. Quên và đặt lại mật khẩu</h4>
+<ul>
+  <li>Nhận mã qua email, nhập mã rồi đặt mật khẩu mới.</li>
+</ul>
+<h4>1.5. Giới thiệu và thiết lập lần đầu</h4>
+<ul>
+  <li>Màn giới thiệu ứng dụng trước khi đăng nhập.</li>
+  <li>Thiết lập lần đầu sau khi đăng ký: chọn tên người dùng, ảnh đại diện, gợi ý người để theo dõi.</li>
+  <li>Tài khoản cũ chưa có ngày sinh phải bổ sung trước khi dùng tiếp; dưới 18 tuổi thì tài khoản bị khóa.</li>
+</ul>
+
+<h3>2. Hồ sơ người dùng</h3>
+<h4>2.1. Hồ sơ cá nhân</h4>
+<ul>
+  <li>Xem và sửa thông tin hồ sơ.</li>
+  <li>Tải lên, thay và xóa ảnh đại diện, ảnh bìa.</li>
+</ul>
+<h4>2.2. Hồ sơ người khác</h4>
+<ul>
+  <li>Xem bài viết và tab "Đăng lại" của người khác.</li>
+  <li>Nút theo dõi, nhắn tin và nhắn ẩn danh (khi người đó cho phép).</li>
+  <li>Tài khoản riêng tư có biểu tượng khóa và chỉ hiện nội dung cho người theo dõi đã được duyệt.</li>
+</ul>
+<h4>2.3. Gợi ý người dùng</h4>
+<ul>
+  <li>Danh sách "Bạn bè có thể quen" để theo dõi nhanh.</li>
+</ul>
+
+<h3>3. Bài viết và bảng tin</h3>
+<h4>3.1. Tạo bài viết</h4>
+<ul>
+  <li>Bài viết chữ, ảnh hoặc video. Video được tải thẳng lên kho lưu tệp, có thanh tiến độ và ảnh xem trước tạo tự động.</li>
+  <li>Quyền riêng tư cho từng bài: Công khai, Bạn bè, Chỉ mình tôi.</li>
+  <li>Hashtag và nhắc tên (@) bấm được; người được nhắc tên nhận thông báo.</li>
+</ul>
+<h4>3.2. Bảng tin</h4>
+<ul>
+  <li>Hiện bài của chính mình và của người đang theo dõi; kéo để làm mới, cuộn để tải thêm.</li>
+  <li>Cuộn hết bài thì hiện lời nhắc nghỉ ngơi; bảng tin trống có nút tìm người để theo dõi.</li>
+</ul>
+<h4>3.3. Chi tiết và quản lý bài viết</h4>
+<ul>
+  <li>Màn chi tiết bài viết kèm bình luận.</li>
+  <li>Sửa và xóa bài viết của mình.</li>
+</ul>
+<h4>3.4. Đăng lại, lưu và ẩn bài</h4>
+<ul>
+  <li>Đăng lại bài của người khác lên trang cá nhân, có thông báo cho tác giả.</li>
+  <li>Lưu bài và xem danh sách bài đã lưu.</li>
+  <li>Ẩn bài khỏi bảng tin; đánh dấu "Không quan tâm".</li>
+</ul>
+<h4>3.5. Chia sẻ</h4>
+<ul>
+  <li>Chia sẻ nội dung chữ của bài viết qua bảng chia sẻ của hệ điều hành.</li>
+  <li>"Sao chép liên kết" đã có nhưng đang tắt bằng cờ cấu hình.</li>
+</ul>
+
+<h3>4. Tương tác với bài viết</h3>
+<h4>4.1. Cảm xúc</h4>
+<ul>
+  <li>Sáu loại cảm xúc: Thích, Yêu thích, Haha, Wow, Buồn, Phẫn nộ; nhấn giữ nút thích để chọn.</li>
+  <li>Danh sách người đã thả cảm xúc, kèm loại cảm xúc của từng người.</li>
+</ul>
+<h4>4.2. Bình luận</h4>
+<ul>
+  <li>Thêm, sửa, xóa bình luận (chủ bài viết cũng xóa được bình luận trên bài của mình); tối đa 1000 ký tự.</li>
+  <li>Trả lời bình luận và thích bình luận.</li>
+</ul>
+
+<h3>5. Reels (video ngắn)</h3>
+<h4>5.1. Bảng tin Reels</h4>
+<ul>
+  <li>Lướt video theo chiều dọc; chuyển qua lại giữa "Bảng tin" và "Reels".</li>
+  <li>Bấm một video trong bảng tin để mở trình xem Reels tại đúng video đó; video ngang được thu vừa khung.</li>
+</ul>
+<h4>5.2. Ghi nhận tương tác</h4>
+<ul>
+  <li>Ghi lại lượt xem, xem hết, xem lại, bỏ qua, thích, lưu và "không quan tâm" để sắp xếp video.</li>
+</ul>
+
+<h3>6. Story (tin 24 giờ)</h3>
+<h4>6.1. Đăng story</h4>
+<ul>
+  <li>Đăng story ảnh hoặc video ngắn, tự hết hạn sau 24 giờ.</li>
+  <li>Chủ story chọn có cho phép tương tác ẩn danh hay không.</li>
+</ul>
+<h4>6.2. Xem và tương tác</h4>
+<ul>
+  <li>Khay story phía trên bảng tin và trình xem story.</li>
+  <li>Thả cảm xúc và trả lời story; câu trả lời đi vào tin nhắn. Có thể ẩn danh nếu chủ story cho phép.</li>
+</ul>
+<h4>6.3. Quản lý story của mình</h4>
+<ul>
+  <li>Xem số cảm xúc và danh sách người đã thả cảm xúc; xóa story.</li>
+</ul>
+
+<h3>7. Theo dõi</h3>
+<h4>7.1. Theo dõi và bỏ theo dõi</h4>
+<ul>
+  <li>Theo dõi, bỏ theo dõi người dùng khác.</li>
+</ul>
+<h4>7.2. Tài khoản riêng tư và yêu cầu theo dõi</h4>
+<ul>
+  <li>Với tài khoản riêng tư, theo dõi sẽ gửi yêu cầu; chủ tài khoản chấp nhận hoặc từ chối trên màn "Yêu cầu theo dõi".</li>
+</ul>
+<h4>7.3. Danh sách theo dõi</h4>
+<ul>
+  <li>Danh sách người theo dõi và người đang theo dõi.</li>
+</ul>
+
+<h3>8. Nhắn tin</h3>
+<h4>8.1. Hộp thư</h4>
+<ul>
+  <li>Tab "Tin nhắn" riêng trên thanh điều hướng, có số tin chưa đọc.</li>
+  <li>Hai thư mục: "Tin nhắn" và "Tin nhắn chờ".</li>
+</ul>
+<h4>8.2. Trò chuyện</h4>
+<ul>
+  <li>Nhắn tin thời gian thực bằng chữ và ảnh; trạng thái "Đã xem".</li>
+  <li>Gửi lại tin khi mất mạng mà không tạo tin trùng.</li>
+  <li>Ảnh tin nhắn được lưu ở kho riêng tư, chỉ xem được qua đường dẫn có hạn 1 giờ.</li>
+</ul>
+<h4>8.3. Tin nhắn chờ</h4>
+<ul>
+  <li>Người lạ nhắn tới sẽ vào "Tin nhắn chờ": chỉ được gửi chữ, tối đa 3 tin.</li>
+  <li>Người nhận chấp nhận, xóa hoặc báo cáo cuộc trò chuyện.</li>
+</ul>
+<h4>8.4. Nhắn ẩn danh</h4>
+<ul>
+  <li>Người nhận tự bật "Nhận tin nhắn ẩn danh" trong cài đặt, sau khi đọc các rủi ro và biện pháp bảo vệ.</li>
+  <li>Mỗi người gửi tối đa 10 cuộc trò chuyện ẩn danh mỗi ngày; người gửi có thể tự tiết lộ danh tính.</li>
+  <li>Người nhận báo cáo hoặc chặn được; báo cáo sẽ đóng cuộc trò chuyện và tạm ngưng quyền nhắn ẩn danh của người gửi.</li>
+</ul>
+<h4>8.5. Bảo vệ người dùng</h4>
+<ul>
+  <li>Ảnh nhạy cảm bị làm mờ, người nhận tự chọn có xem hay không.</li>
+  <li>Cảnh báo dưới tin nhắn có dấu hiệu lừa đảo; hạn chế gửi ảnh và thông tin liên lạc trong tin nhắn chờ và tin ẩn danh.</li>
+</ul>
+
+<h3>9. Tìm kiếm</h3>
+<h4>9.1. Tìm người dùng</h4>
+<ul><li>Tìm theo tên hoặc tên người dùng.</li></ul>
+<h4>9.2. Tìm bài viết</h4>
+<ul><li>Tìm bài viết theo từ khóa và hashtag; chỉ trả về bài người tìm được phép xem.</li></ul>
+<h4>9.3. Hashtag thịnh hành</h4>
+<ul><li>Hiện các hashtag thịnh hành khi ô tìm kiếm còn trống.</li></ul>
+
+<h3>10. Thông báo</h3>
+<h4>10.1. Danh sách thông báo</h4>
+<ul>
+  <li>Các loại: cảm xúc, bình luận, trả lời, nhắc tên, theo dõi, yêu cầu theo dõi, chấp nhận theo dõi, đăng lại, cảm xúc story, tin nhắn.</li>
+  <li>Bấm vào thông báo mở đúng bài viết, bình luận hoặc hồ sơ liên quan.</li>
+</ul>
+<h4>10.2. Trạng thái đã đọc</h4>
+<ul>
+  <li>Đánh dấu đã đọc từng thông báo hoặc tất cả; biểu tượng chuông có số chưa đọc.</li>
+</ul>
+<h4>10.3. Thông báo thời gian thực và thông báo đẩy</h4>
+<ul>
+  <li>Thông báo mới đến ngay qua Socket.IO khi ứng dụng đang mở.</li>
+  <li>Thông báo đẩy: đã có mã đăng ký thiết bị và gửi thông báo, chưa chạy thử (xem mục V).</li>
+</ul>
+
+<h3>11. An toàn và báo cáo vi phạm</h3>
+<h4>11.1. Báo cáo vi phạm</h4>
+<ul>
+  <li>Báo cáo bài viết, bình luận, người dùng hoặc cuộc trò chuyện.</li>
+  <li>Lý do: spam, quấy rối, nội dung nhạy cảm, tin sai lệch, lừa đảo, khác. Báo cáo cuộc trò chuyện lưu kèm bản chụp 50 tin gần nhất.</li>
+</ul>
+<h4>11.2. Chặn người dùng</h4>
+<ul>
+  <li>Chặn và bỏ chặn; danh sách người đã chặn. Hai bên bị chặn không thấy nội dung của nhau.</li>
+</ul>
+<h4>11.3. Giới hạn độ tuổi và tần suất</h4>
+<ul>
+  <li>Chỉ người từ 18 tuổi được dùng ứng dụng.</li>
+  <li>Giới hạn số yêu cầu gửi lên máy chủ (300 yêu cầu mỗi phút cho một địa chỉ IP, chặt hơn ở các chức năng đăng nhập).</li>
+</ul>
+
+<h3>12. Cài đặt</h3>
+<h4>12.1. Tài khoản</h4>
+<ul>
+  <li>Đổi mật khẩu.</li>
+  <li>Xóa tài khoản ngay trong ứng dụng; xóa luôn ảnh, video, story và ảnh tin nhắn của tài khoản.</li>
+</ul>
+<h4>12.2. Quyền riêng tư</h4>
+<ul>
+  <li>Bật, tắt tài khoản riêng tư; xem yêu cầu theo dõi.</li>
+  <li>Bật, tắt nhận tin nhắn ẩn danh; quản lý danh sách chặn.</li>
+</ul>
+<h4>12.3. Giới thiệu và phiên đăng nhập</h4>
+<ul>
+  <li>Điều khoản sử dụng và chính sách quyền riêng tư (nội dung đang là bản nháp).</li>
+  <li>Đăng xuất, có hộp thoại xác nhận.</li>
+</ul>
+
+<h3>13. Trang quản trị (web)</h3>
+<h4>13.1. Truy cập</h4>
+<ul>
+  <li>Đăng nhập bằng tài khoản có quyền quản trị; quyền được cấp bằng một script phía máy chủ.</li>
+</ul>
+<h4>13.2. Thống kê</h4>
+<ul>
+  <li>Bảng số liệu tổng quan của hệ thống; cảnh báo khi bộ nhận diện ảnh nhạy cảm chưa được cài.</li>
+</ul>
+<h4>13.3. Xử lý báo cáo</h4>
+<ul>
+  <li>Xem danh sách báo cáo và nội dung bị báo cáo. Báo cáo cuộc trò chuyện hiện danh tính thật và bản chụp tin nhắn; ảnh nhạy cảm vẫn được làm mờ với người duyệt.</li>
+  <li>Ba cách xử lý: bỏ qua, gỡ nội dung, khóa người dùng.</li>
+</ul>
+<h4>13.4. Quản lý người dùng</h4>
+<ul>
+  <li>Khóa và mở khóa tài khoản; mở khóa tài khoản bị khóa vì tuổi.</li>
+  <li>Tạm ngưng hoặc khôi phục quyền nhắn ẩn danh.</li>
+</ul>
+
+<h2>IV. Các module hỗ trợ (backend)</h2>
+<p>Các module dưới đây không có màn hình riêng nhưng được các module chức năng ở mục III dùng chung.</p>
+<table>
+  <tr><th style="width:28%">Module</th><th>Vai trò</th></tr>
+  <tr><td>Lưu trữ tệp (storage)</td><td>Tải tệp lên và xóa tệp trên kho chuẩn S3. Kho công khai chứa ảnh và video bài viết; kho riêng tư chứa ảnh tin nhắn. Cấp đường dẫn tải lên có chữ ký cho video và đổi đường dẫn tệp theo địa chỉ máy chủ của từng yêu cầu.</td></tr>
+  <tr><td>Email (mail)</td><td>Gửi mã xác thực email và mã đặt lại mật khẩu, kèm lời cảnh báo không chia sẻ mã.</td></tr>
+  <tr><td>Kiểm duyệt (moderation)</td><td>Nhận diện ảnh nhạy cảm bằng mô hình ONNX (khoảng 88 MB, tải riêng); phát hiện câu lừa đảo và thông tin liên lạc trong văn bản; tính tuổi từ ngày sinh.</td></tr>
+  <tr><td>Thời gian thực (notifications gateway)</td><td>Kênh Socket.IO đẩy thông báo, tin nhắn mới và trạng thái đã xem tới ứng dụng.</td></tr>
+  <tr><td>Cơ sở dữ liệu (Prisma)</td><td>22 bảng trên PostgreSQL (Supabase): người dùng, bài viết, tệp đính kèm, theo dõi, cảm xúc, bình luận, thông báo, tin nhắn, story, báo cáo, chặn và các bảng liên quan.</td></tr>
+</table>
+
+<h2>V. Tình trạng kiểm thử và phần còn dang dở</h2>
+<h3>1. Đã kiểm thử</h3>
+<ul>
+  <li>Backend: bốn bộ kiểm thử tự động chạy trên API thật đều đạt (72, 73, 76 và 28 phép thử).</li>
+  <li>Ứng dụng di động: 100 test Jest đạt; ba bộ test chạy với API thật đạt (20, 14 và 5 test).</li>
+  <li>Android (BlueStacks, Expo Go) đã chạy phần lớn các luồng chính: đăng bài, video, Reels, story, cảm xúc, nhắn tin, tin nhắn chờ, nhắn ẩn danh, cài đặt.</li>
+  <li><b>iPhone: chưa chạy thử.</b> Không được coi là đã chạy được trên iOS cho tới khi thử trên thiết bị.</li>
+</ul>
+<h3>2. Còn dang dở</h3>
+<ul>
+  <li>Thông báo đẩy: có mã nhưng chưa thử; cần bản dev build, cấu hình EAS, FCM (Android) và APNs (iOS).</li>
+  <li>Đăng nhập Google: chỉ còn việc cấu hình. Nếu bật trên iOS thì App Store yêu cầu thêm Đăng nhập bằng Apple, phần này chưa có.</li>
+  <li>Phiên đăng nhập 30 ngày, chưa có cơ chế làm mới token.</li>
+  <li>Danh sách thông báo và kết quả tìm người dùng chưa tải thêm khi cuộn.</li>
+  <li>Chưa gợi ý tên khi gõ @.</li>
+  <li>Các màn đăng nhập vẫn hiển thị tiếng Anh.</li>
+  <li>Điều khoản và chính sách là bản nháp; chưa có trang web yêu cầu xóa tài khoản (Google Play yêu cầu).</li>
+  <li>Chưa có dịch vụ ghi nhận lỗi crash.</li>
+</ul>
+
+</body>
+</html>

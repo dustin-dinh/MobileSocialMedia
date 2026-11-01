@@ -1,0 +1,31 @@
+{"id":"d4-goi-di","title":"Gọi đi: kiểm tra quyền và đổ chuông",
+"lanes":[{"name":"Người gọi"},{"name":"Máy chủ","cols":2},{"name":"Người nhận"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm gọi thoại hoặc video"},
+ {"id":"perm","type":"decision","lane":0,"row":1,"label":"Có quyền micro (camera)?"},
+ {"id":"deny","type":"end","lane":0,"row":2,"label":"Hướng dẫn bật quyền"},
+ {"id":"allow","type":"decision","lane":1,"row":1,"label":"Được phép gọi người này?"},
+ {"id":"no","type":"end","lane":1,"col":1,"row":1,"label":"Từ chối CALL_NOT_ALLOWED"},
+ {"id":"busy","type":"decision","lane":1,"row":2,"label":"Người nhận đang bận?"},
+ {"id":"bz","type":"end","lane":1,"col":1,"row":2,"label":"Báo bận, ghi cuộc gọi nhỡ"},
+ {"id":"db","type":"data","lane":1,"row":3,"label":"Tạo Call RINGING"},
+ {"id":"ring","type":"process","lane":1,"row":4,"label":"Socket call:incoming + push VoIP/FCM"},
+ {"id":"ui","type":"io","lane":2,"row":4,"label":"Màn hình cuộc gọi đến của hệ thống"},
+ {"id":"ans","type":"decision","lane":2,"row":5,"label":"Bắt máy trong 45 giây?"},
+ {"id":"miss","type":"process","lane":1,"col":1,"row":5,"label":"Ghi MISSED / DECLINED, báo người gọi"},
+ {"id":"nr","type":"end","lane":0,"row":5,"label":"Thấy “Không trả lời”"},
+ {"id":"acc","type":"process","lane":2,"row":6,"label":"Gửi call:accept"},
+ {"id":"act","type":"data","lane":1,"col":1,"row":6,"label":"Call ACTIVE, ghi startedAt"},
+ {"id":"sig","type":"sub","lane":1,"col":1,"row":7,"label":"Kết nối âm thanh/video (sơ đồ sau)"},
+ {"id":"end","type":"end","lane":0,"row":8,"label":"Đang gọi"}
+],
+"edges":[
+ {"from":"s","to":"perm"},
+ {"from":"perm","to":"deny","label":"Không"},{"from":"perm","to":"allow","label":"Có"},
+ {"from":"allow","to":"no","label":"Không"},{"from":"allow","to":"busy","label":"Có"},
+ {"from":"busy","to":"bz","label":"Có"},{"from":"busy","to":"db","label":"Không"},
+ {"from":"db","to":"ring"},{"from":"ring","to":"ui"},{"from":"ui","to":"ans"},
+ {"from":"ans","to":"miss","label":"Không"},{"from":"ans","to":"acc","label":"Có"},
+ {"from":"miss","to":"nr"},
+ {"from":"acc","to":"act"},{"from":"act","to":"sig"},{"from":"sig","to":"end"}
+]}

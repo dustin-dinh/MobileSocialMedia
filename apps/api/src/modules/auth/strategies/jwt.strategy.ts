@@ -6,7 +6,8 @@ import {
     Strategy,
 } from "passport-jwt";
 
-import { bannedUserIds } from "../ban-list";
+import { ageLockedUserIds, bannedUserIds } from "../ban-list";
+import { AGE_RESTRICTED_ERROR } from "../../moderation/age";
 import { JwtPayload } from "../types/jwt-payload.type";
 
 @Injectable()
@@ -37,6 +38,10 @@ export class JwtStrategy extends PassportStrategy(
                 code: "ACCOUNT_BANNED",
                 message: "This account has been suspended",
             });
+        }
+
+        if (ageLockedUserIds.has(payload.sub)) {
+            throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
         }
 
         return {

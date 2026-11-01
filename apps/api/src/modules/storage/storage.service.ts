@@ -11,14 +11,17 @@ import {
     HeadObjectCommand,
     PutBucketPolicyCommand,
     PutObjectCommand,
-    S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import {
     keyFromStoredUrl,
+    privateKeyFromStoredUrl,
+    privateStorageBucket,
     publicEndpoint,
+    s3Client,
     storageBucket,
+    storedPrivateUrl,
     storedUrl,
 } from './media-url';
 
@@ -29,26 +32,27 @@ const UPLOAD_URL_TTL_SECONDS = 600;
 export class StorageService implements OnModuleInit {
     private readonly logger = new Logger(StorageService.name);
     private readonly bucket = storageBucket();
-    private readonly client = this.createClient(
+    private readonly privateBucket = privateStorageBucket();
+    private readonly client = s3Client(
         process.env.S3_ENDPOINT ?? 'http://localhost:9000',
     );
 
-    private createClient(endpoint: string): S3Client {
-        return new S3Client({
-            endpoint,
-            region: process.env.S3_REGION ?? 'us-east-1',
-            // MinIO không dùng tên miền theo bucket.
-            forcePathStyle: true,
-            credentials: {
-                accessKeyId: process.env.S3_ACCESS_KEY ?? '',
-                secretAccessKey: process.env.S3_SECRET_KEY ?? '',
-            },
-        });
-    }
-
-    // Tạo bucket đọc công khai nếu chưa có. Kho tệp chưa bật thì API vẫn chạy, chỉ việc tải tệp báo lỗi.
+    // Tạo bucket đọc công khai và bucket riêng tư nếu chưa có. Kho tệp chưa bật thì API vẫn chạy,
+    // chỉ việc tải tệp báo lỗi.
     async onModuleInit(): Promise<void> {
         try {
+            try {
+                await this.client.send(
+                    new HeadBucketCommand({ Bucket: this.privateBucket }),
+                );
+            } catch {
+                // Không gắn policy: chỉ đọc được bằng URL có chữ ký.
+                await this.client.send(
+                    new CreateBucketCommand({ Bucket: this.privateBucket }),
+                );
+                this.logger.log(`Created private bucket "${this.privateBucket}"`);
+            }
+
             try {
                 await this.client.send(
                     new HeadBucketCommand({ Bucket: this.bucket }),
@@ -83,15 +87,16 @@ export class StorageService implements OnModuleInit {
         }
     }
 
-    // Trả về giá trị để lưu vào database ("s3:<key>"), không phải URL đầy đủ.
+    // Trả về giá trị để lưu vào database ("s3:<key>", hoặc "s3p:<key>" khi riêng tư), không phải URL đầy đủ.
     async upload(
         file: Express.Multer.File,
         storagePath: string,
+        options: { private?: boolean } = {},
     ): Promise<string> {
         try {
             await this.client.send(
                 new PutObjectCommand({
-                    Bucket: this.bucket,
+                    Bucket: options.private ? this.privateBucket : this.bucket,
                     Key: storagePath,
                     Body: file.buffer,
                     ContentType: file.mimetype,
@@ -103,7 +108,7 @@ export class StorageService implements OnModuleInit {
             );
         }
 
-        return storedUrl(storagePath);
+        return options.private ? storedPrivateUrl(storagePath) : storedUrl(storagePath);
     }
 
     // URL có chữ ký để điện thoại PUT tệp thẳng vào kho, không đi qua API.
@@ -114,7 +119,7 @@ export class StorageService implements OnModuleInit {
         requestHost?: string,
     ): Promise<string> {
         return getSignedUrl(
-            this.createClient(publicEndpoint(requestHost)),
+            s3Client(publicEndpoint(requestHost)),
             new PutObjectCommand({
                 Bucket: this.bucket,
                 Key: storagePath,
@@ -144,17 +149,24 @@ export class StorageService implements OnModuleInit {
 
     // Xóa theo giá trị đã lưu; bỏ qua URL ngoài kho (ảnh Google, ảnh cũ trên Supabase) và lỗi storage.
     async removeByUrls(urls: (string | null | undefined)[]): Promise<void> {
-        const paths = urls
-            .map((url) => keyFromStoredUrl(url))
-            .filter((path): path is string => path !== null);
+        const removals = urls.flatMap((url) => {
+            const key = keyFromStoredUrl(url);
+            const privateKey = privateKeyFromStoredUrl(url);
 
-        await Promise.allSettled(paths.map((path) => this.remove(path)));
+            if (key) {
+                return [this.remove(key)];
+            }
+
+            return privateKey ? [this.remove(privateKey, this.privateBucket)] : [];
+        });
+
+        await Promise.allSettled(removals);
     }
 
-    async remove(storagePath: string): Promise<void> {
+    async remove(storagePath: string, bucket = this.bucket): Promise<void> {
         try {
             await this.client.send(
-                new DeleteObjectCommand({ Bucket: this.bucket, Key: storagePath }),
+                new DeleteObjectCommand({ Bucket: bucket, Key: storagePath }),
             );
         } catch (error) {
             throw new InternalServerErrorException(

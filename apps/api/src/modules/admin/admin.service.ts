@@ -6,25 +6,49 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { bannedUserIds } from '../auth/ban-list';
+import { ageLockedUserIds, bannedUserIds } from '../auth/ban-list';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 import { authorSelect, pageMeta } from '../posts/post-view';
 
 export type ReportAction = 'DISMISS' | 'REMOVE_CONTENT' | 'BAN_USER';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// Bị từ chừng này người khác nhau báo cáo hội thoại ẩn danh trong 30 ngày: bỏ qua một báo cáo
+// không trả lại quyền gửi ẩn danh; admin phải trả lại bằng tay.
+const ANONYMOUS_REPORT_LIMIT = 3;
+const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+type ConversationSnapshot = {
+    conversationId: string;
+    kind: string;
+    reportedUserId: string;
+    anonymous: boolean;
+    messages: unknown[];
+};
 
 @Injectable()
 export class AdminService implements OnModuleInit {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly imageModeration: ImageModerationService,
+    ) { }
 
-    // Nạp danh sách tài khoản bị khóa để JwtStrategy chặn mà không phải hỏi database mỗi request.
+    // Nạp danh sách tài khoản bị khóa (admin khóa, khóa vì tuổi) để JwtStrategy chặn mà không phải
+    // hỏi database mỗi request.
     async onModuleInit(): Promise<void> {
-        const banned = await this.prisma.user.findMany({
-            where: { bannedAt: { not: null } },
-            select: { id: true },
-        });
+        const [banned, ageLocked] = await Promise.all([
+            this.prisma.user.findMany({
+                where: { bannedAt: { not: null } },
+                select: { id: true },
+            }),
+            this.prisma.user.findMany({
+                where: { ageLockedAt: { not: null } },
+                select: { id: true },
+            }),
+        ]);
 
         banned.forEach((user) => bannedUserIds.add(user.id));
+        ageLocked.forEach((user) => ageLockedUserIds.add(user.id));
     }
 
     async stats() {
@@ -44,7 +68,18 @@ export class AdminService implements OnModuleInit {
             ]);
 
         return {
-            data: { users, newUsers, posts, newPosts, openReports, bannedUsers, activeStories, newMessages },
+            data: {
+                users,
+                newUsers,
+                posts,
+                newPosts,
+                openReports,
+                bannedUsers,
+                activeStories,
+                newMessages,
+                // 'unavailable': ảnh trong tin nhắn đang không được làm mờ.
+                imageModeration: this.imageModeration.status(),
+            },
         };
     }
 
@@ -65,7 +100,12 @@ export class AdminService implements OnModuleInit {
         const idsOf = (type: string) =>
             reports.filter((report) => report.targetType === type).map((report) => report.targetId);
 
-        const [posts, comments, users] = await Promise.all([
+        const conversationReports = reports.filter((report) => report.targetType === 'CONVERSATION');
+        const reportedIds = conversationReports.map(
+            (report) => (report.snapshot as ConversationSnapshot | null)?.reportedUserId ?? '',
+        );
+
+        const [posts, comments, users, reportedUsers] = await Promise.all([
             this.prisma.post.findMany({
                 where: { id: { in: idsOf('POST') } },
                 select: {
@@ -93,7 +133,12 @@ export class AdminService implements OnModuleInit {
                 where: { id: { in: idsOf('USER') } },
                 select: { ...authorSelect, bannedAt: true },
             }),
+            this.prisma.user.findMany({
+                where: { id: { in: reportedIds } },
+                select: { ...authorSelect, bannedAt: true, anonymousSuspendedAt: true },
+            }),
         ]);
+        const reportedById = new Map(reportedUsers.map((user) => [user.id, user]));
 
         const targets = new Map<string, unknown>([
             ...posts.map((post) => [`POST:${post.id}`, post] as const),
@@ -102,6 +147,18 @@ export class AdminService implements OnModuleInit {
                     [`COMMENT:${comment.id}`, { ...comment, author: user }] as const,
             ),
             ...users.map((user) => [`USER:${user.id}`, user] as const),
+            // Hội thoại: danh tính thật của người bị báo cáo (kể cả khi họ ẩn danh) và bản chụp tin.
+            ...conversationReports.map((report) => {
+                const snapshot = report.snapshot as ConversationSnapshot | null;
+
+                return [
+                    `CONVERSATION:${report.targetId}`,
+                    snapshot && {
+                        ...snapshot,
+                        author: reportedById.get(snapshot.reportedUserId) ?? null,
+                    },
+                ] as const;
+            }),
         ]);
 
         return {
@@ -130,6 +187,7 @@ export class AdminService implements OnModuleInit {
         }
 
         const { targetType, targetId } = report;
+        const snapshot = report.snapshot as ConversationSnapshot | null;
 
         if (action === 'REMOVE_CONTENT') {
             if (targetType === 'POST') {
@@ -140,7 +198,7 @@ export class AdminService implements OnModuleInit {
             } else if (targetType === 'COMMENT') {
                 await this.prisma.comment.deleteMany({ where: { id: targetId } });
             } else {
-                throw new BadRequestException('A user has no content to remove; ban the user instead');
+                throw new BadRequestException('Only posts and comments can be removed; ban the user instead');
             }
         }
 
@@ -148,7 +206,9 @@ export class AdminService implements OnModuleInit {
             const userId =
                 targetType === 'USER'
                     ? targetId
-                    : targetType === 'POST'
+                    : targetType === 'CONVERSATION'
+                        ? snapshot?.reportedUserId
+                        : targetType === 'POST'
                         ? (await this.prisma.post.findUnique({
                             where: { id: targetId },
                             select: { authorId: true },
@@ -163,6 +223,26 @@ export class AdminService implements OnModuleInit {
             }
 
             await this.setBanned(adminId, userId, true);
+        }
+
+        // Bỏ qua báo cáo hội thoại ẩn danh: trả lại quyền gửi ẩn danh, trừ khi người đó đã bị nhiều
+        // người khác nhau báo cáo gần đây.
+        if (action === 'DISMISS' && snapshot?.anonymous) {
+            const reporters = await this.prisma.report.findMany({
+                where: {
+                    targetType: 'CONVERSATION',
+                    status: { not: 'DISMISSED' },
+                    id: { not: reportId },
+                    createdAt: { gte: new Date(Date.now() - MONTH_MS) },
+                    snapshot: { path: ['reportedUserId'], equals: snapshot.reportedUserId },
+                },
+                select: { reporterId: true },
+                distinct: ['reporterId'],
+            });
+
+            if (reporters.length < ANONYMOUS_REPORT_LIMIT) {
+                await this.setAnonymousAllowed(snapshot.reportedUserId, true);
+            }
         }
 
         await this.prisma.report.updateMany({
@@ -199,6 +279,9 @@ export class AdminService implements OnModuleInit {
                     email: true,
                     role: true,
                     bannedAt: true,
+                    ageLockedAt: true,
+                    anonymousSuspendedAt: true,
+                    birthDate: true,
                     createdAt: true,
                     _count: { select: { posts: true, followers: true } },
                 },
@@ -236,5 +319,35 @@ export class AdminService implements OnModuleInit {
         }
 
         return { data: { id: userId, banned } };
+    }
+
+    // Mở khóa tài khoản bị khóa vì tuổi (ví dụ khai nhầm ngày sinh và đã xác minh lại).
+    // Ngày sinh được xóa để người dùng khai lại.
+    async unlockAge(userId: string) {
+        const user = await this.prisma.user.updateMany({
+            where: { id: userId },
+            data: { ageLockedAt: null, birthDate: null },
+        });
+
+        if (user.count === 0) {
+            throw new NotFoundException('User not found');
+        }
+
+        ageLockedUserIds.delete(userId);
+
+        return { data: { id: userId, ageLocked: false } };
+    }
+
+    async setAnonymousAllowed(userId: string, allowed: boolean) {
+        const user = await this.prisma.user.updateMany({
+            where: { id: userId },
+            data: { anonymousSuspendedAt: allowed ? null : new Date() },
+        });
+
+        if (user.count === 0) {
+            throw new NotFoundException('User not found');
+        }
+
+        return { data: { id: userId, anonymousAllowed: allowed } };
     }
 }

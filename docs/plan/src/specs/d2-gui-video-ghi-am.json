@@ -1,0 +1,228 @@
+{
+ "id": "d2-gui-video-ghi-am",
+ "title": "Gửi video và tin nhắn thoại",
+ "lanes": [
+  {
+   "name": "Người gửi"
+  },
+  {
+   "name": "Ứng dụng"
+  },
+  {
+   "name": "Máy chủ"
+  },
+  {
+   "name": "Kho tệp riêng tư"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Chọn video hoặc giữ nút micro"
+  },
+  {
+   "id": "perm",
+   "type": "decision",
+   "lane": 1,
+   "row": 1,
+   "label": "Được cấp quyền?"
+  },
+  {
+   "id": "deny",
+   "type": "end",
+   "lane": 0,
+   "row": 1,
+   "label": "Hướng dẫn mở Cài đặt"
+  },
+  {
+   "id": "rec",
+   "type": "process",
+   "lane": 1,
+   "row": 2,
+   "label": "Ghi âm tối đa 2 phút / chọn video"
+  },
+  {
+   "id": "rej",
+   "type": "end",
+   "lane": 2,
+   "row": 2,
+   "label": "Từ chối, app báo lý do"
+  },
+  {
+   "id": "url",
+   "type": "process",
+   "lane": 1,
+   "row": 3,
+   "label": "Xin URL tải lên"
+  },
+  {
+   "id": "chk",
+   "type": "decision",
+   "lane": 2,
+   "row": 3,
+   "label": "Loại, dung lượng, quyền gửi hợp lệ?"
+  },
+  {
+   "id": "sign",
+   "type": "process",
+   "lane": 2,
+   "row": 4,
+   "label": "Ký URL PUT vào kho riêng tư"
+  },
+  {
+   "id": "put",
+   "type": "process",
+   "lane": 1,
+   "row": 5,
+   "label": "Tải tệp thẳng lên kho"
+  },
+  {
+   "id": "store",
+   "type": "data",
+   "lane": 3,
+   "row": 5,
+   "label": "Tệp messages/... (s3p:)"
+  },
+  {
+   "id": "ok",
+   "type": "decision",
+   "lane": 1,
+   "row": 6,
+   "label": "Tải xong?"
+  },
+  {
+   "id": "fail",
+   "type": "io",
+   "lane": 0,
+   "row": 6,
+   "label": "Tin đỏ: Chạm để gửi lại"
+  },
+  {
+   "id": "send",
+   "type": "process",
+   "lane": 1,
+   "row": 7,
+   "label": "Gửi tin kèm storageKey, clientId"
+  },
+  {
+   "id": "head",
+   "type": "process",
+   "lane": 2,
+   "row": 7,
+   "label": "Kiểm tra tệp có thật, đúng chỗ"
+  },
+  {
+   "id": "db",
+   "type": "data",
+   "lane": 2,
+   "row": 8,
+   "label": "Ghi Message (mediaType, durationMs)"
+  },
+  {
+   "id": "emit",
+   "type": "process",
+   "lane": 2,
+   "row": 9,
+   "label": "Socket message:new, push “Đã gửi video”"
+  },
+  {
+   "id": "end",
+   "type": "end",
+   "lane": 1,
+   "row": 10,
+   "label": "Bóng tin có trình phát"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "perm",
+   "exit": "right",
+   "entry": "top"
+  },
+  {
+   "from": "perm",
+   "to": "deny",
+   "label": "Không"
+  },
+  {
+   "from": "perm",
+   "to": "rec",
+   "label": "Có"
+  },
+  {
+   "from": "rec",
+   "to": "url"
+  },
+  {
+   "from": "url",
+   "to": "chk"
+  },
+  {
+   "from": "chk",
+   "to": "rej",
+   "label": "Không",
+   "exit": "top",
+   "entry": "bottom"
+  },
+  {
+   "from": "chk",
+   "to": "sign",
+   "label": "Có"
+  },
+  {
+   "from": "sign",
+   "to": "put"
+  },
+  {
+   "from": "put",
+   "to": "store",
+   "dashed": true
+  },
+  {
+   "from": "put",
+   "to": "ok"
+  },
+  {
+   "from": "ok",
+   "to": "fail",
+   "label": "Không"
+  },
+  {
+   "from": "ok",
+   "to": "send",
+   "label": "Có"
+  },
+  {
+   "from": "fail",
+   "to": "put",
+   "exit": "top",
+   "entry": "left",
+   "via": [
+    [
+     0,
+     5
+    ]
+   ]
+  },
+  {
+   "from": "send",
+   "to": "head"
+  },
+  {
+   "from": "head",
+   "to": "db"
+  },
+  {
+   "from": "db",
+   "to": "emit"
+  },
+  {
+   "from": "emit",
+   "to": "end"
+  }
+ ]
+}

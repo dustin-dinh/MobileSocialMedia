@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     UnauthorizedException,
     InternalServerErrorException,
@@ -11,6 +12,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
 import { toMe, UsersService } from "../users/users.service";
+import { AGE_RESTRICTED_ERROR, ageOn, MINIMUM_AGE, parseBirthDate } from "../moderation/age";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { GoogleLoginDto } from "./dto/google-login.dto";
@@ -219,6 +221,12 @@ export class AuthService {
     async register(dto: RegisterDto) {
         const email = this.normalizeEmail(dto.email);
         const username = dto.username.trim();
+        const birthDate = parseBirthDate(dto.birthDate);
+
+        // Dưới 18 tuổi: không tạo tài khoản.
+        if (ageOn(birthDate) < MINIMUM_AGE) {
+            throw new ForbiddenException(AGE_RESTRICTED_ERROR);
+        }
 
         if (await this.usersService.findByEmail(email)) {
             throw new ConflictException("Email already exists");
@@ -234,6 +242,7 @@ export class AuthService {
             username,
             email,
             passwordHash,
+            birthDate,
         });
 
         try {
@@ -316,6 +325,10 @@ export class AuthService {
                 code: "ACCOUNT_BANNED",
                 message: "This account has been suspended",
             });
+        }
+
+        if (user.ageLockedAt) {
+            throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
         }
 
         const accessToken =
@@ -403,6 +416,10 @@ export class AuthService {
                 code: "ACCOUNT_BANNED",
                 message: "This account has been suspended",
             });
+        }
+
+        if (user.ageLockedAt) {
+            throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
         }
 
         const accessToken = await this.jwtService.signAsync({

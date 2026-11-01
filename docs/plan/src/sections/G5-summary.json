@@ -1,0 +1,69 @@
+[
+  {
+    "id": "D1",
+    "name": "Nhắn tin nhóm",
+    "phase": 3,
+    "be_days": 9,
+    "mb_days": 8,
+    "qa_days": 3,
+    "depends": ["B1", "D8", "E2"],
+    "flows": ["d1-tao-nhom-chat", "d1-gui-tin-nhom", "d1-roi-nhom"],
+    "new_services": [],
+    "risks": [
+      "Conversation hiện chỉ cho 2 người (userAId/userBId): cần migration thêm bảng ConversationMember và sửa lại toàn bộ luồng 1-1 (đọc, chưa đọc, socket, báo cáo)",
+      "Message.sender onDelete Cascade: xóa tài khoản sẽ xóa tin của người đó trong nhóm",
+      "ChatScreen đã 990 dòng, cần tách thành phần trước khi thêm nhóm"
+    ]
+  },
+  {
+    "id": "D2",
+    "name": "Tin nhắn nâng cao: thu hồi, sửa, trả lời trích dẫn, cảm xúc, đang soạn, gửi video, ghi âm",
+    "phase": 3,
+    "be_days": 7.5,
+    "mb_days": 12.5,
+    "qa_days": 3,
+    "depends": ["D1", "D8", "C1", "B1", "B2"],
+    "flows": ["d2-thu-hoi-sua", "d2-gui-video-ghi-am", "d2-gui-lai-khi-mat-mang"],
+    "new_services": ["expo-audio (thư viện Expo, không phải dịch vụ ngoài)", "tác vụ chạy định kỳ ở backend để dọn tệp và tin thu hồi"],
+    "risks": [
+      "Sửa tin phải chạy lại luật chặn link/số điện thoại, nếu không người lạ lách được luật tin nhắn chờ",
+      "Video và tin thoại không được quét nội dung (chỉ quét ảnh bìa video)",
+      "Định dạng âm thanh ghi trên Android và iOS có thể khác MIME, cần thử chéo sớm",
+      "Chi phí kho tệp tăng theo video 30 MB/tin"
+    ]
+  },
+  {
+    "id": "D3",
+    "name": "Nhóm cộng đồng (Groups)",
+    "phase": 4,
+    "be_days": 15,
+    "mb_days": 14,
+    "qa_days": 5,
+    "depends": ["C1", "C2", "C3", "B6", "B7", "D8"],
+    "flows": ["d3-tham-gia-nhom", "d3-duyet-bai-nhom", "d3-bao-cao-trong-nhom"],
+    "new_services": [],
+    "risks": [
+      "Lộ bài nhóm kín nếu có truy vấn bài viết không đi qua visiblePostWhere",
+      "Khối lượng kiểm duyệt tăng mạnh",
+      "Quản trị nhóm là người dùng thường, có thể lạm quyền"
+    ]
+  },
+  {
+    "id": "D4",
+    "name": "Gọi thoại và gọi video 1-1",
+    "phase": 4,
+    "be_days": 8,
+    "mb_days": 16,
+    "qa_days": 6,
+    "depends": ["B1", "B4", "D8", "D1", "A2"],
+    "flows": ["d4-goi-di", "d4-nhan-cuoc-goi"],
+    "new_services": ["Máy chủ TURN (coturn tự chạy hoặc Cloudflare/Twilio TURN)", "APNs gửi trực tiếp (push VoIP iOS)", "Firebase Cloud Messaging gửi trực tiếp (Android)", "EAS Build / bản development (không dùng được Expo Go)", "Tùy chọn: dịch vụ gọi có sẵn (Stream, Agora, LiveKit) thay cho tự làm"],
+    "risks": [
+      "Thư viện native cộng đồng (WebRTC, CallKeep, PushKit) cần kiểm tra tương thích React Native 0.86, Expo SDK 57, kiến trúc mới",
+      "iOS ngừng gửi push VoIP nếu app không báo CallKit ngay",
+      "FCM bị chặn trên điện thoại Android tiết kiệm pin mạnh",
+      "Google Play yêu cầu khai báo thông báo toàn màn hình và dịch vụ nền",
+      "Chi phí TURN tăng theo số giờ gọi video"
+    ]
+  }
+]

@@ -34,11 +34,13 @@
     "google-auth-library": "^11.2.0",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.16",
+    "onnxruntime-node": "^1.30.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.4",
     "uuid": "^14.0.2"
   },

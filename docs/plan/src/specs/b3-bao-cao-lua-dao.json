@@ -1,0 +1,32 @@
+{"id":"b3-bao-cao-lua-dao","title":"Báo cáo lừa đảo và xử lý của quản trị viên",
+"lanes":[{"name":"Người nhận"},{"name":"Máy chủ","cols":2},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Báo cáo lừa đảo"},
+ {"id":"rep","type":"data","lane":1,"row":0,"label":"Report SCAM, bản chụp 50 tin"},
+ {"id":"hide","type":"process","lane":1,"row":1,"label":"Ẩn hội thoại khỏi hộp thư"},
+ {"id":"ask","type":"io","lane":0,"row":1,"label":"Đã báo cáo. Chặn luôn?"},
+ {"id":"many","type":"decision","lane":1,"row":2,"label":"Từ 3 người báo/7 ngày?"},
+ {"id":"lim","type":"data","lane":1,"col":1,"row":2,"label":"Tạm hạn chế người bị báo"},
+ {"id":"q","type":"process","lane":1,"row":3,"label":"Hàng chờ, ưu tiên cao"},
+ {"id":"view","type":"io","lane":2,"row":4,"label":"Xem bản chụp, link, lịch sử"},
+ {"id":"d","type":"decision","lane":2,"row":5,"label":"Đúng là lừa đảo?"},
+ {"id":"undo","type":"data","lane":1,"col":1,"row":5,"label":"Gỡ hạn chế, ghi báo nhầm"},
+ {"id":"eundo","type":"end","lane":1,"col":1,"row":6,"label":"Báo cáo DISMISSED"},
+ {"id":"ban","type":"process","lane":2,"row":6,"label":"Khóa tài khoản, chặn tên miền"},
+ {"id":"bd","type":"data","lane":2,"row":7,"label":"Lưu BlockedDomain, nhật ký"},
+ {"id":"find","type":"process","lane":1,"row":8,"label":"Tìm người khác đã nhận tin"},
+ {"id":"ins","type":"data","lane":1,"row":9,"label":"Chèn cảnh báo vào hội thoại"},
+ {"id":"e","type":"end","lane":0,"row":9,"label":"Người nhận khác được cảnh báo"},
+ {"id":"fb","type":"end","lane":1,"col":1,"row":9,"label":"Báo người báo cáo: đã xử lý"}
+],
+"edges":[
+ {"from":"s","to":"rep"},{"from":"rep","to":"hide"},{"from":"hide","to":"ask"},
+ {"from":"hide","to":"many"},
+ {"from":"many","to":"lim","label":"Có"},{"from":"many","to":"q","label":"Không"},
+ {"from":"lim","to":"q","exit":"bottom","entry":"right"},
+ {"from":"q","to":"view","exit":"bottom","entry":"top"},{"from":"view","to":"d"},
+ {"from":"d","to":"undo","label":"Không","exit":"left","entry":"right"},{"from":"undo","to":"eundo"},
+ {"from":"d","to":"ban","label":"Có"},{"from":"ban","to":"bd"},
+ {"from":"bd","to":"find","exit":"bottom","entry":"right"},
+ {"from":"find","to":"ins"},{"from":"ins","to":"e"},{"from":"ins","to":"fb"}
+]}

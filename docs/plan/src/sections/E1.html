@@ -1,0 +1,135 @@
+<h3>E1. Tải xuống dữ liệu của bạn</h3>
+<p><i>Nhóm: Quyền dữ liệu cá nhân · Giai đoạn: GĐ3 · Ước lượng: 8–9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Người dùng xin được một bản sao toàn bộ dữ liệu của mình (hồ sơ, bài viết, bình luận, tin nhắn, ảnh, video, cảm xúc, danh sách theo dõi) dưới dạng một tệp ZIP. Đây là quyền của chủ thể dữ liệu theo luật bảo vệ dữ liệu cá nhân của Việt Nam và của nhiều nước khác. Tính năng cũng giúp người dùng lưu lại kỷ niệm trước khi xóa tài khoản (E2), và cho thấy sản phẩm minh bạch về dữ liệu.</p>
+<p>Về pháp lý: Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu cá nhân (có hiệu lực từ 01/01/2026) cho người dùng quyền được biết, được truy cập và nhận bản sao dữ liệu cá nhân của mình, và đặt thời hạn phản hồi yêu cầu. <b>Thời hạn cụ thể, dạng tệp bắt buộc và cách xử lý dữ liệu liên quan tới người khác phải do luật sư xác nhận</b>; các con số trong mục này là đề xuất kỹ thuật, không phải tư vấn pháp lý. Nếu app có người dùng ở EU thì GDPR (quy định bảo vệ dữ liệu của EU) cũng áp dụng, thường với thời hạn 30 ngày.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chưa có tính năng xuất dữ liệu.</b> Không có endpoint, màn hình hay bảng nào cho việc này. Trang Chính sách quyền riêng tư (<i>apps/mobile/src/features/settings/screens/LegalScreen.tsx</i>) là bản nháp, chưa nhắc tới quyền nhận bản sao dữ liệu.</li>
+<li><b>Có sẵn để dùng lại:</b>
+  <ul>
+  <li>Bucket riêng tư (kho tệp không đọc công khai) và URL có chữ ký (link tải có thời hạn): <i>apps/api/src/modules/storage/storage.service.ts</i>, <i>media-url.ts</i>. Hiện chỉ ảnh tin nhắn nằm ở đây (giá trị lưu dạng <i>s3p:&lt;key&gt;</i>, link ký hết hạn sau 1 giờ).</li>
+  <li>Gửi email: <i>apps/api/src/modules/mail/mail.service.ts</i> (nodemailer qua SMTP), hiện chỉ có email mã OTP xác minh và đặt lại mật khẩu.</li>
+  <li>Thông báo đẩy: <i>NotificationsService.pushToUser</i> gửi qua dịch vụ push của Expo (Expo chuyển tiếp sang FCM cho Android và APNs cho iOS).</li>
+  <li>Xác nhận lại danh tính trước thao tác nguy hiểm: <i>UsersService.deleteAccount</i> đã làm mẫu (tài khoản có mật khẩu nhập mật khẩu; tài khoản chỉ đăng nhập Google gõ lại username). Sai thì trả 400, không trả 401, vì app tự đăng xuất khi gặp 401.</li>
+  <li>Giới hạn tần suất theo IP: <i>@nestjs/throttler</i> (300 yêu cầu/phút chung, các route đăng nhập chặt hơn) trong <i>app.module.ts</i>, <i>auth.controller.ts</i>.</li>
+  </ul></li>
+<li><b>Thiếu:</b> hàng đợi việc nền và lịch chạy định kỳ (backend chưa có <i>@nestjs/schedule</i>, BullMQ hay Redis), thư viện tạo ZIP, bảng lưu yêu cầu xuất, email "tệp đã sẵn sàng".</li>
+<li><b>Dữ liệu có trong cơ sở dữ liệu</b> (<i>apps/api/prisma/schema.prisma</i>): User, Post + PostMedia, Comment, Like (6 loại cảm xúc), CommentLike, Repost, Save, HiddenPost, Follow, FollowRequest, Block, Report, Conversation + Message, Story + StoryView + StoryReaction, Notification, ContentInteraction (lịch sử xem Reels), DeviceToken, AuthToken.</li>
+<li><b>Dữ liệu ẩn danh cần che:</b> hội thoại ẩn danh (<i>Conversation.kind</i> = ANON_A/ANON_B, che danh tính tới khi <i>revealedAt</i>), cảm xúc story ẩn danh (<i>StoryReaction.isAnonymous</i>). MessagesService đang che ở mọi chỗ trả dữ liệu; bản xuất phải che y như vậy.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Yêu cầu tệp dữ liệu</b></p>
+<ol>
+<li>Người dùng vào <i>Cài đặt &gt; Quyền riêng tư &gt; Tải xuống dữ liệu của bạn</i>. App hiện danh sách nội dung có trong tệp, những gì không có, thời gian chuẩn bị (thường vài phút, tối đa 48 giờ, đề xuất) và trạng thái yêu cầu gần nhất.</li>
+<li>Người dùng chọn phạm vi: <i>Toàn bộ</i> (có ảnh, video) hoặc <i>Chỉ chữ</i> (nhẹ, không có tệp ảnh, video). Bấm <i>Yêu cầu tệp</i>.</li>
+<li>App hỏi lại mật khẩu. Tài khoản chỉ đăng nhập Google thì đăng nhập Google lại để lấy token mới (không dùng cách gõ username như màn xóa tài khoản, vì bản xuất chứa toàn bộ tin nhắn). Khi đã có 2FA (A1) thì hỏi thêm mã 6 số.</li>
+<li>Máy chủ kiểm tra: xác nhận đúng; tài khoản không bị khóa; chưa có yêu cầu nào trong 24 giờ qua và không có yêu cầu đang chạy. Sai mật khẩu trả 400 và đếm số lần sai (dùng chung bộ đếm của A4). Vượt giới hạn trả 429 kèm thời điểm được yêu cầu lại.</li>
+<li>Máy chủ tạo một dòng <i>DataExport</i> trạng thái PENDING và gửi email: "Có yêu cầu tải dữ liệu từ tài khoản của bạn. Nếu không phải bạn, hãy đổi mật khẩu." Email này giúp phát hiện kẻ chiếm tài khoản đang lấy dữ liệu.</li>
+<li>App hiện "Đang chuẩn bị tệp. Chúng tôi sẽ báo khi xong." Người dùng có thể rời màn hình.</li>
+</ol>
+<p><b>Luồng 2: Tạo tệp (việc nền)</b></p>
+<ol>
+<li>Việc nền chạy mỗi phút, nhận một yêu cầu PENDING bằng cách đổi trạng thái sang PROCESSING có điều kiện (chỉ một tiến trình nhận được, kể cả khi chạy nhiều bản API).</li>
+<li>Đọc dữ liệu theo từng phần (mỗi lần 500 dòng) để không tốn bộ nhớ. Ghi mỗi loại dữ liệu ra một tệp JSON, kèm một trang <i>index.html</i> dễ đọc bằng trình duyệt.</li>
+<li>Với phạm vi <i>Toàn bộ</i>: chép ảnh, video từ kho vào thư mục <i>media/</i> trong ZIP. Tệp ZIP được ghi thẳng lên bucket riêng tư theo dòng chảy (không giữ cả tệp trong RAM).</li>
+<li>Lỗi (mất kết nối kho, hết thời gian): thử lại tối đa 3 lần, cách nhau 5 phút. Hỏng cả 3 lần thì đánh dấu FAILED, gửi email và push "Chưa tạo được tệp, vui lòng thử lại". Yêu cầu FAILED không tính vào giới hạn 24 giờ.</li>
+<li>Thành công: lưu khóa tệp, kích thước, đặt trạng thái READY, hạn tải 7 ngày. Gửi email và push "Tệp dữ liệu của bạn đã sẵn sàng". Email <b>không</b> chứa link tải trực tiếp, chỉ hướng dẫn mở app.</li>
+</ol>
+<p><b>Luồng 3: Tải tệp</b></p>
+<ol>
+<li>Người dùng mở thông báo hoặc vào lại màn <i>Tải xuống dữ liệu</i>, bấm <i>Tải xuống</i>.</li>
+<li>App hỏi lại mật khẩu (như bước 3 của luồng 1).</li>
+<li>Máy chủ kiểm tra: xác nhận đúng, tệp thuộc về người này, còn hạn, chưa quá 10 lượt tải. Đúng thì tạo URL có chữ ký sống 15 phút (đề xuất), kèm tên tệp gợi ý <i>du-lieu-&lt;username&gt;-&lt;ngày&gt;.zip</i>, và ghi một lượt tải.</li>
+<li>App mở URL bằng trình duyệt của hệ điều hành. Trình duyệt tải tệp về máy (Android: thư mục Tải xuống; iPhone: ứng dụng Tệp).</li>
+<li>Hết 7 ngày, việc dọn dẹp xóa tệp khỏi kho, đặt trạng thái EXPIRED; dòng DataExport giữ lại làm nhật ký.</li>
+</ol>
+<p><b>Nội dung tệp (đề xuất)</b></p>
+<table>
+<tr><th>Thư mục / tệp</th><th>Có gì</th></tr>
+<tr><td>profile.json</td><td>username, email, tên hiển thị, tiểu sử, ngày sinh, ngày tạo, tài khoản riêng tư hay không, cài đặt nhận tin ẩn danh. Không có mật khẩu băm.</td></tr>
+<tr><td>posts.json</td><td>Bài viết của mình (cả bài đã xóa mềm còn trong cơ sở dữ liệu, ghi rõ "đã xóa"), quyền xem, số cảm xúc, số bình luận, tên tệp ảnh/video tương ứng.</td></tr>
+<tr><td>comments.json</td><td>Bình luận mình viết, kèm id bài và câu trả lời mình viết. Không chép bình luận của người khác.</td></tr>
+<tr><td>reactions.json</td><td>Cảm xúc mình thả cho bài viết, thích bình luận, cảm xúc story.</td></tr>
+<tr><td>followers.json, following.json, blocked.json</td><td>Username của người theo dõi mình, người mình theo dõi, người mình chặn, yêu cầu theo dõi đang chờ.</td></tr>
+<tr><td>messages/&lt;id hội thoại&gt;.json</td><td>Mọi tin nhắn trong hội thoại mình tham gia (cả tin của người kia, vì mình đã nhận được). Ảnh tin nhắn trong <i>media/messages/</i>. Người gửi ẩn danh chưa tiết lộ ghi là "Người ẩn danh".</td></tr>
+<tr><td>stories.json</td><td>Story mình đăng còn trong cơ sở dữ liệu. Không có danh sách người xem.</td></tr>
+<tr><td>saved.json, reposts.json, hidden.json</td><td>Bài đã lưu, đã đăng lại, đã ẩn (chỉ id và link, không chép nội dung bài của người khác).</td></tr>
+<tr><td>reports.json</td><td>Báo cáo mình đã gửi: loại đối tượng, lý do, ghi chú, trạng thái.</td></tr>
+<tr><td>activity.json</td><td>Lịch sử xem Reels (ContentInteraction), danh sách thiết bị nhận thông báo (chỉ loại máy, không có token).</td></tr>
+<tr><td>media/</td><td>Ảnh đại diện, ảnh bìa, ảnh và video bài viết, story, ảnh tin nhắn mình gửi.</td></tr>
+<tr><td>index.html</td><td>Trang tóm tắt, mở bằng trình duyệt, có link tới từng tệp.</td></tr>
+</table>
+<p><b>Không có trong tệp:</b> mật khẩu băm, token đăng nhập, mã OTP, token thiết bị; danh tính người gửi ẩn danh chưa tự tiết lộ (trong tin nhắn và cảm xúc story); báo cáo người khác gửi về mình (lộ người báo cáo); ghi chú và quyết định nội bộ của quản trị viên; bình luận, bài viết của người khác; ai đã xem story của mình (đề xuất, chủ dự án quyết).</p>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: người dùng yêu cầu tệp, xác nhận lại danh tính, máy chủ kiểm tra giới hạn và xếp việc.</p>
+<!--FLOW:e1-yeu-cau-xuat-du-lieu-->
+<p>Sơ đồ 2: việc nền tạo tệp ZIP (có thử lại), báo cho người dùng, tải bằng link có hạn sau khi xác nhận lại.</p>
+<!--FLOW:e1-tao-va-tai-tep-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Giới hạn (đề xuất):</b> 1 yêu cầu mỗi 24 giờ mỗi tài khoản; không tạo yêu cầu mới khi đang có yêu cầu PENDING/PROCESSING; tối đa 10 lượt tải mỗi tệp; thêm <i>@Throttle</i> 5 lần/giờ theo IP cho route yêu cầu và route tải (chống dò mật khẩu).</li>
+<li><b>Thời hạn:</b> tệp sống 7 ngày; link ký sống 15 phút; việc tạo tệp phải xong trong 48 giờ (đề xuất, luật sư xác nhận thời hạn phản hồi theo luật).</li>
+<li><b>Kích thước:</b> tài khoản nhiều video có thể ra tệp vài GB. Đề xuất trần 4 GB một tệp; vượt thì chia thành nhiều phần (<i>part-1.zip</i>, <i>part-2.zip</i>). Phạm vi <i>Chỉ chữ</i> luôn nhỏ.</li>
+<li><b>Tệp ảnh bị thiếu trong kho</b> (ví dụ tệp chỉ có trên máy dev khác, xem <i>docs/decisions.md</i> mục lưu trữ cục bộ): bỏ qua, ghi tên tệp vào <i>missing-files.txt</i> trong ZIP, không làm hỏng cả bản xuất.</li>
+<li><b>Ảnh cũ là URL tuyệt đối</b> (Supabase, ảnh Google): ghi link vào JSON, không tải về.</li>
+<li><b>Tài khoản bị khóa</b> (bannedAt) không đăng nhập được nên không tự yêu cầu được; nếu luật yêu cầu vẫn phải cung cấp, quản trị viên tạo yêu cầu thay từ trang quản trị (đề xuất, luật sư xác nhận). Tài khoản khóa vì dưới 18 tuổi (ageLockedAt): cùng cách.</li>
+<li><b>Tài khoản đang chờ xóa (E2):</b> khi người dùng yêu cầu xóa, hủy các yêu cầu xuất đang chờ và xóa tệp đã tạo. Màn xóa tài khoản gợi ý tải dữ liệu trước.</li>
+<li><b>Người bị chặn:</b> hội thoại với người mình đã chặn vẫn có trong tệp (dữ liệu của mình). Không thêm gì về người đã chặn mình ngoài những gì mình từng thấy.</li>
+<li><b>Lỗi mạng khi tải:</b> link còn hạn thì bấm tải lại không cần nhập lại mật khẩu trong 15 phút; hết hạn thì xác nhận lại để lấy link mới.</li>
+<li><b>Lạm dụng:</b> kẻ chiếm tài khoản muốn lấy dữ liệu sẽ bị chặn bởi việc nhập lại mật khẩu và 2FA, và chủ tài khoản nhận email ngay khi có yêu cầu.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và ghi quyết định vào <i>docs/decisions.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng / trường mới</th><th>Ý nghĩa</th></tr>
+<tr><td>DataExport.id, userId (Cascade theo User)</td><td>Một yêu cầu xuất.</td></tr>
+<tr><td>scope: FULL | TEXT_ONLY</td><td>Phạm vi.</td></tr>
+<tr><td>status: PENDING | PROCESSING | READY | FAILED | EXPIRED | CANCELLED</td><td>Trạng thái.</td></tr>
+<tr><td>attempts Int, error String?</td><td>Số lần thử, lỗi gần nhất (không hiện cho người dùng).</td></tr>
+<tr><td>fileKeys String[], sizeBytes BigInt?</td><td>Khóa tệp trong bucket riêng tư (nhiều phần nếu chia).</td></tr>
+<tr><td>createdAt, startedAt, readyAt, expiresAt, downloadCount</td><td>Mốc thời gian và số lượt tải. Chỉ mục (userId, createdAt).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td>GET /users/me/data-exports</td><td>Yêu cầu gần nhất và trạng thái; thời điểm được yêu cầu lại.</td></tr>
+<tr><td>POST /users/me/data-exports { scope, password? | googleIdToken?, totp? }</td><td>Tạo yêu cầu. Lỗi: 400 sai xác nhận, 409 đang có yêu cầu chạy, 429 code <i>EXPORT_RATE_LIMITED</i> kèm <i>retryAt</i>.</td></tr>
+<tr><td>POST /users/me/data-exports/:id/download { password? | googleIdToken?, totp? }</td><td>Trả <i>{ urls: [...], expiresAt }</i>. Lỗi: 400 sai xác nhận, 404 không thuộc mình, 410 hết hạn.</td></tr>
+<tr><td>POST /admin/users/:id/data-export</td><td>(Tùy chọn) quản trị viên tạo bản xuất cho tài khoản bị khóa; ghi nhật ký (C3).</td></tr>
+</table>
+<p>Backend cần thêm: <i>StorageService</i> hàm tải lên theo dòng chảy và hàm ký URL tải có <i>ResponseContentDisposition</i> (tên tệp); <i>MailService</i> 3 mẫu email (có yêu cầu, sẵn sàng, thất bại). Thư viện mới (chỉ backend, cần ghi vào <i>docs/decisions.md</i>): <i>archiver</i> (tạo ZIP theo dòng chảy), <i>@aws-sdk/lib-storage</i> (tải lên nhiều phần), <i>@nestjs/schedule</i> (việc chạy định kỳ; dùng chung với E2, E3, E4). Không cần Redis ở giai đoạn này: hàng đợi chính là bảng DataExport.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Tải tệp:</b> dùng <i>Linking.openURL</i> có sẵn trong React Native để mở link ký bằng trình duyệt hệ thống. Không cần thư viện mới, không cần quyền thiết bị trên cả hai nền tảng. Android: Chrome lưu vào Tải xuống. iOS: Safari hiện hỏi tải, tệp vào ứng dụng Tệp (Files).</li>
+<li><b>Đăng nhập Google lại:</b> dùng <i>@react-native-google-signin/google-signin</i> đã cài (có cấu hình cả hai nền tảng). Khi có Đăng nhập bằng Apple (A6), tài khoản Apple xác nhận lại bằng Apple.</li>
+<li><b>Thông báo:</b> push qua Expo (FCM + APNs) đã có; người tắt quyền thông báo vẫn nhận email và thấy trạng thái trong màn hình.</li>
+<li><b>Bàn phím:</b> ô nhập mật khẩu dùng <i>KeyboardAvoidingView</i> như <i>DeleteAccountScreen</i> (padding trên iOS).</li>
+<li><b>Mạng:</b> link ký phải là HTTPS ở bản phát hành (iOS chặn HTTP thường); <i>S3_PUBLIC_URL</i> / <i>S3_ENDPOINT</i> production phải là tên miền HTTPS.</li>
+<li><b>Chi phí:</b> dung lượng kho cho tệp ZIP (sống 7 ngày, xóa tự động) và băng thông tải xuống. Email qua SMTP hiện có; khi lượng người dùng lớn cần dịch vụ email giao dịch (có phí theo số email).</li>
+<li><b>Cửa hàng:</b> App Store và Google Play không bắt buộc tính năng này, nhưng mục "An toàn dữ liệu" của Google Play và nhãn quyền riêng tư của Apple nên mô tả đúng.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Yêu cầu tệp, nhận email "có yêu cầu", nhận push và email "đã sẵn sàng", tải về và giải nén được, <i>index.html</i> mở được.</li>
+<li>Sai mật khẩu trả 400 và không đăng xuất app; yêu cầu lần 2 trong 24 giờ bị từ chối với giờ được thử lại.</li>
+<li>Tệp không chứa mật khẩu băm, token, danh tính người gửi ẩn danh chưa tiết lộ, báo cáo người khác gửi về mình (có test tự động kiểm tra từng điều).</li>
+<li>Link ký hết hạn sau 15 phút; tệp bị xóa khỏi kho sau 7 ngày; lỗi kho được thử lại 3 lần rồi báo FAILED.</li>
+<li>Hai bản API chạy cùng lúc không xử lý trùng một yêu cầu.</li>
+<li>Tải về được trên Android (máy thật hoặc giả lập) và trên iPhone; báo cáo ghi rõ đã chạy trên nền tảng nào.</li>
+<li>Chính sách quyền riêng tư cập nhật mục "Quyền của bạn" (luật sư duyệt câu chữ).</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 5 ngày (bảng, 3 endpoint, việc nền, ZIP theo dòng chảy, che dữ liệu ẩn danh, email, dọn dẹp); mobile 2 ngày (màn trạng thái, xác nhận lại, mở link); kiểm thử 1,5 ngày.</li>
+<li>Phụ thuộc: không bắt buộc. Dùng chung hạ tầng việc nền với E2. Nên có A1 (2FA) và A4 (chống dò mật khẩu) để xác nhận lại chặt hơn; A6 nếu có tài khoản Apple.</li>
+<li>Rủi ro: tệp rất lớn làm việc nền chạy lâu và tốn băng thông; bỏ sót một bảng mới thêm sau này (cần quy ước: thêm bảng chứa dữ liệu người dùng thì cập nhật bản xuất); lộ danh tính ẩn danh nếu che sai (phải có test).</li>
+</ul>

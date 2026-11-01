@@ -1,0 +1,95 @@
+<h3>A6. Đăng nhập bằng Apple</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ1 · Ước lượng: 5 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>App có nút Đăng nhập bằng Google. Quy định App Store (mục 4.8 "Login Services") yêu cầu app dùng đăng nhập qua bên thứ ba phải có thêm một lựa chọn đăng nhập tương đương bảo vệ riêng tư (chỉ lấy tên và email, cho ẩn email, không theo dõi quảng cáo). Đăng nhập bằng Apple đáp ứng điều này và là cách phổ biến nhất. Thiếu nó, bản iOS có thể bị từ chối khi nộp lên App Store. Người dùng iPhone cũng được lợi: đăng nhập bằng Face ID, có thể giấu email thật.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li>Chưa có Đăng nhập bằng Apple ở cả backend và mobile. Báo cáo tính năng (<i>docs/report/bao-cao-tinh-nang.template.html</i>) cũng ghi "Nếu bật [Google] trên iOS thì App Store yêu cầu thêm Đăng nhập bằng Apple, phần này chưa có".</li>
+<li>Đăng nhập Google đã có: backend <i>auth.service.ts</i> (loginWithGoogle) và <i>google-verifier.service.ts</i> kiểm tra idToken với <i>GOOGLE_WEB_CLIENT_ID</i>; tìm người dùng theo googleId, nếu không có thì theo email và tự gắn vào tài khoản cũ, nếu vẫn không có thì tạo tài khoản mới (không có mật khẩu, chưa có ngày sinh). Kiểm tra bannedAt và ageLockedAt rồi cấp JWT 30 ngày. Đăng nhập Apple nên đi theo đúng khuôn này.</li>
+<li>Mobile: <i>services/googleSignIn.ts</i> dùng @react-native-google-signin/google-signin; nút Google chỉ hiện khi có <i>EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID</i> (<i>config/google.ts</i>) và hiện như nhau trên Android và iOS (<i>LoginScreen.tsx</i>).</li>
+<li><i>app.json</i>: ios.bundleIdentifier và android.package đều là com.mobilesocial.app; plugin Google được khai <b>không kèm tùy chọn</b> (không thấy iosUrlScheme) — cần kiểm tra đăng nhập Google trên iOS đã thật sự được cấu hình chưa. Chưa có ios.usesAppleSignIn.</li>
+<li>Tài khoản không có mật khẩu đã đặt được mật khẩu đầu tiên trong Cài đặt (<i>ChangePasswordScreen.tsx</i>, user.hasPassword) — dùng được cho người dùng Apple chuyển sang Android.</li>
+<li>Xóa tài khoản đã có (DELETE /users/me trong <i>users.controller.ts</i>); khi có Apple thì phải thêm bước thu hồi quyền với Apple (xem mục e).</li>
+<li>Màn ngày sinh (<i>BirthDateScreen.tsx</i>) đã hỏi ngày sinh cho tài khoản thiếu — dùng lại cho tài khoản Apple mới.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng chính. Đăng nhập bằng Apple trên iPhone</b></p>
+<ol>
+<li>Trên màn Đăng nhập (chỉ trên iPhone/iPad), người dùng bấm nút <b>Đăng nhập bằng Apple</b> (nút chuẩn của Apple, kích thước không nhỏ hơn nút Google).</li>
+<li>App tạo một chuỗi ngẫu nhiên dùng một lần (nonce), gửi bản băm SHA-256 của nó cho Apple, rồi mở hộp đăng nhập của Apple: người dùng xác nhận bằng Face ID/mật khẩu Apple và chọn "Chia sẻ email" hoặc "Ẩn email" (Apple tạo một địa chỉ chuyển tiếp dạng …@privaterelay.appleid.com).</li>
+<li>Người dùng bấm Hủy: đóng hộp, ở lại màn Đăng nhập, không báo lỗi.</li>
+<li>Đồng ý: Apple trả cho app identityToken (giấy tờ có chữ ký của Apple), authorizationCode và — <b>chỉ ở lần đầu tiên</b> — họ tên. App gửi tất cả lên máy chủ cùng nonce gốc.</li>
+<li>Máy chủ kiểm tra identityToken: chữ ký bằng khóa công khai của Apple (tải từ appleid.apple.com, lưu đệm 24 giờ), người phát hành là Apple, dành cho đúng app (bundle id com.mobilesocial.app), còn hạn, và nonce khớp. Sai: 401.</li>
+<li>Máy chủ tìm tài khoản theo appleId (mã người dùng Apple, cố định cho app). Không có thì tìm theo email nếu là email thật đã xác minh (không phải địa chỉ chuyển tiếp) và gắn appleId vào tài khoản đó — giống cách Google đang làm. Vẫn không có thì tạo tài khoản mới: tên người dùng sinh từ email, tên hiển thị từ họ tên Apple gửi lần đầu, chưa có mật khẩu, chưa có ngày sinh.</li>
+<li>Máy chủ đổi authorizationCode lấy refresh token của Apple và lưu dạng mã hóa (để thu hồi khi xóa tài khoản).</li>
+<li>Kiểm tra khóa tài khoản và khóa vì tuổi như Google. Tài khoản đã bật 2FA thì sang bước thử thách 2FA (A1).</li>
+<li>Tạo phiên (A2), xét thiết bị lạ (A3). App lưu token; thiếu ngày sinh thì hiện màn khai ngày sinh như tài khoản Google hiện nay.</li>
+</ol>
+<p><b>Luồng phụ. Người dùng Apple dùng điện thoại Android</b></p>
+<ol>
+<li>Sau khi tạo tài khoản bằng Apple, app gợi ý một lần: "Đặt mật khẩu để đăng nhập được trên Android và máy khác".</li>
+<li>Người dùng đặt mật khẩu trong Cài đặt (chức năng Đặt mật khẩu đã có). Trên Android, đăng nhập bằng email (kể cả địa chỉ chuyển tiếp của Apple) và mật khẩu đó.</li>
+</ol>
+<p><b>Luồng phụ. Xóa tài khoản</b>: khi người dùng xóa tài khoản có gắn Apple, máy chủ gọi API thu hồi của Apple bằng refresh token đã lưu, rồi mới xóa dữ liệu.</p>
+
+<h4>d) Flowchart</h4>
+<!--FLOW:a6-dang-nhap-apple-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Họ tên chỉ có ở lần đầu</b>: nếu lần đầu lỗi mạng sau khi Apple trả về, lần sau Apple không gửi tên nữa. Máy chủ phải lưu tên ngay ở lần gọi đầu; thiếu tên thì dùng tên người dùng, người dùng tự sửa trong hồ sơ.</li>
+<li><b>Email chuyển tiếp</b>: thư gửi tới …@privaterelay.appleid.com chỉ tới được người dùng nếu tên miền gửi thư đã được đăng ký trong Apple Developer (mục Sign in with Apple for Email Communication) và có SPF/DKIM. Không làm bước này thì mã OTP, email cảnh báo (A3, A4) và mã đặt lại mật khẩu sẽ không tới người dùng Apple ẩn email.</li>
+<li><b>Không tự gắn theo email chuyển tiếp</b>: địa chỉ chuyển tiếp không trùng với email nào có sẵn, nên người đã có tài khoản email/Google mà chọn "Ẩn email" sẽ có tài khoản <b>mới</b>. App nên nói rõ điều này; gắn Apple vào tài khoản có sẵn từ Cài đặt là việc làm sau (chưa đề xuất ở đây).</li>
+<li><b>Thu hồi khi xóa tài khoản</b>: Apple yêu cầu app có Đăng nhập bằng Apple phải gọi API thu hồi token khi người dùng xóa tài khoản. Cần khóa riêng .p8 từ Apple Developer (Team ID, Key ID) để ký yêu cầu.</li>
+<li><b>Người dùng gỡ quyền app trong cài đặt Apple ID</b>: lần đăng nhập Apple sau sẽ như lần đầu (nhưng appleId không đổi nên vẫn vào đúng tài khoản). Nhận thông báo từ máy chủ Apple (server-to-server notifications) là việc làm sau.</li>
+<li><b>Tài khoản bị khóa / dưới 18 tuổi</b>: xử lý như Google (401 ACCOUNT_BANNED, AGE_RESTRICTED); tài khoản mới phải khai ngày sinh, dưới 18 bị khóa theo quy tắc hiện có.</li>
+<li><b>Chống dùng lại token</b>: nonce dùng một lần, identityToken chỉ nhận khi còn hạn.</li>
+<li><b>Giới hạn</b>: endpoint /auth/apple có @Throttle riêng 20 lần/phút/IP (cùng A4).</li>
+<li><b>Phương án tránh làm A6</b>: ẩn nút Google trên iOS (chỉ hiện trên Android). Khi đó App Store không đòi Apple. Đổi lại người dùng iPhone mất đăng nhập nhanh. Chủ dự án quyết.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ là <b>đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>User: thêm trường</td><td>appleId (String?, unique), appleRefreshTokenEnc (String?, mã hóa như khóa 2FA).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint (đề xuất)</th><th>Việc làm</th></tr>
+<tr><td>POST /auth/apple { identityToken, authorizationCode, nonce, fullName?: { givenName, familyName }, device? }</td><td>Trả giống POST /auth/google: { data: { accessToken, user } } (thêm refreshToken khi có A2; trả twoFactorRequired khi có A1).</td></tr>
+<tr><td>DELETE /users/me</td><td>Thêm bước gọi API thu hồi của Apple nếu tài khoản có appleId.</td></tr>
+</table>
+<p>Biến môi trường mới: APPLE_BUNDLE_ID (com.mobilesocial.app), APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY. Kiểm tra chữ ký dùng node:crypto + @nestjs/jwt sẵn có (đổi khóa JWK của Apple sang khóa công khai), không bắt buộc thêm thư viện backend.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>iOS</b>: dùng expo-apple-authentication (gói Expo chính thức; kiểm tra bản cho SDK 57, cài bằng expo install). Thêm vào app.json: "ios": { "usesAppleSignIn": true } và plugin "expo-apple-authentication". Bật Sign in with Apple cho App ID trong Apple Developer (EAS Build có thể tự bật). Tạo nonce và SHA-256 bằng expo-crypto (dùng chung với A2). Không cần quyền thiết bị.</li>
+<li><b>Android</b>: Apple không có thư viện gốc cho Android. Nút Apple <b>không hiện</b> trên Android (kiểm tra Platform.OS === "ios" và AppleAuthentication.isAvailableAsync(), ghi chú lý do bằng một dòng comment như RULE.md yêu cầu). Người dùng Apple dùng Android bằng cách đặt mật khẩu (luồng phụ ở mục c). Phương án đầy đủ hơn: đăng nhập Apple trên Android qua trang web của Apple (cần Services ID, đường dẫn trả về HTTPS, mở trình duyệt trong app) — thêm khoảng 2–3 ngày, đề xuất làm sau nếu có nhiều người dùng chuyển máy.</li>
+<li>Đây là khác biệt nền tảng được RULE.md cho phép vì Android có đường thay thế (mật khẩu, Google). Cần ghi quyết định vào <i>docs/decisions.md</i>.</li>
+<li><b>Nút Google trên iOS</b>: cần kiểm tra cấu hình iOS của @react-native-google-signin (iosUrlScheme, iOS client ID) — nếu nút Google chưa chạy được trên iPhone thì cần làm cùng lúc.</li>
+<li><b>Web</b>: chưa có web client. Nếu có, dùng Sign in with Apple JS với Services ID.</li>
+<li><b>Chi phí</b>: không có phí riêng; cần tài khoản Apple Developer (99 USD/năm, vốn đã cần để phát hành iOS).</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Trên iPhone thật (bản dev build hoặc TestFlight, không chạy được trong Expo Go): đăng nhập Apple lần đầu với "Chia sẻ email" tạo tài khoản đúng tên và email; lần sau vào lại đúng tài khoản.</li>
+<li>Đăng nhập Apple với "Ẩn email": tạo tài khoản với địa chỉ chuyển tiếp; email OTP/cảnh báo gửi tới địa chỉ đó đến được hộp thư thật.</li>
+<li>Email thật trùng tài khoản có sẵn: appleId được gắn vào tài khoản đó, không tạo tài khoản trùng.</li>
+<li>Bấm Hủy trong hộp Apple: không có thông báo lỗi.</li>
+<li>Tài khoản mới phải khai ngày sinh; dưới 18 bị khóa như quy tắc hiện có.</li>
+<li>Trên Android: nút Apple không hiện; người dùng Apple đặt mật khẩu rồi đăng nhập được trên Android.</li>
+<li>Xóa tài khoản Apple: Apple ID không còn liệt kê app trong danh sách "Đăng nhập bằng Apple".</li>
+<li>Test tự động ở backend: token sai chữ ký, sai aud, hết hạn, nonce sai đều bị từ chối (dùng khóa giả trong test).</li>
+<li>Báo cáo ghi rõ: iPhone đã chạy hay chưa; Android chỉ kiểm tra việc ẩn nút và đăng nhập bằng mật khẩu.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 2 ngày (kiểm tra token Apple, tìm/gắn/tạo tài khoản, đổi mã lấy refresh token, thu hồi khi xóa tài khoản). Mobile 2 ngày (nút Apple chỉ trên iOS, gọi API, gợi ý đặt mật khẩu, cấu hình app.json và Apple Developer). Kiểm thử 1 ngày trên iPhone thật.</li>
+<li>Phụ thuộc: không bắt buộc mã nào (làm được với cách cấp token hiện nay). Khi có A2/A1 thì thêm refresh token và bước 2FA. Liên quan E2 (xóa tài khoản).</li>
+<li>Rủi ro: không có iPhone thật để thử; quên đăng ký tên miền gửi thư với Apple làm người dùng ẩn email không nhận được OTP; bị từ chối trên App Store nếu nút Apple không đúng hướng dẫn giao diện của Apple.</li>
+</ul>

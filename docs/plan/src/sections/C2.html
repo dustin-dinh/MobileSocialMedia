@@ -1,0 +1,138 @@
+<h3>C2. Cảnh cáo, xử phạt theo bậc và kháng nghị</h3>
+<p><i>Nhóm: Kiểm duyệt và quản trị · Giai đoạn: GĐ2 · Ước lượng: 11–12 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện tại quản trị viên chỉ có hai lựa chọn với một người vi phạm: không làm gì, hoặc khóa hẳn tài khoản. Với vi phạm nhẹ thì khóa hẳn là quá tay, còn không làm gì thì người đó tái phạm. Tính năng này đưa vào <b>điểm cảnh cáo</b> (strike) có thời hạn và <b>các bậc xử phạt tăng dần</b>: cảnh cáo, hạn chế tính năng, tạm khóa, khóa vĩnh viễn. Người bị xử lý luôn được báo lý do và có quyền <b>kháng nghị</b> một lần với một người duyệt khác. Người dùng thường được đối xử công bằng hơn; người tái phạm bị xử nặng dần một cách nhất quán.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Khóa tài khoản</b> (<i>apps/api/src/modules/admin/admin.service.ts</i>, <i>setBanned</i>): chỉ có cột <i>User.bannedAt</i>, khóa vô thời hạn cho tới khi admin mở. Không lưu lý do, không lưu ai khóa (tham số <i>adminId</i> chỉ dùng để chặn tự khóa mình). Quản trị viên không bị khóa được.</li>
+<li><b>Thực thi khóa</b>: danh sách id bị khóa nằm trong bộ nhớ một tiến trình API (<i>apps/api/src/modules/auth/ban-list.ts</i>), nạp lúc khởi động. <i>JwtStrategy</i> và đăng nhập (<i>auth.service.ts</i>) trả <i>401 ACCOUNT_BANNED</i> "This account has been suspended". Token đăng nhập sống 30 ngày (<i>auth.module.ts</i>).</li>
+<li><b>App</b>: không có xử lý riêng cho <i>ACCOUNT_BANNED</i>; lỗi 401 xóa token, màn đăng nhập hiện nguyên câu tiếng Anh từ server (<i>useAuthSubmission.ts</i>). Người bị khóa không biết lý do, không có nút kháng nghị.</li>
+<li><b>Hạn chế một tính năng</b> chỉ có một trường hợp: tước quyền gửi tin ẩn danh (<i>User.anonymousSuspendedAt</i>), tự động khi bị báo cáo hội thoại ẩn danh, admin trả lại bằng tay. Đây là tiền lệ cho "hạn chế tính năng".</li>
+<li><b>Khóa vì tuổi</b> (<i>ageLockedAt</i>) là cơ chế riêng, không phải xử phạt; kháng nghị khóa tuổi thuộc B6.</li>
+<li><b>Chưa có</b>: điểm cảnh cáo, thời hạn xử phạt, tạm khóa có ngày hết hạn, thông báo lý do, kháng nghị, đảo ngược quyết định có ghi lại.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Cộng cảnh cáo và áp bậc phạt</b></p>
+<ol>
+<li>Người duyệt kết luận có vi phạm trong hàng đợi (C1-3) và chọn điều khoản bị vi phạm. Mỗi điều khoản có sẵn mức nặng và số điểm (bảng ở mục e).</li>
+<li>Máy chủ tạo một cảnh cáo: điều khoản, lý do hiển thị cho người dùng, số điểm, ngày hết hiệu lực (90 ngày sau).</li>
+<li>Vi phạm cực nặng (xâm hại trẻ em, khủng bố, buôn người, tài khoản lập ra để lách khóa): máy chủ không tự tính bậc mà tạm khóa ngay và đưa đề xuất khóa vĩnh viễn cho quản trị viên xác nhận. Người dùng nhận email báo khóa và cách kháng nghị.</li>
+<li>Trường hợp còn lại: máy chủ cộng tổng điểm còn hiệu lực và chọn bậc:
+<ul>
+<li>1–2 điểm: chỉ cảnh cáo.</li>
+<li>3–5 điểm: hạn chế tính năng 7 ngày (tính năng bị lạm dụng, ví dụ bình luận hoặc nhắn tin cho người lạ).</li>
+<li>Từ 6 điểm: tạm khóa tài khoản (lần đầu 7 ngày, lần hai 30 ngày) và đăng xuất mọi thiết bị. Lần tạm khóa thứ ba trong 365 ngày thì đề xuất khóa vĩnh viễn.</li>
+</ul></li>
+<li>Máy chủ ghi hình phạt kèm ngày hết hạn, ghi nhật ký thao tác (C3).</li>
+<li>Gửi thông báo trong app và email: nội dung nào, điều khoản nào, bậc phạt, đến khi nào, tổng điểm hiện tại, nút "Kháng nghị".</li>
+<li>Lần mở app kế tiếp, người dùng thấy một màn hình cảnh cáo phải bấm "Tôi đã hiểu" mới đi tiếp. Mục "Tình trạng tài khoản" trong Cài đặt luôn liệt kê cảnh cáo còn hiệu lực và ngày hết hạn.</li>
+</ol>
+<p><b>Luồng 2: Khi đang bị hạn chế hoặc tạm khóa</b></p>
+<ol>
+<li>Bị hạn chế: người dùng vẫn đọc, xem, nhắn tin trong hội thoại đã có. Khi bấm vào tính năng bị hạn chế (ví dụ ô bình luận), app hiện "Bạn đang bị hạn chế bình luận đến 14:00 ngày 12/11" và nút xem lý do. Máy chủ cũng tự từ chối (<i>403 FEATURE_RESTRICTED</i>), không dựa vào app.</li>
+<li>Bị tạm khóa: đăng nhập trả lỗi riêng kèm ngày mở lại và lý do. App hiện màn hình "Tài khoản tạm khóa đến …" có nút "Kháng nghị". Server cấp một mã ngắn hạn chỉ đủ quyền xem tình trạng và gửi kháng nghị.</li>
+<li>Hết hạn: hình phạt tự gỡ, không cần ai làm gì. Máy chủ so ngày hết hạn ngay lúc kiểm tra, nên không phụ thuộc tác vụ định kỳ. Người dùng nhận thông báo "Tài khoản đã hoạt động lại".</li>
+<li>Điểm cảnh cáo hết hiệu lực sau 90 ngày thì không còn tính vào tổng, nhưng bản ghi vẫn giữ cho nhân viên xem lịch sử.</li>
+</ol>
+<p><b>Luồng 3: Kháng nghị</b></p>
+<ol>
+<li>Người dùng bấm "Kháng nghị" từ thông báo, từ Tình trạng tài khoản, hoặc từ màn hình tạm khóa. Nhập lý do (tối đa 1.000 ký tự).</li>
+<li>Máy chủ kiểm tra: quyết định thuộc về người này, còn trong 30 ngày, chưa kháng nghị lần nào. Sai thì app báo "Không thể kháng nghị quyết định này" và lý do.</li>
+<li>Lưu kháng nghị ở trạng thái "Chờ xem xét". Hình phạt <b>vẫn áp dụng</b> trong lúc chờ.</li>
+<li>Máy chủ giao cho một người duyệt <b>khác</b> người đã ra quyết định. Kháng nghị khóa vĩnh viễn chỉ quản trị viên xử lý.</li>
+<li>Người duyệt thứ hai xem quyết định cũ, bằng chứng (bản chụp nội dung) và lý do kháng nghị, rồi chọn:
+<ul>
+<li><b>Giữ nguyên</b>: không đổi gì.</li>
+<li><b>Đảo ngược</b>: thu hồi cảnh cáo, gỡ hình phạt (mở khóa ngay), khôi phục nội dung bị gỡ.</li>
+<li><b>Giảm bậc</b>: hạ mức nặng hoặc rút ngắn thời hạn.</li>
+</ul></li>
+<li>Máy chủ ghi kết quả và nhật ký, gửi thông báo kết quả kèm lý do. Kết quả kháng nghị là quyết định cuối cùng.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ C2-1: cộng cảnh cáo và áp bậc xử phạt.</p>
+<!--FLOW:c2-cong-canh-cao-->
+<p>Sơ đồ C2-2: kháng nghị với người duyệt thứ hai.</p>
+<!--FLOW:c2-khang-nghi-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Mức nặng và số điểm (đề xuất, chủ dự án duyệt danh sách điều khoản)</b></p>
+<table>
+<tr><th>Mức</th><th>Ví dụ</th><th>Điểm</th></tr>
+<tr><td>Nhẹ</td><td>Spam, ngôn từ thô tục, thông tin sai lệch không gây hại trực tiếp</td><td>1</td></tr>
+<tr><td>Vừa</td><td>Quấy rối, bắt nạt, nội dung nhạy cảm không đánh dấu, giả mạo người khác</td><td>2</td></tr>
+<tr><td>Nặng</td><td>Lừa đảo, đe dọa bạo lực, đăng ảnh riêng tư của người khác, kích động thù ghét</td><td>3</td></tr>
+<tr><td>Cực nặng</td><td>Xâm hại trẻ em, khủng bố, buôn người, lách khóa bằng tài khoản khác</td><td>Tạm khóa ngay, đề xuất khóa vĩnh viễn</td></tr>
+</table>
+<p><b>Bậc xử phạt theo tổng điểm còn hiệu lực (đề xuất)</b></p>
+<table>
+<tr><th>Tổng điểm</th><th>Bậc</th><th>Thời hạn</th></tr>
+<tr><td>1–2</td><td>Cảnh cáo</td><td>Không hạn chế</td></tr>
+<tr><td>3–5</td><td>Hạn chế tính năng bị lạm dụng (đăng bài, story, bình luận, nhắn người lạ, gửi ẩn danh)</td><td>7 ngày</td></tr>
+<tr><td>Từ 6</td><td>Tạm khóa tài khoản</td><td>Lần 1: 7 ngày; lần 2: 30 ngày</td></tr>
+<tr><td>Lần tạm khóa thứ 3 trong 365 ngày, hoặc cực nặng</td><td>Khóa vĩnh viễn (quản trị viên xác nhận)</td><td>Vô thời hạn</td></tr>
+</table>
+<ul>
+<li><b>Một nội dung chỉ bị phạt một lần</b>, dù có bao nhiêu báo cáo.</li>
+<li><b>Gộp vi phạm nhẹ</b>: nhiều vi phạm nhẹ cùng loại trong 24 giờ (ví dụ 10 bình luận spam được duyệt cùng lúc) tính là một cảnh cáo.</li>
+<li><b>Điểm hết hiệu lực</b> sau 90 ngày. Bản ghi giữ 2 năm cho nhân viên (thời hạn lưu <b>cần luật sư xác nhận</b>).</li>
+<li><b>Kháng nghị</b>: trong 30 ngày, một lần cho mỗi quyết định, lý do 20–1.000 ký tự. SLA xử lý: 48 giờ với tạm khóa, 72 giờ với các loại khác (đề xuất). Kháng nghị quá hạn hiện đỏ trong trang quản trị.</li>
+<li><b>Người duyệt kháng nghị</b> phải khác người ra quyết định. Đội chỉ có một người thì quản trị viên phải tự xử lý và nhật ký ghi rõ "cùng người"; đây là điểm chủ dự án cần quyết.</li>
+<li><b>Đảo ngược</b> phải khôi phục đủ: xóa cảnh cáo (đánh dấu thu hồi, không xóa bản ghi), gỡ hình phạt, hiện lại nội dung, trả quyền gửi ẩn danh nếu bị tước cùng lúc. Người báo cáo không được báo khi quyết định bị đảo ngược.</li>
+<li><b>Quản trị viên và kiểm duyệt viên</b> không bị cộng cảnh cáo bởi người cùng cấp hoặc thấp hơn (giữ quy tắc hiện tại "Administrators cannot be banned", mở rộng theo C3).</li>
+<li><b>Tạo tài khoản mới để lách khóa</b>: là vi phạm cực nặng. Phát hiện tài khoản phụ (cùng thiết bị, cùng email gốc) là việc riêng, chưa nằm trong ước lượng này (<i>MODERATION_PLAN.md</i>, mục 8.8).</li>
+<li><b>Nhiều bản API</b>: danh sách khóa trong bộ nhớ hiện tại phải thêm ngày hết hạn; khi chạy nhiều bản API phải chuyển sang Redis hoặc kiểm tra database (hạn chế đã ghi trong <i>ban-list.ts</i>).</li>
+<li><b>Đang tạm khóa thì không mở hội thoại, không đăng</b>; nội dung đã đăng vẫn hiện, trừ khi khóa vĩnh viễn (khi đó bài viết và trang cá nhân bị ẩn với người khác).</li>
+<li><b>Email không tới được</b> (địa chỉ cũ): thông báo vẫn nằm trong app và hiện ở lần đăng nhập kế tiếp.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><b>Toàn bộ mục này là đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi</th><th>Nội dung</th></tr>
+<tr><td>Bảng mới <i>Strike</i></td><td><i>id, userId, caseId</i> (mục C1), <i>policyCode, severity</i> (<i>MINOR | MODERATE | SEVERE | EXTREME</i>), <i>points, userReason</i> (lời giải thích cho người dùng), <i>createdById, createdAt, expiresAt, revokedAt, revokedById, revokeReason</i>.</td></tr>
+<tr><td>Bảng mới <i>Sanction</i></td><td><i>id, userId, strikeId, type</i> (<i>WARNING | RESTRICT | SUSPEND | BAN</i>), <i>features</i> (mảng: <i>POST, STORY, COMMENT, MESSAGE_REQUEST, ANONYMOUS</i>), <i>startsAt, endsAt</i> (rỗng = vô thời hạn), <i>acknowledgedAt</i> (người dùng đã bấm "Tôi đã hiểu"), <i>liftedAt, liftedById, createdById</i>.</td></tr>
+<tr><td>Bảng mới <i>Appeal</i></td><td><i>id, userId, sanctionId</i> hoặc <i>strikeId, reason, status</i> (<i>PENDING | UPHELD | REVERSED | REDUCED</i>), <i>assigneeId, dueAt, decidedById, decidedAt, decisionNote, createdAt</i>. Duy nhất theo quyết định bị kháng nghị.</td></tr>
+<tr><td><i>User</i></td><td>Thêm <i>suspendedUntil</i>. Giữ <i>bannedAt</i> cho khóa vĩnh viễn để không đổi hành vi hiện tại. <i>anonymousSuspendedAt</i> giữ nguyên, được đặt cùng lúc khi hình phạt có <i>ANONYMOUS</i>.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td><i>POST /auth/login</i> (thay đổi lỗi)</td><td>Tạm khóa: <i>401 { code: ACCOUNT_SUSPENDED, until, reason, appealToken }</i>. Khóa vĩnh viễn: <i>ACCOUNT_BANNED</i> như hiện tại, thêm <i>reason</i> và <i>appealToken</i>. <i>appealToken</i> sống 15 phút, chỉ gọi được hai route dưới.</td></tr>
+<tr><td><i>GET /users/me/standing</i></td><td>Tổng điểm, cảnh cáo còn hiệu lực, hình phạt đang áp dụng, kháng nghị.</td></tr>
+<tr><td><i>POST /appeals</i></td><td><i>{ sanctionId | strikeId, reason }</i>. Lỗi: <i>APPEAL_WINDOW_CLOSED</i>, <i>APPEAL_EXISTS</i>.</td></tr>
+<tr><td><i>POST /users/me/sanctions/:id/ack</i></td><td>Đánh dấu đã đọc màn hình cảnh cáo.</td></tr>
+<tr><td>Route ghi nội dung (bài, story, bình luận, tin nhắn)</td><td>Trả <i>403 { code: FEATURE_RESTRICTED, feature, until }</i> khi đang bị hạn chế.</td></tr>
+<tr><td><i>GET /admin/appeals?status=</i>, <i>POST /admin/appeals/:id/decision</i></td><td><i>{ outcome: UPHOLD | REVERSE | REDUCE, note, points?, endsAt? }</i>. Từ chối nếu người gọi là người ra quyết định cũ.</td></tr>
+<tr><td><i>POST /admin/users/:id/strikes</i>, <i>DELETE /admin/strikes/:id</i></td><td>Cộng cảnh cáo bằng tay (ngoài hàng đợi), thu hồi cảnh cáo kèm lý do.</td></tr>
+<tr><td><i>POST /admin/users/:id/ban</i> (thay đổi)</td><td>Bắt buộc <i>reason</i>; chỉ quản trị viên; tạo <i>Sanction</i> loại <i>BAN</i>.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>App thêm: màn hình cảnh cáo bắt buộc đọc, mục "Tình trạng tài khoản" trong Cài đặt, thông báo hạn chế ở ô soạn bài/bình luận/tin nhắn, màn hình tạm khóa ở bước đăng nhập, form kháng nghị. Tất cả là giao diện React Native thường, chạy giống nhau trên Android và iOS. Form kháng nghị dùng <i>KeyboardAvoidingView</i> với hành vi riêng cho từng nền tảng như các form hiện có.</li>
+<li>Không cần quyền thiết bị mới, không cần thư viện mới.</li>
+<li>Thông báo đẩy dùng FCM (Android) và APNs (iOS) qua D8. Người bị tạm khóa không nhận đẩy được (đã đăng xuất) nên phải có email; email dùng <i>nodemailer</i> sẵn có, không thêm chi phí ngoài nhà cung cấp SMTP hiện dùng.</li>
+<li>Trang quản trị (web): tab Kháng nghị, lịch sử cảnh cáo trong chi tiết người dùng.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Ba vi phạm vừa liên tiếp (6 điểm) dẫn tới tạm khóa 7 ngày; đăng nhập hiện đúng ngày mở lại và lý do bằng tiếng Việt.</li>
+<li>Đổi ngày hết hạn về quá khứ trong cơ sở dữ liệu: tài khoản dùng lại được ngay ở request kế tiếp, không cần khởi động lại API.</li>
+<li>Bị hạn chế bình luận: app báo rõ, gọi thẳng API cũng bị từ chối <i>FEATURE_RESTRICTED</i>; nhắn tin trong hội thoại cũ vẫn được.</li>
+<li>Điểm quá 90 ngày không còn tính vào tổng.</li>
+<li>Kháng nghị lần hai cùng quyết định bị từ chối; người ra quyết định cũ không xử lý được kháng nghị đó.</li>
+<li>Đảo ngược: nội dung hiện lại, cảnh cáo bị đánh dấu thu hồi, tài khoản mở khóa ngay.</li>
+<li>Người bị tạm khóa gửi được kháng nghị từ màn hình đăng nhập trên Android và trên iPhone (ghi rõ thiết bị đã chạy trong <i>docs/change.md</i>).</li>
+<li>Phép thử tự động trong <i>safety-smoke.cjs</i> cho tính bậc, hết hạn, kháng nghị.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 6 ngày (bảng mới, tính bậc, kiểm tra hạn chế ở các route ghi, đổi lỗi đăng nhập, mã kháng nghị, trang quản trị), mobile 4 ngày, kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: C1 (quyết định vi phạm và điều khoản), C3 (nhật ký thao tác, vai trò được tạm khóa / khóa vĩnh viễn), A2 (thu hồi phiên trên mọi thiết bị khi tạm khóa; trước khi có A2 thì dựa vào danh sách khóa trong bộ nhớ như hiện nay), D8 (thông báo hệ thống).</li>
+<li>Rủi ro: danh sách điều khoản và số điểm là quyết định chính sách, sai thì phạt quá tay hoặc quá nhẹ; đội nhỏ khó đảm bảo "người duyệt thứ hai"; kháng nghị bị dùng để spam (giới hạn một lần mỗi quyết định).</li>
+</ul>

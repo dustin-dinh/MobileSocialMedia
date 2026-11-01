@@ -10,8 +10,9 @@ import { FollowListScreen } from '../features/profile/screens/FollowListScreen';
 import { FollowRequestsScreen } from '../features/profile/screens/FollowRequestsScreen';
 import { ReelViewerScreen } from '../features/reel/screens/ReelViewerScreen';
 import { StoryViewerScreen } from '../features/stories/screens/StoryViewerScreen';
-import { StoryViewersScreen } from '../features/stories/screens/StoryViewersScreen';
+import { StoryReactionsScreen } from '../features/stories/screens/StoryReactionsScreen';
 import { UserProfileScreen } from '../features/profile/screens/UserProfileScreen';
+import { AnonymousMessagesScreen } from '../features/settings/screens/AnonymousMessagesScreen';
 import { BlockedUsersScreen } from '../features/settings/screens/BlockedUsersScreen';
 import { ChangePasswordScreen } from '../features/settings/screens/ChangePasswordScreen';
 import { DeleteAccountScreen } from '../features/settings/screens/DeleteAccountScreen';
@@ -49,11 +50,12 @@ export function MainStackNavigator() {
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} />
       <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="StoryViewers" component={StoryViewersScreen} />
+      <Stack.Screen name="StoryReactions" component={StoryReactionsScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <Stack.Screen name="AnonymousMessages" component={AnonymousMessagesScreen} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
       <Stack.Screen name="Legal" component={LegalScreen} />
     </Stack.Navigator>

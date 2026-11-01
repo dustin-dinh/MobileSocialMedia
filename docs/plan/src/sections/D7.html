@@ -1,0 +1,113 @@
+<h3>D7. Bạn thân và tin nổi bật (story)</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 9–10 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Người dùng muốn chia sẻ một số story chỉ với nhóm nhỏ (gia đình, bạn thân) mà không phải chuyển cả tài khoản sang riêng tư. Danh sách <b>Bạn thân</b> cho phép đăng story chỉ những người trong danh sách thấy, nhận ra bằng vòng màu xanh lá. <b>Lưu trữ</b> giữ lại story đã hết 24 giờ để chủ xem lại, và <b>tin nổi bật</b> cho phép chọn các story đó để ghim thành từng nhóm trên trang cá nhân.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Story</b> (<i>apps/api/src/modules/stories</i>): ảnh hoặc video ≤ 60 giây, tải thẳng lên kho qua <i>POST /media/upload-url</i>; hết hạn sau 24 giờ (<i>expiresAt</i>), hết hạn chỉ là bị lọc khi đọc.</li>
+<li><b>Ai xem được</b>: story của chính mình và của người mình theo dõi, không chặn nhau (<i>stories.service.ts</i>, hàm <i>feed</i> và <i>requireVisible</i>). Chưa có lựa chọn đối tượng xem: mọi người theo dõi đều thấy mọi story.</li>
+<li><b>Khay story</b> (<i>apps/mobile/src/features/stories/components/StoriesTray.tsx</i>): gom theo tác giả; vòng màu nhấn khi còn story chưa xem, vòng xám khi đã xem hết (<i>StoryView</i> chỉ dùng để tô vòng, chủ story không xem được ai đã xem).</li>
+<li><b>Tương tác</b>: thả cảm xúc (<i>StoryReaction</i>, có thể ẩn danh nếu chủ cho phép), trả lời đi vào tin nhắn (<i>Message.storyId</i>), push cảm xúc được gộp 15 phút mỗi story (bộ nhớ một tiến trình).</li>
+<li><b>Xóa và dọn</b>: chủ xóa story thì xóa dòng và tệp. Story hết hạn <b>không bị dọn</b>: dòng và tệp vẫn nằm lại (ghi chú <i>shortcut</i> trong code). Nghĩa là dữ liệu cho "lưu trữ" đang có sẵn, chỉ chưa có màn xem.</li>
+<li><b>Chưa có</b>: danh sách Bạn thân, story chỉ cho Bạn thân, màn Lưu trữ, tin nổi bật, cài đặt bật/tắt lưu trữ. Chưa báo cáo được story (ghi trong C1).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Quản lý danh sách Bạn thân</b></p>
+<ol>
+<li>Vào Cài đặt → Bạn thân. App hiện danh sách người theo dõi mình, có ô tìm và nút "Thêm"/"Bỏ".</li>
+<li>Máy chủ ghi hoặc xóa <i>CloseFriend</i>. Người được thêm hoặc bị bỏ <b>không</b> nhận thông báo.</li>
+<li>Bỏ một người ra khỏi danh sách thì người đó mất quyền xem story Bạn thân ngay, kể cả story đang còn hạn.</li>
+</ol>
+<p><b>Luồng 2: Đăng và xem story Bạn thân</b></p>
+<ol>
+<li>Ở màn đăng story, người dùng chọn đối tượng: "Mọi người theo dõi tôi" (mặc định) hoặc "Bạn thân". Lần đầu chọn Bạn thân mà danh sách trống, app mở màn chọn người.</li>
+<li>Máy chủ lưu story với <i>audience = CLOSE_FRIENDS</i>.</li>
+<li>Khi người xem mở khay story, máy chủ lấy story còn hạn của người họ theo dõi như hiện nay, và bỏ story Bạn thân nếu người xem không có trong danh sách của tác giả. Người không có tên không biết story đó tồn tại.</li>
+<li>Story Bạn thân hiện vòng xanh lá trong khay và nhãn "Bạn thân" ở góc trình xem.</li>
+<li>Khi người xem thả cảm xúc hoặc trả lời, máy chủ kiểm tra lại quyền (vẫn có tên, story còn hạn). Câu trả lời vào tin nhắn như hiện nay, kèm nhãn "Đã trả lời story Bạn thân của bạn".</li>
+</ol>
+<p><b>Luồng 3: Lưu trữ story</b></p>
+<ol>
+<li>Cài đặt → Story → "Lưu story vào kho lưu trữ" (mặc định bật).</li>
+<li>Bật: story hết 24 giờ vẫn được giữ, chỉ chủ xem trong màn Lưu trữ (trang cá nhân → menu → Lưu trữ), xếp theo ngày.</li>
+<li>Tắt: tác vụ dọn hằng giờ xóa tệp và dòng của story đã hết hạn quá 24 giờ, trừ story đang nằm trong tin nổi bật. Tác vụ này cũng giải quyết việc story hết hạn đang nằm lại mãi trong kho.</li>
+<li>Từ màn Lưu trữ, chủ có thể xóa hẳn từng story, hoặc đăng lại thành story mới.</li>
+</ol>
+<p><b>Luồng 4: Tin nổi bật</b></p>
+<ol>
+<li>Từ màn Lưu trữ hoặc trình xem story của mình, bấm "Thêm vào tin nổi bật", chọn nhóm có sẵn hoặc tạo nhóm mới (tên ≤ 20 ký tự, ảnh bìa chọn từ một story trong nhóm).</li>
+<li>Máy chủ kiểm tra story là của mình, nhóm chưa vượt 100 story, chưa vượt 50 nhóm, rồi ghi <i>Highlight</i>/<i>HighlightItem</i>.</li>
+<li>Người khác mở trang cá nhân: máy chủ kiểm tra họ được xem trang (không chặn; tài khoản riêng tư thì phải là người theo dõi), rồi trả hàng vòng tin nổi bật. Mục là story Bạn thân thì chỉ trả cho người đang có tên trong danh sách; nhóm không còn mục nào thì ẩn.</li>
+<li>Bấm vào vòng mở trình xem story sẵn có, chạy lần lượt các mục. Thả cảm xúc và trả lời theo cài đặt của story gốc.</li>
+<li>Chủ sửa tên, ảnh bìa, thứ tự, bỏ mục hoặc xóa nhóm. Xóa story gốc thì mục đó biến khỏi mọi nhóm.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: đăng story Bạn thân và kiểm tra quyền khi xem, khi trả lời.</p>
+<!--FLOW:d7-story-ban-than-->
+<p>Sơ đồ 2: story hết hạn vào kho lưu trữ, tạo tin nổi bật và người khác xem trên trang cá nhân.</p>
+<!--FLOW:d7-luu-tru-noi-bat-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: Bạn thân tối đa 500 người; 50 nhóm tin nổi bật, mỗi nhóm 100 story; tên nhóm ≤ 20 ký tự; tác vụ dọn chạy mỗi giờ; story hết hạn khi tắt lưu trữ bị xóa sau 24 giờ kể từ lúc hết hạn.</li>
+<li><b>Chỉ chọn từ người theo dõi mình</b>: khay story chỉ hiện story của người mình theo dõi, nên Bạn thân không theo dõi mình thì cũng không thấy. Người đó bỏ theo dõi thì vẫn giữ trong danh sách nhưng không thấy story cho tới khi theo dõi lại.</li>
+<li><b>Chặn</b>: chặn nhau thì xóa luôn khỏi danh sách Bạn thân hai phía; người bị chặn không thấy story, tin nổi bật.</li>
+<li><b>Đổi tài khoản sang riêng tư</b>: tin nổi bật chỉ còn hiện cho người theo dõi.</li>
+<li><b>Không lộ danh sách</b>: API không bao giờ trả danh sách Bạn thân của người khác, không trả cờ "bạn có trong danh sách của X" ngoài story cụ thể. Nhãn "Bạn thân" chỉ cho biết story đó dành cho nhóm nhỏ.</li>
+<li><b>Chụp màn hình</b>: không chặn hay báo được một cách tin cậy trên cả hai nền tảng; app không hứa điều này. Ghi rõ trong màn chọn đối tượng: "Người xem vẫn có thể chụp màn hình".</li>
+<li><b>Ẩn danh</b>: cảm xúc, trả lời ẩn danh theo cài đặt của từng story như hiện nay; story Bạn thân dùng cùng quy tắc.</li>
+<li><b>Nội dung vi phạm</b>: story trong tin nổi bật sống lâu hơn 24 giờ, nên phải báo cáo được (bổ sung trong C1) và đi qua làm mờ nhạy cảm (B5) như story thường.</li>
+<li><b>Lỗi mạng khi thêm vào nhóm</b>: app chỉ cập nhật khi máy chủ xác nhận; gửi lại cùng story vào cùng nhóm không tạo mục trùng (khóa chính).</li>
+<li><b>Xóa tài khoản</b> (E2): xóa luôn story lưu trữ, tin nổi bật và tệp; danh sách Bạn thân xóa theo (<i>onDelete: Cascade</i>).</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và được Dev B duyệt trước khi code. Migration mới, chỉ thêm.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>CloseFriend</i></td><td><i>ownerId</i>, <i>friendId</i>, <i>createdAt</i>; khóa chính (<i>ownerId</i>, <i>friendId</i>); chỉ mục <i>friendId</i>.</td></tr>
+<tr><td><i>Story</i></td><td>Thêm <i>audience</i> (<i>FOLLOWERS</i> | <i>CLOSE_FRIENDS</i>, mặc định <i>FOLLOWERS</i>).</td></tr>
+<tr><td><i>User</i></td><td>Thêm <i>storyArchive</i> (Boolean, mặc định true).</td></tr>
+<tr><td><i>Highlight</i></td><td><i>id</i>, <i>ownerId</i>, <i>title</i>, <i>coverStoryId</i> (có thể trống), <i>order</i>, <i>createdAt</i>.</td></tr>
+<tr><td><i>HighlightItem</i></td><td><i>highlightId</i>, <i>storyId</i>, <i>order</i>, <i>addedAt</i>; khóa chính (<i>highlightId</i>, <i>storyId</i>); xóa theo story.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mục đích</th></tr>
+<tr><td><i>GET /me/close-friends</i>; <i>PUT /me/close-friends/:userId</i>; <i>DELETE /me/close-friends/:userId</i></td><td>Xem, thêm, bỏ Bạn thân.</td></tr>
+<tr><td><i>POST /stories</i></td><td>Nhận thêm <i>audience</i>. Mỗi story trong <i>GET /stories/feed</i> có thêm <i>audience</i>; nhóm tác giả có thêm <i>hasCloseFriends</i> để tô vòng xanh.</td></tr>
+<tr><td><i>GET /stories/archive?cursor=</i></td><td>Story đã hết hạn của mình, mới nhất trước.</td></tr>
+<tr><td><i>GET /users/:id/highlights</i>; <i>GET /highlights/:id</i></td><td>Hàng vòng trên trang cá nhân; danh sách mục để mở trình xem.</td></tr>
+<tr><td><i>POST /highlights</i>; <i>PATCH /highlights/:id</i>; <i>DELETE /highlights/:id</i>; <i>POST/DELETE /highlights/:id/items/:storyId</i></td><td>Tạo, sửa (tên, bìa, thứ tự), xóa nhóm; thêm, bỏ mục.</td></tr>
+<tr><td><i>PATCH /users/me</i></td><td>Nhận thêm <i>storyArchive</i>.</td></tr>
+</table>
+<p>Các hàm <i>react</i>, <i>reply</i>, <i>markViewed</i> chuyển sang kiểm tra quyền chung: story còn hạn <b>hoặc</b> nằm trong tin nổi bật mà người xem được xem, cộng điều kiện Bạn thân.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị mới (ảnh, video story đã dùng quyền thư viện ảnh khai báo trong <i>app.json</i>). Không cần thư viện mới.</li>
+<li>Vòng xanh lá vẽ bằng viền <i>View</i> như vòng hiện có; màu xanh phải đủ tương phản trên nền sáng của app, và có nhãn trợ năng ("Story Bạn thân") vì người mù màu không phân biệt được vòng.</li>
+<li>Hàng tin nổi bật cuộn ngang trên trang cá nhân dùng <i>FlatList</i> ngang, chạy giống nhau trên hai nền tảng.</li>
+<li>Tác vụ dọn story chạy trên máy chủ, không phụ thuộc nền tảng. Dự án chưa có bộ chạy định kỳ: dùng <i>setInterval</i> mỗi giờ với khóa PostgreSQL (giống đề xuất ở D6).</li>
+<li>Chi phí: lưu trữ tăng vì story không còn bị bỏ đi (thực tế hiện nay cũng chưa bị xóa). Ước tính 1–3 MB mỗi story; cần theo dõi dung lượng kho S3/MinIO.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Story Bạn thân chỉ hiện với người có tên; người không có tên không thấy qua mọi API (khay, xem, cảm xúc, trả lời, tin nổi bật) — test tự động cho từng API.</li>
+<li>Bỏ một người khỏi danh sách thì họ mất quyền ngay với story đang còn hạn.</li>
+<li>Vòng xanh lá và nhãn "Bạn thân" hiện đúng; người được thêm/bỏ không nhận thông báo.</li>
+<li>Story hết hạn vào Lưu trữ khi bật; tắt lưu trữ thì tác vụ dọn xóa tệp và dòng, trừ mục trong tin nổi bật.</li>
+<li>Tạo, sửa, xóa tin nổi bật; người bị chặn và người không theo dõi tài khoản riêng tư không thấy.</li>
+<li>Chạy trên máy Android và iPhone thật: đăng story Bạn thân, xem bằng tài khoản có và không có tên, mở tin nổi bật. Báo cáo ghi rõ đã chạy trên nền tảng nào.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 3 ngày (Bạn thân 1, lưu trữ và tác vụ dọn 0,5, tin nổi bật 1,5), mobile 5 ngày (màn Bạn thân, chọn đối tượng, vòng xanh, màn Lưu trữ, tạo/sửa tin nổi bật, hàng vòng trên hồ sơ), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: C1 (báo cáo story), B5 (làm mờ story nhạy cảm), E2 (xóa dữ liệu khi xóa tài khoản), E1 (đưa Lưu trữ vào gói tải dữ liệu).</li>
+<li>Rủi ro: quên áp điều kiện Bạn thân ở một API là lộ story; nên gom về một hàm kiểm tra quyền duy nhất như <i>visiblePostWhere</i> của bài viết.</li>
+</ul>

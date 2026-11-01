@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -18,11 +27,14 @@ import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { useAuthSession } from '../../auth/authSession';
-import { storyService, type Story } from '../services/storyService';
+import { REACTIONS, type ReactionType } from '../../feed/reactions';
+import { anonymousErrorText } from '../../messages/anonymousErrors';
+import { storyService, type Story, type StoryReactionMark } from '../services/storyService';
 
 type StoryViewerScreenProps = NativeStackScreenProps<MainStackParamList, 'StoryViewer'>;
 
 const IMAGE_DURATION_MS = 5_000;
+const MAX_REPLY_LENGTH = 2000;
 const FALLBACK_VIDEO_MS = 15_000;
 
 function StoryVideo({ isPaused, url }: { isPaused: boolean; url: string }) {
@@ -47,6 +59,10 @@ function StoryVideo({ isPaused, url }: { isPaused: boolean; url: string }) {
  * Full-screen story player. Tap the right side for the next story, the left
  * side for the previous one, hold to pause. Stories advance on their own and
  * move on to the next person when one person's stories are finished.
+ *
+ * Your own story shows how many people reacted (never who viewed it). Someone
+ * else's story has reactions and a reply box; both can be anonymous when the
+ * owner allowed it on that story.
  */
 export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
   const { groups, startIndex } = route.params;
@@ -63,13 +79,22 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
   const [isHeld, setIsHeld] = useState(false);
   const [isDeleteVisible, setIsDeleteVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [asAnonymous, setAsAnonymous] = useState(false);
+  // Reactions given while watching, by story id (the feed copy is not refreshed meanwhile).
+  const [reactions, setReactions] = useState<Record<string, StoryReactionMark | null>>({});
   const progress = useRef(new Animated.Value(0)).current;
   const remainingRef = useRef(0);
 
   const group = groups[groupIndex];
   const story: Story | undefined = group?.stories[storyIndex];
   const isOwn = group?.author.id === user?.id;
-  const isPaused = isHeld || isDeleteVisible;
+  // Typing a reply pauses the story so it does not move on under the keyboard.
+  const isPaused = isHeld || isDeleteVisible || isTyping || replyText.length > 0;
+  const canBeAnonymous = Boolean(story?.allowAnonymous);
+  const myReaction = story ? (story.id in reactions ? reactions[story.id] : story.myReaction ?? null) : null;
   const duration =
     story?.type === 'VIDEO' ? story.durationMs || FALLBACK_VIDEO_MS : IMAGE_DURATION_MS;
 
@@ -153,6 +178,49 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
     }
   };
 
+  // Same reaction again removes it; another one (or switching anonymity) replaces it.
+  const handleReact = (type: ReactionType) => {
+    if (!story) {
+      return;
+    }
+
+    const anonymous = canBeAnonymous && asAnonymous;
+    const previous = myReaction;
+    const isSame = previous?.type === type && previous.isAnonymous === anonymous;
+    const next = isSame ? null : { isAnonymous: anonymous, type };
+
+    setReactions((current) => ({ ...current, [story.id]: next }));
+
+    (next ? storyService.react(story.id, type, anonymous) : storyService.removeReaction(story.id)).catch(
+      (error) => {
+        setReactions((current) => ({ ...current, [story.id]: previous }));
+        showToast(anonymousErrorText(error, 'Không gửi được cảm xúc. Vui lòng thử lại.'), 'error');
+      },
+    );
+  };
+
+  const handleReply = async () => {
+    const content = replyText.trim();
+
+    if (!story || !content || isSending) {
+      return;
+    }
+
+    const anonymous = canBeAnonymous && asAnonymous;
+
+    setIsSending(true);
+
+    try {
+      await storyService.reply(story.id, content, anonymous);
+      setReplyText('');
+      showToast(anonymous ? 'Đã gửi trả lời ẩn danh.' : 'Đã gửi trả lời vào tin nhắn.');
+    } catch (error) {
+      showToast(anonymousErrorText(error, 'Không gửi được trả lời. Vui lòng thử lại.'), 'error');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   if (!group || !story) {
     return <View style={styles.container} />;
   }
@@ -200,7 +268,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
 
       {/* Darkens the edges so the white controls stay readable on a bright picture. */}
       <View pointerEvents="none" style={styles.scrimTop} />
-      {isOwn ? <View pointerEvents="none" style={styles.scrimBottom} /> : null}
+      <View pointerEvents="none" style={styles.scrimBottom} />
 
       <View pointerEvents="box-none" style={[styles.top, { paddingTop: insets.top + claySpacing.sm }]}>
         <View style={styles.bars}>
@@ -253,15 +321,20 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
       {isOwn ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + claySpacing.md }]}>
           <Pressable
-            accessibilityLabel={`${story.viewsCount ?? 0} người đã xem. Xem danh sách`}
+            accessibilityLabel={`${story.reactionsCount ?? 0} cảm xúc. Xem ai đã thả`}
             accessibilityRole="button"
-            onPress={() => navigation.open('StoryViewers', { storyId: story.id })}
+            onPress={() => navigation.open('StoryReactions', { storyId: story.id })}
             style={styles.footerButton}
           >
-            <ClayIcon color={clayColors.onPrimary} name="Eye" size={20} />
+            <ClayIcon color={clayColors.onPrimary} name="Heart" size={20} />
             <ClayText style={styles.footerText} variant="caption">
-              {story.viewsCount ?? 0} người xem
+              {story.reactionsCount ?? 0} cảm xúc
             </ClayText>
+            {story.allowAnonymous ? (
+              <ClayText style={styles.footerHint} variant="meta">
+                · cho phép ẩn danh
+              </ClayText>
+            ) : null}
           </Pressable>
           <Pressable
             accessibilityLabel="Xoá tin này"
@@ -273,7 +346,82 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
             <ClayIcon color={clayColors.onPrimary} name="Trash" size={22} />
           </Pressable>
         </View>
-      ) : null}
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          pointerEvents="box-none"
+          style={styles.replyArea}
+        >
+          <View style={[styles.replyFooter, { paddingBottom: insets.bottom + claySpacing.sm }]}>
+            <View style={styles.reactionRow}>
+              {REACTIONS.map((reaction) => {
+                const isChosen = myReaction?.type === reaction.type;
+
+                return (
+                  <Pressable
+                    accessibilityLabel={`${reaction.label}${isChosen ? ', đã chọn' : ''}`}
+                    accessibilityRole="button"
+                    key={reaction.type}
+                    onPress={() => handleReact(reaction.type)}
+                    style={[styles.reactionButton, isChosen && styles.reactionChosen]}
+                  >
+                    <ClayText style={styles.reactionEmoji} variant="heading">
+                      {reaction.emoji}
+                    </ClayText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {myReaction?.isAnonymous ? (
+              <ClayText style={styles.footerHint} variant="meta">
+                Bạn đã thả cảm xúc ẩn danh
+              </ClayText>
+            ) : null}
+            <View style={styles.replyRow}>
+              {canBeAnonymous ? (
+                <Pressable
+                  accessibilityHint="Chủ tin sẽ thấy bạn là Người ẩn danh"
+                  accessibilityLabel="Ẩn danh"
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: asAnonymous }}
+                  onPress={() => setAsAnonymous((current) => !current)}
+                  style={[styles.anonymousChip, asAnonymous && styles.anonymousChipOn]}
+                >
+                  <ClayIcon
+                    color={asAnonymous ? clayColors.text : clayColors.onPrimary}
+                    name="Mask"
+                    size={18}
+                  />
+                </Pressable>
+              ) : null}
+              <TextInput
+                accessibilityLabel={asAnonymous && canBeAnonymous ? 'Trả lời ẩn danh' : `Trả lời ${name}`}
+                maxLength={MAX_REPLY_LENGTH}
+                onBlur={() => setIsTyping(false)}
+                onChangeText={setReplyText}
+                onFocus={() => setIsTyping(true)}
+                onSubmitEditing={() => void handleReply()}
+                placeholder={asAnonymous && canBeAnonymous ? 'Trả lời ẩn danh…' : `Trả lời ${name}…`}
+                placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                returnKeyType="send"
+                style={styles.replyInput}
+                value={replyText}
+              />
+              <Pressable
+                accessibilityLabel="Gửi trả lời"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !replyText.trim() || isSending }}
+                disabled={!replyText.trim() || isSending}
+                hitSlop={6}
+                onPress={() => void handleReply()}
+                style={[styles.iconButton, (!replyText.trim() || isSending) && styles.disabled]}
+              >
+                <ClayIcon color={clayColors.onPrimary} name="PaperPlaneTilt" size={22} />
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       <ConfirmModal
         confirmLabel="Xoá"
@@ -291,6 +439,19 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  anonymousChip: {
+    alignItems: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 22,
+    borderWidth: 1,
+    height: clayDimensions.minTouchTarget,
+    justifyContent: 'center',
+    width: clayDimensions.minTouchTarget,
+  },
+  anonymousChipOn: {
+    backgroundColor: clayColors.onPrimary,
+    borderColor: clayColors.onPrimary,
+  },
   author: {
     alignItems: 'center',
     flex: 1,
@@ -338,6 +499,12 @@ const styles = StyleSheet.create({
     gap: claySpacing.sm,
     minHeight: clayDimensions.minTouchTarget,
   },
+  disabled: {
+    opacity: 0.4,
+  },
+  footerHint: {
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
   footerText: {
     color: clayColors.onPrimary,
   },
@@ -351,6 +518,52 @@ const styles = StyleSheet.create({
     height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
     width: clayDimensions.minTouchTarget,
+  },
+  reactionButton: {
+    alignItems: 'center',
+    borderRadius: 22,
+    height: clayDimensions.minTouchTarget,
+    justifyContent: 'center',
+    width: clayDimensions.minTouchTarget,
+  },
+  reactionChosen: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  reactionEmoji: {
+    fontSize: 26,
+  },
+  reactionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  replyArea: {
+    bottom: 0,
+    justifyContent: 'flex-end',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  replyFooter: {
+    gap: claySpacing.sm,
+    paddingHorizontal: claySpacing.base,
+  },
+  replyInput: {
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 22,
+    borderWidth: 1,
+    color: clayColors.onPrimary,
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: 15,
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  replyRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: claySpacing.sm,
   },
   media: {
     bottom: 0,

@@ -1,0 +1,31 @@
+{"id":"e4-mat-dau-tick-va-mao-danh","title":"Mất dấu tick và xử lý báo cáo mạo danh","lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ"},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Tài khoản có tick muốn đổi tên"},
+ {"id":"wn","type":"io","lane":1,"row":0,"label":"Cảnh báo: đổi tên sẽ mất tick"},
+ {"id":"ok","type":"decision","lane":1,"row":1,"label":"Vẫn đổi?"},
+ {"id":"kp","type":"end","lane":0,"row":1,"label":"Giữ tên, giữ tick"},
+ {"id":"up","type":"data","lane":2,"row":1,"label":"Lưu tên mới"},
+ {"id":"vi","type":"start","lane":3,"row":2,"label":"Vi phạm nặng hoặc khóa"},
+ {"id":"rm","type":"data","lane":2,"row":3,"label":"Gỡ tick, ghi lý do, nhật ký"},
+ {"id":"nt","type":"io","lane":1,"row":3,"label":"Thông báo: mất tick, lý do"},
+ {"id":"dn","type":"end","lane":0,"row":3,"label":"Nộp lại sau 30 ngày"},
+ {"id":"rp","type":"start","lane":0,"row":4,"label":"Người khác báo cáo mạo danh"},
+ {"id":"ra","type":"process","lane":1,"row":4,"label":"Chọn lý do Mạo danh"},
+ {"id":"st","type":"data","lane":2,"row":4,"label":"Lưu báo cáo, ưu tiên cao"},
+ {"id":"q","type":"io","lane":3,"row":4,"label":"Hàng đợi ưu tiên"},
+ {"id":"dc","type":"decision","lane":3,"row":5,"label":"Đúng là mạo danh?"},
+ {"id":"bn","type":"data","lane":2,"row":5,"label":"Khóa tài khoản giả"},
+ {"id":"rs","type":"end","lane":1,"row":5,"label":"Báo người báo cáo"},
+ {"id":"ds","type":"end","lane":3,"row":6,"label":"Bác bỏ, báo người báo cáo"}
+],
+"edges":[
+ {"from":"s","to":"wn"},{"from":"wn","to":"ok"},
+ {"from":"ok","to":"kp","label":"Không","exit":"left","entry":"right"},
+ {"from":"ok","to":"up","label":"Có","exit":"right","entry":"left"},
+ {"from":"up","to":"rm"},
+ {"from":"vi","to":"rm","exit":"bottom","entry":"right","via":[[3,3]]},
+ {"from":"rm","to":"nt"},{"from":"nt","to":"dn"},
+ {"from":"rp","to":"ra"},{"from":"ra","to":"st"},{"from":"st","to":"q"},{"from":"q","to":"dc"},
+ {"from":"dc","to":"bn","label":"Có","exit":"left","entry":"right"},{"from":"bn","to":"rs"},
+ {"from":"dc","to":"ds","label":"Không"}
+]}

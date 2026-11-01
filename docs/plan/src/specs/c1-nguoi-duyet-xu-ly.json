@@ -1,0 +1,208 @@
+{
+ "id": "c1-nguoi-duyet-xu-ly",
+ "title": "Người duyệt xử lý một mục trong hàng đợi",
+ "lanes": [
+  {
+   "name": "Kiểm duyệt viên"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  },
+  {
+   "name": "Người liên quan"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Mở trang Hàng đợi"
+  },
+  {
+   "id": "take",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Giao mục ưu tiên cao nhất, giữ 15 phút"
+  },
+  {
+   "id": "db",
+   "type": "data",
+   "lane": 1,
+   "col": 1,
+   "row": 0,
+   "label": "Bảng ModerationCase"
+  },
+  {
+   "id": "view",
+   "type": "io",
+   "lane": 0,
+   "row": 1,
+   "label": "Xem nội dung và báo cáo"
+  },
+  {
+   "id": "sure",
+   "type": "decision",
+   "lane": 0,
+   "row": 2,
+   "label": "Đủ chắc để quyết?"
+  },
+  {
+   "id": "esc",
+   "type": "sub",
+   "lane": 1,
+   "row": 2,
+   "label": "Quản trị viên quyết thay"
+  },
+  {
+   "id": "viol",
+   "type": "decision",
+   "lane": 0,
+   "row": 3,
+   "label": "Có vi phạm?"
+  },
+  {
+   "id": "dis",
+   "type": "process",
+   "lane": 1,
+   "col": 1,
+   "row": 3,
+   "label": "Bỏ qua, hiện lại nếu đang ẩn"
+  },
+  {
+   "id": "pick",
+   "type": "io",
+   "lane": 0,
+   "row": 4,
+   "label": "Chọn: gỡ, làm mờ, khóa"
+  },
+  {
+   "id": "act",
+   "type": "process",
+   "lane": 1,
+   "row": 5,
+   "label": "Thực hiện hành động"
+  },
+  {
+   "id": "strike",
+   "type": "sub",
+   "lane": 1,
+   "row": 6,
+   "label": "Cộng cảnh cáo (C2-1)"
+  },
+  {
+   "id": "close",
+   "type": "process",
+   "lane": 1,
+   "col": 1,
+   "row": 7,
+   "label": "Đóng mọi báo cáo cùng đối tượng"
+  },
+  {
+   "id": "rep",
+   "type": "io",
+   "lane": 2,
+   "row": 7,
+   "label": "Người báo cáo nhận kết quả"
+  },
+  {
+   "id": "log",
+   "type": "data",
+   "lane": 1,
+   "col": 1,
+   "row": 8,
+   "label": "Ghi nhật ký thao tác"
+  },
+  {
+   "id": "auth",
+   "type": "io",
+   "lane": 2,
+   "row": 8,
+   "label": "Người đăng nhận lý do, nút kháng nghị"
+  },
+  {
+   "id": "e",
+   "type": "end",
+   "lane": 2,
+   "row": 9,
+   "label": "Mục đã đóng"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "take"
+  },
+  {
+   "from": "take",
+   "to": "db",
+   "dashed": true
+  },
+  {
+   "from": "take",
+   "to": "view"
+  },
+  {
+   "from": "view",
+   "to": "sure"
+  },
+  {
+   "from": "sure",
+   "to": "esc",
+   "label": "Không"
+  },
+  {
+   "from": "sure",
+   "to": "viol",
+   "label": "Có"
+  },
+  {
+   "from": "viol",
+   "to": "dis",
+   "label": "Không"
+  },
+  {
+   "from": "viol",
+   "to": "pick",
+   "label": "Có"
+  },
+  {
+   "from": "pick",
+   "to": "act"
+  },
+  {
+   "from": "act",
+   "to": "strike"
+  },
+  {
+   "from": "strike",
+   "to": "close",
+   "exit": "bottom",
+   "entry": "left"
+  },
+  {
+   "from": "dis",
+   "to": "close"
+  },
+  {
+   "from": "close",
+   "to": "rep"
+  },
+  {
+   "from": "close",
+   "to": "log",
+   "dashed": true
+  },
+  {
+   "from": "rep",
+   "to": "auth"
+  },
+  {
+   "from": "auth",
+   "to": "e"
+  }
+ ]
+}

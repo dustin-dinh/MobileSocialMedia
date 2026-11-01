@@ -1,0 +1,133 @@
+<h3>C3. Phân quyền quản trị (admin / kiểm duyệt viên) và nhật ký thao tác</h3>
+<p><i>Nhóm: Kiểm duyệt và quản trị · Giai đoạn: GĐ3 · Ước lượng: 8–9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện chỉ có một loại nhân viên là quản trị viên, và ai có quyền này thì làm được mọi việc, kể cả xem danh tính thật của người gửi ẩn danh, mà không để lại dấu vết. Khi đội có thêm người kiểm duyệt hoặc người hỗ trợ khách hàng, cần chia quyền: mỗi người chỉ làm được phần việc của mình. Mọi thao tác của nhân viên, nhất là việc xem dữ liệu nhạy cảm, phải được ghi vào <b>nhật ký thao tác</b> (audit log, tức sổ ghi lại ai làm gì, lúc nào, vì sao) không sửa được. Tài khoản nhân viên bắt buộc dùng xác thực hai lớp (2FA). Người dùng được bảo vệ khỏi nhân viên lạm quyền; chủ dự án tra được mọi quyết định khi có khiếu nại hoặc yêu cầu pháp lý.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Vai trò</b>: cột <i>User.role</i> kiểu chuỗi, chỉ có <i>USER</i> và <i>ADMIN</i> (<i>apps/api/prisma/schema.prisma</i>).</li>
+<li><b>Kiểm tra quyền</b>: <i>AdminGuard</i> (<i>apps/api/src/modules/admin/admin.controller.ts</i>) đọc vai trò từ cơ sở dữ liệu ở mỗi request và chỉ chấp nhận <i>ADMIN</i>, nên tước quyền có hiệu lực ngay. Mọi route <i>/admin/*</i> (thống kê, báo cáo, người dùng, khóa, mở khóa tuổi, quyền ẩn danh) dùng chung một mức quyền.</li>
+<li><b>Cấp quyền</b>: chỉ bằng script <i>apps/api/scripts/make-admin.cjs</i> chạy trên máy chủ, sửa thẳng database. Không có giao diện quản lý nhân viên và không ghi lại ai cấp.</li>
+<li><b>Đăng nhập trang quản trị</b>: <i>admin.html</i> gọi <i>/auth/login</i> thường, giữ token 30 ngày trong <i>sessionStorage</i> của trình duyệt. Không có 2FA (2FA cho mọi người dùng là A1, chưa có).</li>
+<li><b>Dữ liệu nhạy cảm</b>: <i>GET /admin/reports</i> trả thẳng danh tính thật của người bị báo cáo trong hội thoại ẩn danh và bản chụp 50 tin trong cùng danh sách, không cần bước xác nhận. <i>GET /admin/users</i> trả email đầy đủ và ngày sinh. Ảnh nhạy cảm trong bản chụp bị làm mờ cho tới khi bấm.</li>
+<li><b>Nhật ký</b>: không có. Chỉ <i>Report.resolvedById</i> và <i>resolvedAt</i> ghi người đóng báo cáo. Khóa/mở khóa, mở khóa tuổi, trả/tước quyền ẩn danh không lưu ai làm.</li>
+<li><b>Giới hạn đã có</b>: quản trị viên không bị khóa được (<i>setBanned</i>).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Các vai trò (đề xuất)</b></p>
+<ul>
+<li><b>Hỗ trợ</b> (<i>SUPPORT</i>): trả lời người dùng về tài khoản, xem tình trạng tài khoản, không xử lý nội dung.</li>
+<li><b>Kiểm duyệt viên</b> (<i>MODERATOR</i>): xử lý hàng đợi C1, cảnh cáo và hạn chế C2, xử lý kháng nghị.</li>
+<li><b>Quản trị viên</b> (<i>ADMIN</i>): mọi quyền, cộng quản lý nhân viên, khóa vĩnh viễn, xem toàn bộ nhật ký, trả lời yêu cầu của cơ quan chức năng.</li>
+</ul>
+<p><b>Luồng 1: Nhân viên đăng nhập trang quản trị</b></p>
+<ol>
+<li>Nhân viên mở trang quản trị, nhập email và mật khẩu.</li>
+<li>Máy chủ kiểm tra mật khẩu (sai nhiều lần thì khóa tạm theo A4), rồi kiểm tra vai trò. Không phải nhân viên: từ chối và ghi nhật ký.</li>
+<li>Nhân viên chưa bật 2FA: không vào được, trang yêu cầu thiết lập 2FA theo A1 rồi đăng nhập lại.</li>
+<li>Trang hiện ô nhập mã 6 số. Nhân viên nhập mã từ ứng dụng xác thực. Sai 5 lần thì khóa 15 phút.</li>
+<li>Đúng: máy chủ cấp <b>phiên quản trị riêng</b> sống 8 giờ (khác token 30 ngày của app), ghi nhật ký đăng nhập kèm IP.</li>
+<li>Trang chỉ hiện các tab mà vai trò được dùng. Không thao tác 30 phút thì trang tự đăng xuất.</li>
+</ol>
+<p><b>Luồng 2: Xem dữ liệu nhạy cảm</b></p>
+<ol>
+<li>Kiểm duyệt viên mở báo cáo hội thoại ẩn danh. Mặc định trang chỉ hiện "Người ẩn danh" và tin của người báo cáo, che danh tính thật và tin của bên bị báo cáo.</li>
+<li>Bấm "Xem danh tính và bản chụp", chọn lý do (ví dụ "Xử lý báo cáo lừa đảo") và có thể ghi chú.</li>
+<li>Máy chủ kiểm tra vai trò được phép và mục báo cáo đang mở. Kiểm tra lần nhập 2FA gần nhất: quá 15 phút thì bắt nhập lại mã.</li>
+<li>Máy chủ ghi nhật ký (ai, xem gì, mục nào, lý do, lúc nào) <b>trước</b> khi trả dữ liệu. Ghi nhật ký lỗi thì không trả dữ liệu.</li>
+<li>Trả dữ liệu, hiện trong 15 phút rồi che lại. Màn hình có dòng chữ chìm tên người xem, để hạn chế chụp màn hình đem ra ngoài.</li>
+<li>Một người xem quá 20 lần mỗi ngày thì quản trị viên nhận cảnh báo để rà nhật ký, và có thể thu hồi quyền.</li>
+</ol>
+<p><b>Luồng 3: Cấp hoặc đổi vai trò nhân viên</b></p>
+<ol>
+<li>Quản trị viên mở tab Nhân viên, tìm tài khoản, chọn vai trò mới.</li>
+<li>Máy chủ kiểm tra người gọi là quản trị viên và vừa nhập 2FA trong 15 phút.</li>
+<li>Tài khoản đích chưa bật 2FA: yêu cầu được giữ lại, người đó nhận email "hãy bật 2FA để nhận quyền"; vai trò chỉ có hiệu lực sau khi bật.</li>
+<li>Không cho hạ quyền quản trị viên cuối cùng; không cho tự đổi vai trò của mình.</li>
+<li>Đổi vai trò, thu hồi các phiên quản trị đang mở của người đó, ghi nhật ký (vai trò cũ, vai trò mới, ai đổi). Người đó nhận email báo đổi quyền và phải đăng nhập lại.</li>
+<li>Script <i>make-admin.cjs</i> giữ lại chỉ để tạo quản trị viên đầu tiên hoặc cứu hộ khi mất hết quản trị viên; mỗi lần chạy cũng phải ghi một dòng nhật ký.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ C3-1: nhân viên đăng nhập trang quản trị, bắt buộc 2FA.</p>
+<!--FLOW:c3-dang-nhap-quan-tri-->
+<p>Sơ đồ C3-2: xem danh tính thật và bản chụp hội thoại.</p>
+<!--FLOW:c3-xem-du-lieu-nhay-cam-->
+<p>Sơ đồ C3-3: cấp hoặc đổi vai trò nhân viên.</p>
+<!--FLOW:c3-quan-ly-nhan-vien-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Bảng quyền (đề xuất)</b></p>
+<table>
+<tr><th>Việc</th><th>Hỗ trợ</th><th>Kiểm duyệt viên</th><th>Quản trị viên</th></tr>
+<tr><td>Xem thống kê</td><td>Có</td><td>Có</td><td>Có</td></tr>
+<tr><td>Xem hàng đợi, xử lý nội dung (bỏ qua, gỡ, làm mờ)</td><td>Không</td><td>Có</td><td>Có</td></tr>
+<tr><td>Cảnh cáo, hạn chế, tạm khóa đến 7 ngày</td><td>Không</td><td>Có</td><td>Có</td></tr>
+<tr><td>Tạm khóa trên 7 ngày, khóa vĩnh viễn, mở khóa vĩnh viễn</td><td>Không</td><td>Đề xuất</td><td>Có</td></tr>
+<tr><td>Xử lý kháng nghị (không phải quyết định của mình)</td><td>Không</td><td>Có</td><td>Có</td></tr>
+<tr><td>Xem danh tính thật người ẩn danh, bản chụp hội thoại</td><td>Không</td><td>Có, chỉ trong báo cáo đang mở, có lý do</td><td>Có, có lý do</td></tr>
+<tr><td>Xem email đầy đủ, ngày sinh</td><td>Có, có lý do</td><td>Che một phần (ví dụ <i>ng***@gmail.com</i>)</td><td>Có</td></tr>
+<tr><td>Mở khóa tuổi, trả/tước quyền gửi ẩn danh</td><td>Không</td><td>Có</td><td>Có</td></tr>
+<tr><td>Quản lý nhân viên, đổi vai trò</td><td>Không</td><td>Không</td><td>Có</td></tr>
+<tr><td>Xem nhật ký thao tác</td><td>Của mình</td><td>Của mình</td><td>Toàn bộ</td></tr>
+<tr><td>Xuất dữ liệu cho cơ quan chức năng</td><td>Không</td><td>Không</td><td>Có, ghi số văn bản yêu cầu</td></tr>
+</table>
+<ul>
+<li><b>Ghi nhật ký những gì</b>: mọi thao tác thay đổi (xử lý báo cáo, cảnh cáo, khóa, mở khóa, đổi vai trò, mở khóa tuổi, quyền ẩn danh, quyết định kháng nghị), mọi lần xem dữ liệu nhạy cảm (danh tính thật, bản chụp hội thoại, email/ngày sinh đầy đủ, xuất dữ liệu), đăng nhập thành công và thất bại của nhân viên. Xem danh sách thường không ghi để nhật ký không bị ngập.</li>
+<li><b>Không sửa, không xóa</b>: code không có route sửa hay xóa nhật ký. Ở mức database, nên bỏ quyền <i>UPDATE</i>/<i>DELETE</i> trên bảng nhật ký của tài khoản database mà API dùng. Việc này đổi cấu hình database trên Supabase nên <b>phải phối hợp với người phụ trách backend</b> theo RULE.md.</li>
+<li><b>Thời gian lưu nhật ký</b>: 2 năm (đề xuất; <b>cần luật sư xác nhận</b> theo Nghị định 13/2023, Luật Bảo vệ dữ liệu cá nhân và Nghị định 147/2024).</li>
+<li><b>Nhân viên không xử lý chính mình</b> và không xử lý nhân viên cùng cấp hoặc cấp cao hơn. Nhân viên vi phạm do quản trị viên xử lý.</li>
+<li><b>Mất điện thoại 2FA</b>: nhân viên dùng mã dự phòng (A1). Không còn mã dự phòng thì một quản trị viên khác đặt lại 2FA, có ghi nhật ký. Quản trị viên duy nhất mất cả hai thì dùng script trên máy chủ.</li>
+<li><b>Nghỉ việc</b>: hạ vai trò về <i>USER</i> ngay trong ngày; phiên quản trị bị thu hồi. <i>AdminGuard</i> đã đọc vai trò từ database mỗi request nên tước quyền có hiệu lực ngay.</li>
+<li><b>Token app thường không gọi được route quản trị</b>: chỉ phiên quản trị (sau 2FA) mới gọi được, để token 30 ngày bị lộ trên điện thoại không mở được trang quản trị.</li>
+<li><b>Cảnh báo lạm dụng</b>: quá 20 lần xem dữ liệu nhạy cảm mỗi ngày, hoặc xem dữ liệu của người không có báo cáo đang mở, thì quản trị viên nhận email.</li>
+<li><b>Người dùng có được biết khi nhân viên xem tin nhắn của họ?</b> Đề xuất: không báo từng lần, nhưng chính sách quyền riêng tư nói rõ nhân viên xem tin nhắn khi có báo cáo (<i>MODERATION_PLAN.md</i>, mục 9). Chủ dự án quyết.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><b>Toàn bộ mục này là đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> và ghi quyết định vào <i>docs/decisions.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi</th><th>Nội dung</th></tr>
+<tr><td><i>User.role</i></td><td>Thêm giá trị <i>SUPPORT</i>, <i>MODERATOR</i> (vẫn là chuỗi, không cần migration đổi kiểu). API đã trả <i>role</i> trong thông tin người dùng hiện tại; app di động hiện không dùng trường này nên không bị ảnh hưởng.</td></tr>
+<tr><td>Bảng mới <i>AuditLog</i></td><td><i>id, actorId, actorRole, action</i> (ví dụ <i>CASE_DECIDE, USER_BAN, IDENTITY_REVEAL, ROLE_CHANGE, STAFF_LOGIN</i>), <i>targetType, targetId, reason, metadata</i> (JSON: giá trị trước/sau), <i>ip, userAgent, createdAt</i>. Chỉ mục theo (<i>actorId, createdAt</i>) và (<i>targetType, targetId</i>). Chỉ thêm, không sửa.</td></tr>
+<tr><td>Bảng mới <i>StaffSession</i> (hoặc dùng bảng phiên của A2)</td><td><i>id, userId, mfaAt</i> (lần nhập 2FA gần nhất), <i>expiresAt, revokedAt, ip</i>.</td></tr>
+<tr><td>Bảng mới <i>PendingRoleChange</i></td><td><i>userId, role, requestedById, createdAt</i>: vai trò chờ người nhận bật 2FA.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td><i>POST /admin/auth/login</i>, <i>POST /admin/auth/2fa</i></td><td>Cấp phiên quản trị 8 giờ sau khi qua 2FA. Lỗi <i>STAFF_2FA_REQUIRED</i> khi chưa bật 2FA.</td></tr>
+<tr><td><i>POST /admin/auth/step-up</i></td><td>Nhập lại mã 2FA, cập nhật <i>mfaAt</i>.</td></tr>
+<tr><td><i>POST /admin/cases/:id/reveal</i></td><td><i>{ reason, note? }</i>, trả danh tính thật và bản chụp. Yêu cầu <i>mfaAt</i> trong 15 phút. <i>GET /admin/reports</i> và hàng đợi C1 không còn trả các trường này.</td></tr>
+<tr><td><i>GET /admin/staff</i>, <i>POST /admin/staff/:userId/role</i></td><td>Danh sách nhân viên; đổi vai trò <i>{ role }</i>. Lỗi: <i>LAST_ADMIN</i>, <i>CANNOT_CHANGE_SELF</i>, <i>TARGET_2FA_REQUIRED</i>.</td></tr>
+<tr><td><i>POST /admin/staff/:userId/reset-2fa</i></td><td>Quản trị viên đặt lại 2FA cho nhân viên khác.</td></tr>
+<tr><td><i>GET /admin/audit?actorId=&amp;action=&amp;targetId=&amp;from=&amp;to=</i></td><td>Tra nhật ký (quản trị viên xem tất cả, người khác chỉ xem của mình).</td></tr>
+</table>
+<p>Trong code: thay <i>AdminGuard</i> bằng một guard đọc danh sách vai trò được phép gắn trên từng route (ví dụ <i>@Roles('MODERATOR','ADMIN')</i>), vẫn đọc vai trò từ database mỗi request như hiện nay. Mọi thao tác trong <i>AdminService</i> nhận thêm người làm và lý do, ghi <i>AuditLog</i> trong cùng giao dịch database với thao tác.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Toàn bộ tính năng nằm ở máy chủ và trang quản trị web (<i>admin.html</i>), không đổi app di động. Không có quyền thiết bị, không có thư viện mobile mới.</li>
+<li>2FA của nhân viên dùng ứng dụng xác thực bất kỳ (Google Authenticator, Microsoft Authenticator…) trên điện thoại Android hoặc iPhone của nhân viên; thư viện TOTP phía máy chủ do A1 chọn.</li>
+<li>Trang quản trị chỉ nên mở qua HTTPS; nên giới hạn IP truy cập <i>/admin</i> ở tầng máy chủ web nếu đội làm việc từ chỗ cố định (tùy chọn, không tốn phí).</li>
+<li>Không có chi phí dịch vụ ngoài. Email cảnh báo dùng <i>nodemailer</i> sẵn có.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Tài khoản <i>MODERATOR</i> xử lý được hàng đợi nhưng gọi <i>POST /admin/staff/:id/role</i> nhận 403; <i>SUPPORT</i> không thấy tab Hàng đợi và gọi API hàng đợi nhận 403.</li>
+<li>Nhân viên chưa bật 2FA không vào được trang quản trị; token app 30 ngày gọi route quản trị nhận 401.</li>
+<li>Danh sách báo cáo hội thoại ẩn danh không còn chứa danh tính thật; xem danh tính tạo đúng một dòng nhật ký có lý do; quá 15 phút từ lần nhập 2FA thì bị hỏi lại mã.</li>
+<li>Không hạ được quản trị viên cuối cùng; đổi vai trò làm phiên cũ của người đó hết hiệu lực ngay.</li>
+<li>Mọi hành động trong bảng quyền tạo một dòng <i>AuditLog</i>; không có route nào sửa hay xóa nhật ký.</li>
+<li>Trang quản trị chạy trên Chrome và Safari (máy tính); ghi rõ trình duyệt đã chạy trong <i>docs/change.md</i>.</li>
+<li>Phép thử tự động cho bảng quyền: mỗi vai trò gọi mỗi route quản trị, so với kết quả mong đợi.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 5 ngày (guard theo vai trò, phiên quản trị, nhật ký, route xem dữ liệu nhạy cảm, quản lý nhân viên), trang quản trị 2 ngày (tính trong backend), mobile 0 ngày, kiểm thử 1,5 ngày.</li>
+<li>Phụ thuộc: A1 (TOTP, mã dự phòng) là điều kiện bắt buộc; A2 (bảng phiên, nếu có thì dùng chung); A4 (khóa khi dò mật khẩu). C1 và C2 ghi vào nhật ký này.</li>
+<li>Rủi ro: C3 nằm ở GĐ3 nhưng C1 (GĐ1) đã cho nhiều người xử lý báo cáo và xem danh tính thật; nếu có thêm người kiểm duyệt trước GĐ3 thì việc xem dữ liệu nhạy cảm vẫn không có dấu vết. Đề xuất làm sớm phần nhật ký và bước "bấm xem kèm lý do" cùng C1 (khoảng 2 ngày), phần còn lại giữ ở GĐ3. Chủ dự án quyết.</li>
+</ul>

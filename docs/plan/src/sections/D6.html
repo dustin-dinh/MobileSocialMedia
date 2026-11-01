@@ -1,0 +1,135 @@
+<h3>D6. Bài viết nâng cao: trích dẫn bài, bình chọn, gắn thẻ người, lịch sử chỉnh sửa, ghim bài</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 18–20 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Năm tính năng nhỏ giúp bài viết đủ dùng như các mạng xã hội quen thuộc: <b>trích dẫn bài</b> (đăng lại kèm lời bình của mình), <b>bình chọn</b> (hỏi ý kiến bạn bè), <b>gắn thẻ người</b> (ghi "cùng với ai"), <b>lịch sử chỉnh sửa</b> (ai cũng xem được bài đã bị sửa gì) và <b>ghim bài</b> lên đầu trang cá nhân. Lịch sử chỉnh sửa còn là công cụ an toàn: người quấy rối không thể sửa bài thành vô hại sau khi bị báo cáo để thoát xử lý. Gắn thẻ có bước duyệt để không ai bị gán tên vào bài mình không muốn.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Bài viết</b> (<i>apps/api/src/modules/posts</i>): chữ, tối đa 4 ảnh (mỗi ảnh ≤ 5 MB) hoặc một video ≤ 60 giây; quyền xem <i>PUBLIC</i>, <i>FRIENDS</i> (theo dõi hai chiều), <i>PRIVATE</i>. Xóa là xóa mềm (<i>deletedAt</i>).</li>
+<li><b>Đăng lại</b> (<i>Repost</i>): chỉ đăng lại nguyên bài, không kèm lời; không đăng lại bài của chính mình; tác giả nhận thông báo <i>REPOST</i>. Nếu bài gốc bị xóa hoặc người xem mất quyền xem, thẻ hiện "không khả dụng". Server cho đăng lại cả bài <i>FRIENDS</i> miễn người đăng lại xem được (bài vẫn chỉ hiện với người có quyền xem bài gốc). <b>Chưa có trích dẫn.</b></li>
+<li><b>Sửa bài</b> (<i>PATCH /posts/:id</i>, <i>posts.service.ts</i> hàm <i>update</i>): sửa chữ, ảnh, quyền xem; ghi đè trực tiếp, <b>không lưu bản cũ</b>. <i>Post</i> chỉ có <i>updatedAt</i> (đổi cả khi chỉ đổi quyền xem), không có <i>editedAt</i> (bình luận thì có <i>Comment.editedAt</i>). Sửa bài <b>không</b> gửi thông báo cho người mới được nhắc tên.</li>
+<li><b>Nhắc tên (@)</b>: <i>NotificationsService.notifyMentions</i> tìm mọi chuỗi <i>@tên</i> (3–30 ký tự chữ, số, dấu chấm, gạch dưới) và báo từng người. Bỏ qua bài <i>PRIVATE</i> và người bị chặn, nhưng <b>không</b> kiểm tra người được nhắc có xem được bài <i>FRIENDS</i> hay không (họ nhận thông báo rồi mở ra lỗi 404), và <b>không giới hạn</b> số người được nhắc trong một bài.</li>
+<li><b>Chưa có</b>: bình chọn, gắn thẻ người, ghim bài. Trang cá nhân xếp bài theo thời gian (<i>users.service.ts</i> hàm <i>findUserPosts</i>).</li>
+<li>App: <i>apps/mobile/src/features/post</i> (màn tạo bài <i>CreateScreen</i>, <i>EditPostModal</i>, <i>PostOptionsModal</i>), thẻ bài <i>features/feed/components/PostCard.tsx</i>.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Trích dẫn bài</b></p>
+<ol>
+<li>Ở nút Đăng lại, người dùng chọn "Trích dẫn". App mở màn tạo bài, bài gốc hiện dạng thẻ nhỏ bên dưới ô nhập.</li>
+<li>Người dùng viết lời bình (bắt buộc; không viết gì thì dùng Đăng lại thường) và chọn quyền xem cho bài của mình.</li>
+<li>Máy chủ kiểm tra: bài gốc còn và người trích dẫn xem được; bài gốc là <i>PUBLIC</i> của tài khoản công khai (bài <i>FRIENDS</i>, bài của tài khoản riêng tư không trích dẫn được, để nội dung không lọt ra ngoài nhóm người tác giả đã chọn); hai bên không chặn nhau.</li>
+<li>Máy chủ tạo bài mới có <i>quotedPostId</i>, báo tác giả gốc (thông báo <i>QUOTE</i>).</li>
+<li>Khi hiện, mỗi người xem được kiểm tra lại quyền xem bài gốc. Không có quyền hoặc bài gốc đã xóa: thẻ trích dẫn hiện "Bài viết không còn khả dụng", lời bình vẫn hiện. Trích dẫn của một bài trích dẫn chỉ hiện một tầng.</li>
+</ol>
+<p><b>Luồng 2: Bình chọn</b></p>
+<ol>
+<li>Ở màn tạo bài, người dùng bấm "Bình chọn", nhập 2–4 phương án (mỗi phương án ≤ 80 ký tự) và thời hạn (1 giờ, 1 ngày, 3 ngày, 7 ngày; mặc định 1 ngày). Câu hỏi là nội dung bài.</li>
+<li>Người xem bấm một phương án. App gửi <i>POST /polls/:id/votes</i>. Máy chủ kiểm tra: xem được bài, bình chọn chưa đóng, phương án thuộc bình chọn này.</li>
+<li>Chưa bỏ phiếu thì tạo phiếu; đã bỏ phiếu thì đổi sang phương án mới (được đổi cho tới khi đóng). Mỗi người một phiếu.</li>
+<li>Máy chủ trả số phiếu và phần trăm. Người chưa bỏ phiếu chỉ thấy các nút chọn; người đã bỏ phiếu, tác giả, và mọi người sau khi đóng thì thấy kết quả.</li>
+<li>Không ai thấy danh sách ai chọn gì, kể cả tác giả (chỉ thấy con số).</li>
+<li>Đến giờ đóng, tác vụ chạy mỗi phút ghi <i>closedAt</i>, rồi báo tác giả và người đã bỏ phiếu: "Bình chọn đã có kết quả". Tác giả cũng có thể đóng sớm.</li>
+</ol>
+<p><b>Luồng 3: Gắn thẻ người</b></p>
+<ol>
+<li>Ở màn tạo hoặc sửa bài, người dùng bấm "Gắn thẻ" và tìm người (dùng chung ô gợi ý của D9). Tối đa 20 người mỗi bài.</li>
+<li>Máy chủ bỏ qua (không báo ai) người có chặn với người đăng, hoặc người đã chọn "Không ai được gắn thẻ tôi".</li>
+<li>Người được gắn thẻ phải xem được bài. Bài <i>PRIVATE</i> không gắn thẻ được; bài <i>FRIENDS</i> chỉ gắn người theo dõi hai chiều. Ai không xem được thì thẻ bị bỏ và app báo người đăng.</li>
+<li>Cần duyệt khi: người được gắn thẻ bật "Duyệt thẻ trước khi hiện" (mặc định bật với thẻ từ người mình không theo dõi), hoặc người đăng đang bị họ hạn chế (B8). Thẻ ở trạng thái chờ chỉ người đăng thấy (mờ).</li>
+<li>Người được gắn thẻ nhận thông báo "X muốn gắn thẻ bạn" và chọn Chấp nhận hoặc Từ chối. Từ chối thì thẻ bị xóa, người đăng không được báo. Không trả lời trong 14 ngày thì thẻ tự hủy.</li>
+<li>Thẻ được chấp nhận hiện "cùng với ..." trên bài, và bài vào tab "Bài viết có bạn" trên trang cá nhân người đó (chỉ với người xem có quyền xem bài).</li>
+<li>Người được gắn thẻ có thể tự gỡ thẻ bất cứ lúc nào. Chặn nhau thì mọi thẻ giữa hai người bị xóa.</li>
+</ol>
+<p><b>Luồng 4: Sửa bài có lịch sử</b></p>
+<ol>
+<li>Tác giả sửa bài như hiện nay. Máy chủ kiểm tra quyền, rồi xem nội dung chữ hoặc ảnh có đổi không. Chỉ đổi quyền xem thì không tính là chỉnh sửa.</li>
+<li>Có đổi: lưu bản cũ (chữ, danh sách ảnh) vào <i>PostRevision</i>, cập nhật bài, ghi <i>editedAt</i>. Tối đa 20 lần sửa mỗi bài (đề xuất).</li>
+<li>Người mới xuất hiện trong <i>@tên</i> sau khi sửa thì nhận thông báo; người đã được báo trước đó thì không báo lại.</li>
+<li>Bài hiện nhãn "Đã chỉnh sửa". Ai xem được bài thì bấm nhãn để xem các bản trước (mới nhất trước).</li>
+<li>Ảnh bị gỡ khi sửa vẫn được giữ trong kho tới khi bài bị xóa, để bản cũ xem được và người duyệt có bằng chứng (hiện nay ảnh cũ bị xóa ngay khỏi kho).</li>
+<li>Bài có bình chọn đã có phiếu: không sửa được phương án và thời hạn.</li>
+</ol>
+<p><b>Luồng 5: Ghim bài</b></p>
+<ol>
+<li>Ở menu bài của mình, chọn "Ghim lên trang cá nhân". Tối đa 3 bài ghim (đề xuất); ghim bài thứ tư thì app hỏi bỏ ghim bài cũ nhất.</li>
+<li>Trang cá nhân hiện bài ghim trên cùng (có biểu tượng ghim), sau đó là các bài khác theo thời gian. Bài ghim vẫn theo quyền xem: người không có quyền thì không thấy.</li>
+<li>Bỏ ghim từ cùng menu. Xóa bài thì tự bỏ ghim. Không ghim được lượt đăng lại.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: bỏ phiếu và đóng bình chọn.</p>
+<!--FLOW:d6-binh-chon-->
+<p>Sơ đồ 2: gắn thẻ người, có kiểm tra chặn, quyền xem và bước duyệt.</p>
+<!--FLOW:d6-gan-the-->
+<p>Sơ đồ 3: sửa bài và xem lịch sử chỉnh sửa.</p>
+<!--FLOW:d6-sua-bai-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: bình chọn 2–4 phương án, ≤ 80 ký tự mỗi phương án, thời hạn 1 giờ đến 7 ngày; gắn thẻ ≤ 20 người mỗi bài; nhắc tên: chỉ báo 10 người đầu tiên mỗi bài hoặc bình luận; ghim ≤ 3 bài; sửa ≤ 20 lần mỗi bài; giữ bản cũ tới khi bài bị xóa hẳn.</li>
+<li><b>Bỏ phiếu khi mạng lỗi</b>: app hiện lựa chọn ngay (lạc quan), lỗi thì trả lại trạng thái cũ và báo "Chưa gửi được phiếu". Bấm nhiều lần liên tiếp chỉ tạo một phiếu (khóa chính là người + bình chọn).</li>
+<li><b>Bình chọn và chặn</b>: người bị chặn không xem được bài nên không bỏ phiếu được; phiếu cũ của họ vẫn được đếm (không lộ ai).</li>
+<li><b>Bình chọn trong bài trích dẫn</b>: thẻ trích dẫn chỉ hiện kết quả, muốn bỏ phiếu phải mở bài gốc.</li>
+<li><b>Trích dẫn</b>: tác giả gốc chặn người trích dẫn thì thẻ trích dẫn thành "không khả dụng" với mọi người. Tác giả gốc đổi bài sang <i>FRIENDS</i>/<i>PRIVATE</i> sau đó cũng vậy.</li>
+<li><b>Gắn thẻ hàng loạt để quấy rối</b>: mỗi người tối đa 50 thẻ mới mỗi ngày (đề xuất); người bị từ chối thẻ 3 lần liên tiếp bởi cùng một người thì không gắn thẻ người đó được 30 ngày. Thẻ chờ không gửi push lặp lại.</li>
+<li><b>Tài khoản bị khóa</b> (admin hoặc dưới 18 tuổi): không hiện trong danh sách gắn thẻ; thẻ cũ ẩn đi.</li>
+<li><b>Lịch sử chỉnh sửa và kiểm duyệt</b>: báo cáo bài (C1) đính kèm phiên bản đang hiện lúc báo cáo; người duyệt xem được mọi bản cũ.</li>
+<li><b>Thông báo mới</b>: <i>QUOTE</i>, <i>TAG</i>, <i>TAG_REQUEST</i>, <i>POLL_ENDED</i>. Người dùng tắt được từng loại trong cài đặt thông báo (D8).</li>
+<li><b>Sửa lỗi nhắc tên hiện có</b>: chỉ báo người xem được bài (dùng <i>visiblePostWhere</i>), không chỉ bỏ qua bài <i>PRIVATE</i>.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và được Dev B duyệt trước khi code. Migration mới, chỉ thêm.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>Post</i></td><td>Thêm <i>quotedPostId</i> (tham chiếu <i>Post</i>, có thể trống), <i>editedAt</i>, <i>pinnedAt</i>. Chỉ mục (<i>authorId</i>, <i>pinnedAt</i>).</td></tr>
+<tr><td><i>PostRevision</i></td><td><i>id</i>, <i>postId</i>, <i>content</i>, <i>media</i> (Json: url, loại, thứ tự), <i>createdAt</i>.</td></tr>
+<tr><td><i>Poll</i></td><td><i>id</i>, <i>postId</i> (duy nhất), <i>closesAt</i>, <i>closedAt</i>.</td></tr>
+<tr><td><i>PollOption</i></td><td><i>id</i>, <i>pollId</i>, <i>text</i>, <i>order</i>.</td></tr>
+<tr><td><i>PollVote</i></td><td><i>pollId</i>, <i>userId</i>, <i>optionId</i>, <i>createdAt</i>; khóa chính (<i>pollId</i>, <i>userId</i>).</td></tr>
+<tr><td><i>PostTag</i></td><td><i>postId</i>, <i>userId</i>, <i>status</i> (<i>PENDING</i> | <i>ACCEPTED</i>), <i>createdAt</i>, <i>respondedAt</i>; khóa chính (<i>postId</i>, <i>userId</i>); chỉ mục (<i>userId</i>, <i>status</i>).</td></tr>
+<tr><td><i>User</i></td><td>Thêm <i>tagPermission</i> (<i>EVERYONE</i> | <i>FOLLOWING</i> | <i>NOBODY</i>, mặc định <i>EVERYONE</i>), <i>tagReview</i> (<i>ALL</i> | <i>NOT_FOLLOWING</i> | <i>NONE</i>, mặc định <i>NOT_FOLLOWING</i>), <i>mentionPermission</i> (giống <i>tagPermission</i>).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mục đích</th></tr>
+<tr><td><i>POST /posts</i>, <i>POST /posts/media</i></td><td>Nhận thêm <i>quotedPostId</i>, <i>poll: { options[], durationHours }</i>, <i>tagUserIds[]</i>.</td></tr>
+<tr><td><i>PATCH /posts/:id</i></td><td>Nhận thêm <i>tagUserIds[]</i>; lưu <i>PostRevision</i> khi chữ/ảnh đổi.</td></tr>
+<tr><td><i>GET /posts/:id/revisions</i></td><td>Danh sách bản cũ (ai xem được bài thì xem được).</td></tr>
+<tr><td><i>POST /polls/:id/votes</i> <i>{ optionId }</i>; <i>POST /polls/:id/close</i></td><td>Bỏ/đổi phiếu; tác giả đóng sớm. Trả <i>{ options: [{ id, text, votes, percent }], myOptionId, totalVotes, closedAt }</i>.</td></tr>
+<tr><td><i>GET /me/tags/pending</i>; <i>POST /posts/:id/tags/accept</i>; <i>DELETE /posts/:id/tags/me</i></td><td>Thẻ chờ duyệt; chấp nhận; từ chối hoặc tự gỡ.</td></tr>
+<tr><td><i>GET /users/:id/tagged</i></td><td>Tab "Bài viết có bạn" (chỉ thẻ <i>ACCEPTED</i>, lọc quyền xem).</td></tr>
+<tr><td><i>POST/DELETE /posts/:id/pin</i></td><td>Ghim, bỏ ghim. <i>GET /users/:id/posts</i> trả bài ghim đầu trang 1, có <i>isPinned</i>.</td></tr>
+</table>
+<p>Đối tượng <i>Post</i> trả về có thêm: <i>quotedPost</i> (dạng như <i>originalPost</i> của repost), <i>poll</i>, <i>tags</i>, <i>editedAt</i>, <i>isPinned</i>.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị mới, không cần thư viện mới: các màn dùng thành phần sẵn có của app (<i>ActionSheet</i>, <i>ConfirmModal</i>, <i>UserRow</i>).</li>
+<li>Chọn thời hạn bình chọn bằng danh sách nút cố định thay vì bộ chọn ngày giờ gốc của hệ điều hành (bộ chọn gốc khác nhau giữa Android và iOS).</li>
+<li>Thanh phần trăm của bình chọn vẽ bằng <i>View</i> thường, hiển thị giống nhau trên hai nền tảng; có nhãn trợ năng (đọc "Phương án A, 45 phần trăm").</li>
+<li>Màn tạo bài thêm thanh công cụ (Bình chọn, Gắn thẻ) phải nằm trên bàn phím: dùng <i>KeyboardAvoidingView</i> với <i>behavior</i> theo nền tảng và vùng an toàn (safe area) như các màn hiện có.</li>
+<li>Trang quản trị web: xem lịch sử chỉnh sửa và kết quả bình chọn của bài bị báo cáo.</li>
+<li>Chi phí: không có dịch vụ ngoài. Ảnh cũ giữ lại trong kho làm tăng dung lượng lưu trữ một ít.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Trích dẫn: tạo được; bài <i>FRIENDS</i> và bài của tài khoản riêng tư bị từ chối; bài gốc bị xóa hoặc chặn thì hiện "không khả dụng" (test tự động).</li>
+<li>Bình chọn: bỏ phiếu, đổi phiếu, không bỏ phiếu được sau khi đóng; tác vụ đóng chạy đúng giờ và gửi thông báo; không lộ danh sách người bỏ phiếu qua API.</li>
+<li>Gắn thẻ: người bị chặn, người tắt gắn thẻ, người không xem được bài đều không bị gắn; thẻ chờ duyệt không hiện với người khác; từ chối không báo người đăng; tự gỡ được.</li>
+<li>Sửa bài: bản cũ lưu đủ chữ và ảnh; đổi quyền xem không tạo bản cũ; nhãn "Đã chỉnh sửa" và danh sách bản cũ hiện đúng; người mới được nhắc nhận thông báo, người cũ không nhận lại.</li>
+<li>Ghim: tối đa 3; bài ghim đứng đầu trang cá nhân; người không có quyền xem không thấy bài ghim.</li>
+<li>Thông báo nhắc tên không gửi cho người không xem được bài (sửa lỗi hiện có).</li>
+<li>Chạy hết các luồng trên máy Android và iPhone thật; báo cáo ghi rõ đã chạy trên nền tảng nào.</li>
+<li>Admin xem được lịch sử chỉnh sửa của bài bị báo cáo.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 8 ngày (trích dẫn 1,5; bình chọn 2,5 gồm tác vụ đóng; gắn thẻ 2; lịch sử 1; ghim 0,5; sửa lỗi nhắc tên 0,5), mobile 8 ngày, kiểm thử 3 ngày.</li>
+<li>Phụ thuộc: D8 (cài đặt thông báo cho loại mới), D9 (ô gợi ý người khi gõ @, dùng lại cho chọn người gắn thẻ), B8 (người bị hạn chế thì thẻ phải duyệt), C1 (người duyệt xem lịch sử chỉnh sửa).</li>
+<li>Dự án chưa có bộ chạy tác vụ định kỳ (không có <i>@nestjs/schedule</i>). Đề xuất: một <i>setInterval</i> mỗi phút trong service bình chọn; khi chạy nhiều bản API cần khóa (advisory lock của PostgreSQL) để không gửi thông báo trùng. Trạng thái "đã đóng" luôn tính từ <i>closesAt</i> khi đọc, nên tác vụ chậm cũng không cho bỏ phiếu muộn.</li>
+<li>Rủi ro: thêm nhiều trường vào đối tượng <i>Post</i> có thể làm hỏng <i>postMapper</i> ở app cũ; mọi trường mới phải là tùy chọn.</li>
+</ul>

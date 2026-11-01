@@ -193,12 +193,11 @@ async function upload(token, kind, mimeType, bytes) {
   check('mark viewed', r.body?.data?.isSeen === true, r);
   r = await call('GET', 'stories/feed', b.token);
   check('seen after viewing', r.body?.data?.find((g) => g.author.id === a.id)?.hasUnseen === false, r.body);
+  // Since 2026-10-17 the owner sees reactions, never who viewed (DEC-025).
   r = await call('GET', 'stories/feed', a.token);
-  check('own story first, with view count', r.body?.data?.[0]?.author?.id === a.id && r.body.data[0].stories[0].viewsCount === 1, r.body?.data?.[0]);
+  check('own story first, reaction count and no view count', r.body?.data?.[0]?.author?.id === a.id && r.body.data[0].stories[0].reactionsCount === 0 && r.body.data[0].stories[0].viewsCount === undefined, r.body?.data?.[0]);
   r = await call('GET', `stories/${story.id}/viewers`, a.token);
-  check('owner lists viewers', r.body?.data?.[0]?.id === b.id, r);
-  r = await call('GET', `stories/${story.id}/viewers`, b.token);
-  check('others cannot list viewers', r.status === 404, r);
+  check('no viewer list endpoint', r.status === 404, r);
   await call('DELETE', `users/${a.id}/follow`, c.token);
   r = await call('GET', 'stories/feed', c.token);
   check('non-follower does not get the story', !r.body?.data?.some((g) => g.author.id === a.id), r.body);

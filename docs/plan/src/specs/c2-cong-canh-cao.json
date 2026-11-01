@@ -1,0 +1,233 @@
+{
+ "id": "c2-cong-canh-cao",
+ "title": "Cộng cảnh cáo và áp bậc xử phạt",
+ "lanes": [
+  {
+   "name": "Máy chủ",
+   "cols": 3
+  },
+  {
+   "name": "Người vi phạm"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "col": 1,
+   "row": 0,
+   "label": "Có quyết định vi phạm (C1-3)"
+  },
+  {
+   "id": "mk",
+   "type": "process",
+   "lane": 0,
+   "col": 1,
+   "row": 1,
+   "label": "Tạo cảnh cáo: lý do, điểm, hạn"
+  },
+  {
+   "id": "db",
+   "type": "data",
+   "lane": 0,
+   "col": 2,
+   "row": 1,
+   "label": "Bảng Strike"
+  },
+  {
+   "id": "sev",
+   "type": "decision",
+   "lane": 0,
+   "col": 1,
+   "row": 2,
+   "label": "Vi phạm cực nặng?"
+  },
+  {
+   "id": "perm",
+   "type": "sub",
+   "lane": 0,
+   "col": 2,
+   "row": 2,
+   "label": "QTV xác nhận khóa vĩnh viễn"
+  },
+  {
+   "id": "mail",
+   "type": "io",
+   "lane": 1,
+   "row": 2,
+   "label": "Nhận email báo khóa"
+  },
+  {
+   "id": "sum",
+   "type": "process",
+   "lane": 0,
+   "col": 1,
+   "row": 3,
+   "label": "Cộng điểm còn hiệu lực"
+  },
+  {
+   "id": "lvl",
+   "type": "decision",
+   "lane": 0,
+   "col": 1,
+   "row": 4,
+   "label": "Tổng điểm?"
+  },
+  {
+   "id": "warn",
+   "type": "process",
+   "lane": 0,
+   "col": 0,
+   "row": 4,
+   "label": "Chỉ cảnh cáo"
+  },
+  {
+   "id": "lim",
+   "type": "process",
+   "lane": 0,
+   "col": 2,
+   "row": 4,
+   "label": "Hạn chế tính năng 7 ngày"
+  },
+  {
+   "id": "susp",
+   "type": "process",
+   "lane": 0,
+   "col": 1,
+   "row": 5,
+   "label": "Tạm khóa, thu hồi phiên"
+  },
+  {
+   "id": "san",
+   "type": "data",
+   "lane": 0,
+   "col": 1,
+   "row": 6,
+   "label": "Ghi Sanction, ngày hết hạn"
+  },
+  {
+   "id": "ntf",
+   "type": "process",
+   "lane": 0,
+   "col": 1,
+   "row": 7,
+   "label": "Gửi thông báo trong app, email"
+  },
+  {
+   "id": "see",
+   "type": "io",
+   "lane": 1,
+   "row": 7,
+   "label": "Xem lý do và thời hạn"
+  },
+  {
+   "id": "agree",
+   "type": "decision",
+   "lane": 1,
+   "row": 8,
+   "label": "Đồng ý?"
+  },
+  {
+   "id": "appeal",
+   "type": "sub",
+   "lane": 0,
+   "col": 2,
+   "row": 8,
+   "label": "Kháng nghị (C2-2)"
+  },
+  {
+   "id": "e",
+   "type": "end",
+   "lane": 1,
+   "row": 9,
+   "label": "Chấp hành, hết hạn tự gỡ"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "mk"
+  },
+  {
+   "from": "mk",
+   "to": "db",
+   "dashed": true
+  },
+  {
+   "from": "mk",
+   "to": "sev"
+  },
+  {
+   "from": "sev",
+   "to": "perm",
+   "label": "Có"
+  },
+  {
+   "from": "sev",
+   "to": "sum",
+   "label": "Không"
+  },
+  {
+   "from": "perm",
+   "to": "mail"
+  },
+  {
+   "from": "sum",
+   "to": "lvl"
+  },
+  {
+   "from": "lvl",
+   "to": "warn",
+   "label": "1–2"
+  },
+  {
+   "from": "lvl",
+   "to": "lim",
+   "label": "3–5"
+  },
+  {
+   "from": "lvl",
+   "to": "susp",
+   "label": "Từ 6"
+  },
+  {
+   "from": "susp",
+   "to": "san"
+  },
+  {
+   "from": "warn",
+   "to": "san",
+   "exit": "bottom",
+   "entry": "left"
+  },
+  {
+   "from": "lim",
+   "to": "san",
+   "exit": "bottom",
+   "entry": "right"
+  },
+  {
+   "from": "san",
+   "to": "ntf"
+  },
+  {
+   "from": "ntf",
+   "to": "see"
+  },
+  {
+   "from": "see",
+   "to": "agree"
+  },
+  {
+   "from": "agree",
+   "to": "e",
+   "label": "Có"
+  },
+  {
+   "from": "agree",
+   "to": "appeal",
+   "label": "Không"
+  }
+ ]
+}

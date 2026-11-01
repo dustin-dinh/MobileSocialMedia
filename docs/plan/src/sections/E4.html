@@ -1,0 +1,121 @@
+<h3>E4. Xác minh tài khoản (dấu tick)</h3>
+<p><i>Nhóm: Tin cậy và chống mạo danh · Giai đoạn: GĐ4 · Ước lượng: khoảng 8 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Dấu tick cho người dùng biết tài khoản này đúng là của người nổi tiếng, nhãn hàng hay tổ chức mà nó tự nhận. Nó giảm lừa đảo kiểu "giả fanpage, giả người nổi tiếng nhắn xin chuyển tiền", vốn là chiêu phổ biến ở Việt Nam. Dấu tick chỉ có giá trị khi khó giả và bị gỡ khi tài khoản đổi danh tính hoặc vi phạm; vì vậy tính năng gồm cả quy trình duyệt, quy tắc mất tick và chống mạo danh.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chưa có xác minh.</b> Bảng User (<i>apps/api/prisma/schema.prisma</i>) không có trường xác minh; chỉ có <i>emailVerifiedAt</i> (xác minh email, khác dấu tick) và <i>role</i> USER/ADMIN.</li>
+<li><b>Hiển thị tác giả:</b> mọi nơi trả thông tin người đăng dùng chung <i>authorSelect</i> (id, username, displayName, avatarUrl) trong <i>apps/api/src/modules/posts/post-view.ts</i>. Thêm một trường ở đây là đi theo được bảng tin, bình luận, tìm kiếm, gợi ý, tin nhắn. App hiện tên ở <i>ProfileHeader.tsx</i> và các thẻ bài viết, bình luận.</li>
+<li><b>Đổi tên:</b> <i>PATCH /users/me</i> cho đổi displayName (1–50 ký tự) và username (3–30 ký tự, chữ, số, dấu chấm, gạch dưới) bất cứ lúc nào, không giới hạn số lần (<i>UpdateProfileDto</i>). displayName không lọc ký tự giống dấu tick (✓, ✔, ☑, ✅).</li>
+<li><b>Báo cáo:</b> lý do hiện có là SPAM, HARASSMENT, SENSITIVE, MISINFORMATION, SCAM, OTHER (<i>CreateReportDto</i>); chưa có "Mạo danh". Trang quản trị (<i>admin.html</i>, <i>AdminService</i>) có báo cáo, danh sách người dùng, khóa/mở khóa; chưa có hàng đợi xác minh, chưa có nhật ký thao tác (C3).</li>
+<li><b>Tải ảnh riêng tư:</b> đã có bucket riêng tư và URL ký 1 giờ (<i>storage.service.ts</i>, <i>media-url.ts</i>) dùng được cho ảnh giấy tờ. App đã có <i>expo-image-picker</i> với quyền thư viện ảnh khai trong <i>app.json</i> (chưa khai quyền camera).</li>
+<li><b>Biểu tượng:</b> app dùng Lucide qua <i>ClayIcon.tsx</i>; biểu tượng <i>badge-check</i> có sẵn trong gói, chỉ cần thêm một dòng import.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Ai đủ điều kiện (đề xuất)</b></p>
+<ul>
+<li><b>Cá nhân là người của công chúng:</b> nghệ sĩ, vận động viên, nhà báo, người sáng tạo nội dung, chính khách. Phải là người thật và được nhiều nguồn tin độc lập nhắc tới (báo chí, không tính bài quảng cáo trả tiền).</li>
+<li><b>Nhãn hàng, doanh nghiệp, tổ chức, cơ quan:</b> có đăng ký hợp pháp (giấy chứng nhận đăng ký doanh nghiệp, quyết định thành lập) hoặc nhãn hiệu đã đăng ký.</li>
+<li><b>Điều kiện cơ bản máy chủ tự kiểm tra:</b> email đã xác minh; tài khoản ít nhất 30 ngày tuổi; đã bật 2FA (A1); có ảnh đại diện, tên hiển thị, tiểu sử và ít nhất 1 bài viết; không bị xử lý vi phạm trong 90 ngày (C2); không bị khóa; không có đơn đang chờ; không bị từ chối trong 30 ngày.</li>
+<li>Mỗi người hoặc tổ chức chỉ một tài khoản có tick (trừ tài khoản theo ngôn ngữ khác, quản trị viên quyết).</li>
+</ul>
+<p><b>Luồng 1: Nộp đơn</b></p>
+<ol>
+<li>Người dùng vào <i>Cài đặt &gt; Tài khoản &gt; Yêu cầu xác minh</i>. App hỏi máy chủ điều kiện cơ bản; thiếu điều kiện nào thì hiện danh sách điều còn thiếu và cách làm, không cho mở mẫu đơn.</li>
+<li>Đủ điều kiện: mẫu đơn gồm loại (Cá nhân / Tổ chức), lĩnh vực, tên pháp lý, ảnh giấy tờ (cá nhân: căn cước; tổ chức: giấy đăng ký), 1–5 link bài báo hoặc trang chính thức nhắc tới mình, ghi chú.</li>
+<li>Người dùng chọn ảnh giấy tờ từ thư viện ảnh. App gửi đơn; máy chủ lưu ảnh vào bucket riêng tư (giá trị <i>s3p:</i>), tạo đơn trạng thái PENDING.</li>
+<li>App hiện "Đơn đang được xem xét, thường trong 7 ngày (đề xuất)".</li>
+</ol>
+<p><b>Luồng 2: Quản trị viên duyệt</b></p>
+<ol>
+<li>Đơn vào tab <i>Xác minh</i> của trang quản trị, cũ nhất lên trước. Ảnh giấy tờ mở bằng link ký sống 1 giờ; mỗi lần mở ghi nhật ký (C3).</li>
+<li>Quản trị viên kiểm tra: tên trên giấy tờ khớp tên pháp lý; link báo chí có thật và độc lập; không trùng một tài khoản đã có tick của cùng người.</li>
+<li><b>Duyệt:</b> máy chủ ghi <i>verifiedAt</i>, loại, người duyệt; gửi push và thông báo "Tài khoản của bạn đã được xác minh". Dấu tick hiện ngay ở mọi nơi.</li>
+<li><b>Từ chối hoặc thiếu giấy tờ:</b> ghi lý do (chọn từ danh sách: giấy tờ không rõ, chưa đủ nổi bật, tên không khớp, khác); báo người dùng kèm lý do; được nộp lại sau 30 ngày.</li>
+<li>30 ngày sau khi có quyết định, việc nền xóa ảnh giấy tờ khỏi kho; chỉ giữ quyết định, lý do, người duyệt.</li>
+</ol>
+<p><b>Luồng 3: Mất dấu tick</b></p>
+<ol>
+<li><b>Đổi username hoặc tên hiển thị:</b> app cảnh báo "Đổi tên sẽ làm mất dấu xác minh". Người dùng xác nhận thì máy chủ lưu tên mới và gỡ tick ngay trong cùng thao tác. Đổi ảnh đại diện, tiểu sử không mất tick.</li>
+<li><b>Vi phạm:</b> khi quản trị viên khóa tài khoản hoặc áp bậc xử phạt từ mức đề xuất (C2), tick bị gỡ, ghi lý do.</li>
+<li><b>Chuyển nhượng, bán tài khoản, đổi chủ</b> (phát hiện qua báo cáo): gỡ tick, có thể khóa.</li>
+<li>Người dùng nhận thông báo kèm lý do; được nộp lại sau 30 ngày (với vi phạm: sau 90 ngày, đề xuất).</li>
+</ol>
+<p><b>Luồng 4: Chống mạo danh</b></p>
+<ol>
+<li><b>Chặn khi đặt tên:</b> khi bất kỳ ai đăng ký hoặc đổi username, máy chủ chuẩn hóa (chữ thường, bỏ dấu, bỏ dấu chấm và gạch dưới, đổi ký tự dễ nhầm như 0→o, 1→l) và so với username của tài khoản có tick. Trùng thì từ chối "Tên này đã được một tài khoản xác minh dùng".</li>
+<li><b>Gắn cờ tên hiển thị:</b> tên hiển thị chuẩn hóa trùng tên của tài khoản có tick không bị chặn (nhiều người trùng tên thật) nhưng được đưa vào hàng đợi để quản trị viên xem.</li>
+<li><b>Cấm ký tự giống dấu tick</b> trong tên hiển thị (✓ ✔ ☑ ✅ và các ký tự tương tự).</li>
+<li><b>Báo cáo mạo danh:</b> thêm lý do IMPERSONATION với câu hỏi "Ai đang bị mạo danh?" (tôi / người tôi biết / người nổi tiếng hoặc nhãn hàng). Báo cáo này vào hàng đợi ưu tiên. Quản trị viên xác nhận thì khóa tài khoản giả và báo người báo cáo; không phải thì bác bỏ và báo lại.</li>
+<li>Trên trang cá nhân của tài khoản có tick, mục "Giới thiệu" hiện ngày xác minh và loại tài khoản; người khác bấm vào dấu tick thấy giải thích ngắn.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: nộp đơn và quản trị viên duyệt.</p>
+<!--FLOW:e4-nop-va-duyet-xac-minh-->
+<p>Sơ đồ 2: mất dấu tick khi đổi tên hoặc vi phạm, và xử lý báo cáo mạo danh.</p>
+<!--FLOW:e4-mat-dau-tick-va-mao-danh-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Số liệu đề xuất:</b> 1 đơn đang chờ mỗi tài khoản; nộp lại sau 30 ngày khi bị từ chối hoặc mất tick do đổi tên, 90 ngày khi mất do vi phạm; ảnh giấy tờ tối đa 3 ảnh, mỗi ảnh ≤ 5 MB, JPEG/PNG/WebP (cùng quy tắc với ảnh đại diện); duyệt trong 7 ngày.</li>
+<li><b>Không bán tick.</b> Dấu tick không trả phí; nếu sau này có gói trả phí thì phải là biểu tượng khác để không lẫn nghĩa (chủ dự án quyết).</li>
+<li><b>Giấy tờ tùy thân là dữ liệu nhạy cảm:</b> chỉ lưu ở bucket riêng tư, chỉ quản trị viên được quyền xem, mỗi lần xem ghi nhật ký, xóa sau 30 ngày. Không đưa vào bản xuất dữ liệu (E1) ngoài trạng thái đơn. Cách thu thập, căn cứ xử lý và thời gian giữ giấy tờ phải được luật sư xác nhận theo luật bảo vệ dữ liệu cá nhân.</li>
+<li><b>Tài khoản có tick bị chiếm:</b> 2FA là điều kiện bắt buộc để giảm rủi ro. Khi có cảnh báo đăng nhập lạ (A3) trên tài khoản có tick, đề xuất tạm ẩn tick tới khi chủ xác nhận.</li>
+<li><b>Tài khoản có tick bị xóa (E2):</b> username được giữ thêm 90 ngày sau khi xóa để không ai lấy ngay.</li>
+<li><b>Tài khoản riêng tư</b> vẫn được tick (cá nhân), nhưng tổ chức nên công khai (đề xuất).</li>
+<li><b>Lỗi mạng khi gửi đơn:</b> ảnh và đơn gửi trong một yêu cầu; lỗi thì app giữ dữ liệu đã điền và cho gửi lại; máy chủ không tạo đơn trùng khi đã có đơn PENDING.</li>
+<li><b>Lạm dụng báo cáo mạo danh</b> (báo cáo hàng loạt để hạ tài khoản thật): báo cáo không tự gỡ tick; chỉ quản trị viên quyết.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và ghi vào <i>docs/decisions.md</i> (thêm trường vào <i>authorSelect</i> ảnh hưởng mọi màn) trước khi code.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Ý nghĩa</th></tr>
+<tr><td>User.verifiedAt DateTime?, verifiedType String? (PERSON | ORGANIZATION)</td><td>Có tick hay không; <i>authorSelect</i> thêm hai trường này, DTO trả <i>isVerified</i>.</td></tr>
+<tr><td>VerificationRequest: id, userId, type, category, legalName, links String[], note, documentKeys String[], status (PENDING | APPROVED | REJECTED | CANCELLED), rejectReason, reviewedById, reviewedAt, documentsPurgedAt, createdAt</td><td>Đơn xác minh. Chỉ mục (status, createdAt), (userId, createdAt).</td></tr>
+<tr><td>VerificationEvent: userId, action (GRANTED | REVOKED), reason, actorId, createdAt</td><td>Lịch sử cấp và gỡ tick (hoặc dùng bảng nhật ký của C3).</td></tr>
+<tr><td>CreateReportDto.reason thêm IMPERSONATION; Report thêm impersonatedKind String?</td><td>Báo cáo mạo danh.</td></tr>
+<tr><td>Notification.actorId (đang bắt buộc)</td><td>Thông báo hệ thống ("đã được xác minh", "mất tick") không có người gây ra. Đề xuất cho actorId được để trống và app hiện biểu tượng hệ thống; nếu chưa đổi thì chỉ gửi push qua <i>pushToUser</i>, không tạo dòng Notification.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td>GET /users/me/verification</td><td>Điều kiện còn thiếu, đơn gần nhất, ngày được nộp lại.</td></tr>
+<tr><td>POST /users/me/verification (multipart: các trường + documents[])</td><td>Tạo đơn. Lỗi: 403 code <i>VERIFICATION_NOT_ELIGIBLE</i> kèm danh sách thiếu; 409 đã có đơn; 429 chưa đủ 30 ngày.</td></tr>
+<tr><td>DELETE /users/me/verification</td><td>Rút đơn đang chờ.</td></tr>
+<tr><td>GET /admin/verifications?status=</td><td>Hàng đợi; ảnh giấy tờ trả bằng link ký 1 giờ.</td></tr>
+<tr><td>POST /admin/verifications/:id/approve, /reject { reason }</td><td>Duyệt, từ chối.</td></tr>
+<tr><td>DELETE /admin/users/:id/verification { reason }</td><td>Gỡ tick thủ công.</td></tr>
+<tr><td>PATCH /users/me (đổi hành vi)</td><td>Tài khoản có tick đổi username/displayName: gỡ tick; cần thêm <i>confirmLoseVerification: true</i>, thiếu thì trả 409 code <i>VERIFICATION_WILL_BE_LOST</i> để app hiện cảnh báo.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Chọn ảnh giấy tờ:</b> dùng <i>expo-image-picker</i> đã cài, chọn từ thư viện ảnh; quyền thư viện ảnh đã khai trong <i>app.json</i> cho cả hai nền tảng. Nếu muốn cho chụp trực tiếp bằng camera thì phải thêm <i>cameraPermission</i> vào cấu hình plugin (iOS: NSCameraUsageDescription; Android: CAMERA) trong cùng thay đổi, rồi build lại bản native.</li>
+<li><b>Dấu tick:</b> biểu tượng Lucide <i>badge-check</i> (đã có gói <i>lucide-react-native</i>), đặt cạnh tên trong một thành phần dùng chung; có nhãn trợ năng "Tài khoản đã xác minh" cho VoiceOver (iOS) và TalkBack (Android). Kích thước theo cỡ chữ để không lệch dòng trên cả hai nền tảng.</li>
+<li><b>Trang quản trị:</b> thêm tab trong <i>admin.html</i> (web), không cần app.</li>
+<li><b>Chi phí:</b> không có dịch vụ ngoài; tốn thời gian người duyệt. Không dùng dịch vụ eKYC (xác minh danh tính tự động) ở giai đoạn này; nếu lượng đơn lớn có thể cân nhắc, có phí theo lượt.</li>
+<li><b>Cửa hàng:</b> không có yêu cầu riêng; mục An toàn dữ liệu (Google Play) và nhãn quyền riêng tư (Apple) phải khai việc thu thập giấy tờ tùy thân.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Tài khoản thiếu điều kiện thấy đúng danh sách điều còn thiếu; tài khoản đủ điều kiện nộp được đơn kèm ảnh.</li>
+<li>Quản trị viên xem ảnh bằng link có hạn, duyệt và từ chối được; mỗi thao tác được ghi lại.</li>
+<li>Duyệt xong, dấu tick hiện ở trang cá nhân, bảng tin, bình luận, tìm kiếm, tin nhắn.</li>
+<li>Đổi username hoặc tên hiển thị trên tài khoản có tick thì có cảnh báo và mất tick; đổi ảnh, tiểu sử thì không.</li>
+<li>Đặt username trùng (sau chuẩn hóa) với tài khoản có tick bị từ chối; tên hiển thị có ký tự ✓ bị từ chối (có test tự động).</li>
+<li>Báo cáo mạo danh vào hàng đợi ưu tiên; xử lý xong người báo cáo nhận kết quả.</li>
+<li>Ảnh giấy tờ bị xóa khỏi kho 30 ngày sau quyết định.</li>
+<li>Chạy luồng nộp đơn và hiển thị tick trên Android và trên iPhone; báo cáo ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (trường, bảng đơn, endpoint, kiểm tra tên khi đăng ký/đổi tên, báo cáo mạo danh, tab quản trị, việc xóa ảnh); mobile 2,5 ngày (màn điều kiện và mẫu đơn, trạng thái, dấu tick ở mọi nơi hiện tên, cảnh báo đổi tên); kiểm thử 1,5 ngày.</li>
+<li>Phụ thuộc: A1 (2FA là điều kiện), C2 (bậc xử phạt để gỡ tick), C3 (phân quyền người duyệt, nhật ký xem giấy tờ). Có thể làm bản đầu chỉ với vai trò ADMIN hiện có nếu C3 chưa xong.</li>
+<li>Rủi ro: duyệt sai (cấp tick cho tài khoản giả) làm mất uy tín cả hệ thống; giữ giấy tờ tùy thân là trách nhiệm pháp lý; quy tắc chuẩn hóa tên quá chặt sẽ chặn nhầm người dùng thật.</li>
+</ul>

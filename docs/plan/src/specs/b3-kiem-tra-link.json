@@ -1,0 +1,227 @@
+{
+"id": "b3-kiem-tra-link",
+"title": "Kiểm tra đường link trong tin nhắn",
+"lanes": [
+{
+"name": "Người nhận"
+},
+{
+"name": "Ứng dụng"
+},
+{
+"name": "Máy chủ",
+"cols": 2
+}
+],
+"nodes": [
+{
+"id": "s",
+"type": "start",
+"lane": 2,
+"row": 0,
+"label": "Lưu tin có đường link"
+},
+{
+"id": "norm",
+"type": "process",
+"lane": 2,
+"row": 1,
+"label": "Chuẩn hóa link, tách tên miền"
+},
+{
+"id": "bl",
+"type": "decision",
+"lane": 2,
+"row": 2,
+"label": "Trong danh sách chặn?"
+},
+{
+"id": "mal1",
+"type": "data",
+"lane": 2,
+"col": 1,
+"row": 2,
+"label": "Lưu kết quả NGUY HIỂM"
+},
+{
+"id": "look",
+"type": "decision",
+"lane": 2,
+"row": 3,
+"label": "Nhái tên miền thật?"
+},
+{
+"id": "sus",
+"type": "data",
+"lane": 2,
+"col": 1,
+"row": 3,
+"label": "Lưu kết quả ĐÁNG NGỜ"
+},
+{
+"id": "wrd",
+"type": "decision",
+"lane": 2,
+"row": 4,
+"label": "Google Web Risk báo hại?"
+},
+{
+"id": "mal2",
+"type": "data",
+"lane": 2,
+"col": 1,
+"row": 4,
+"label": "Lưu kết quả NGUY HIỂM"
+},
+{
+"id": "unk",
+"type": "data",
+"lane": 2,
+"row": 5,
+"label": "Lưu KHÔNG RÕ, đệm 24 giờ"
+},
+{
+"id": "tap",
+"type": "start",
+"lane": 0,
+"row": 6,
+"label": "Người nhận chạm vào link"
+},
+{
+"id": "ask",
+"type": "process",
+"lane": 1,
+"row": 6,
+"label": "Hỏi kết quả mới nhất"
+},
+{
+"id": "rd",
+"type": "data",
+"lane": 2,
+"row": 6,
+"label": "Đọc LinkCheck"
+},
+{
+"id": "v",
+"type": "decision",
+"lane": 1,
+"row": 7,
+"label": "Kết quả nguy hiểm?"
+},
+{
+"id": "stop",
+"type": "end",
+"lane": 0,
+"row": 7,
+"label": "Không mở, gợi ý báo cáo"
+},
+{
+"id": "inter",
+"type": "io",
+"lane": 1,
+"row": 8,
+"label": "Màn rời app: tên miền, mức rủi ro"
+},
+{
+"id": "go",
+"type": "decision",
+"lane": 0,
+"row": 9,
+"label": "Bấm Vẫn mở?"
+},
+{
+"id": "open",
+"type": "end",
+"lane": 1,
+"row": 9,
+"label": "Mở trình duyệt hệ thống"
+},
+{
+"id": "back",
+"type": "end",
+"lane": 0,
+"row": 10,
+"label": "Ở lại cuộc trò chuyện"
+}
+],
+"edges": [
+{
+"from": "s",
+"to": "norm"
+},
+{
+"from": "norm",
+"to": "bl"
+},
+{
+"from": "bl",
+"to": "mal1",
+"label": "Có"
+},
+{
+"from": "bl",
+"to": "look",
+"label": "Không"
+},
+{
+"from": "look",
+"to": "sus",
+"label": "Có"
+},
+{
+"from": "wrd",
+"to": "mal2",
+"label": "Có"
+},
+{
+"from": "wrd",
+"to": "unk",
+"label": "Không"
+},
+{
+"from": "tap",
+"to": "ask"
+},
+{
+"from": "ask",
+"to": "rd"
+},
+{
+"from": "rd",
+"to": "v",
+"exit": "bottom",
+"entry": "right"
+},
+{
+"from": "v",
+"to": "stop",
+"label": "Có"
+},
+{
+"from": "v",
+"to": "inter",
+"label": "Không"
+},
+{
+"from": "inter",
+"to": "go",
+"exit": "bottom",
+"entry": "top"
+},
+{
+"from": "go",
+"to": "open",
+"label": "Có"
+},
+{
+"from": "look",
+"to": "wrd",
+"label": "Không"
+},
+{
+"from": "go",
+"to": "back",
+"label": "Không"
+}
+]
+}

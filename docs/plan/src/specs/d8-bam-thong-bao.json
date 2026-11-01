@@ -1,0 +1,29 @@
+{"id":"d8-bam-thong-bao","title":"Bấm vào thông báo: mở đúng màn hình",
+"lanes":[{"name":"Ứng dụng","cols":2},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Người dùng bấm thông báo"},
+ {"id":"rd","type":"process","lane":0,"row":1,"label":"Đọc dữ liệu, kể cả khi app vừa mở"},
+ {"id":"acc","type":"decision","lane":0,"row":2,"label":"Đúng tài khoản đang dùng?"},
+ {"id":"gen","type":"end","lane":0,"col":1,"row":2,"label":"Mở danh sách Thông báo"},
+ {"id":"type","type":"decision","lane":0,"row":3,"label":"Là tin nhắn?"},
+ {"id":"chat","type":"io","lane":0,"col":1,"row":3,"label":"Mở hội thoại"},
+ {"id":"tgt","type":"io","lane":0,"row":4,"label":"Mở bài, bình luận hoặc hồ sơ"},
+ {"id":"srv","type":"decision","lane":1,"row":5,"label":"Còn quyền xem?"},
+ {"id":"nf","type":"end","lane":1,"col":1,"row":5,"label":"Trả 404: nội dung không còn"},
+ {"id":"read","type":"data","lane":1,"row":6,"label":"Đánh dấu đã đọc"},
+ {"id":"badge","type":"process","lane":1,"row":7,"label":"Tính lại số chưa đọc"},
+ {"id":"show","type":"io","lane":0,"col":1,"row":8,"label":"Hiện nội dung, cập nhật badge"}
+],
+"edges":[
+ {"from":"s","to":"rd"},{"from":"rd","to":"acc"},
+ {"from":"acc","to":"gen","label":"Không"},
+ {"from":"acc","to":"type","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"type","to":"chat","label":"Có"},
+ {"from":"type","to":"tgt","label":"Không","exit":"bottom","entry":"top"},
+ {"from":"chat","to":"srv","exit":"right","entry":"top"},
+ {"from":"tgt","to":"srv","exit":"bottom","entry":"left"},
+ {"from":"srv","to":"nf","label":"Không"},
+ {"from":"srv","to":"read","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"read","to":"badge"},
+ {"from":"badge","to":"show","exit":"bottom","entry":"top"}
+]}

@@ -1,0 +1,138 @@
+<h3>B1. Tin nhắn chờ và quyền ai được nhắn tin (nâng cấp)</h3>
+<p><i>Nhóm: An toàn tin nhắn · Giai đoạn: GĐ2 · Ước lượng: 9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Người dùng tự quyết ai được bắt đầu cuộc trò chuyện với mình, và tin của người lạ không chen vào hộp thư chính. Tin rác và tin có dấu hiệu lừa đảo được lọc vào một thư mục riêng, không rung chuông. Người nhận đọc được tin chờ mà người gửi không biết đã bị đọc, rồi chấp nhận, xóa, báo cáo hoặc chặn. Người được lợi nhất là người dùng nữ, người có nhiều người theo dõi và người hay bị lừa qua tin nhắn.</p>
+
+<h4>b) Hiện trạng</h4>
+<p><b>Đã có trong code</b> (<i>apps/api/src/modules/messages/messages.service.ts</i>, <i>apps/mobile/src/features/messages</i>):</p>
+<ul>
+<li>Hội thoại thường (<i>kind = DIRECT</i>) mở bởi người mà người nhận <b>chưa theo dõi</b> có trạng thái <i>PENDING</i> (tin nhắn chờ). Người nhận đã theo dõi người mở thì hội thoại là <i>ACCEPTED</i> ngay.</li>
+<li>Khi đang chờ, người mở chỉ gửi được chữ, tối đa <b>3 tin</b> (<i>PENDING_MESSAGE_LIMIT</i>), không gửi được link, số điện thoại, số tài khoản (<i>findBlockedContact</i> trong <i>moderation/text-safety.ts</i>), lỗi trả về có mã (<i>REQUEST_LIMIT</i>, <i>CONTACT_INFO_BLOCKED</i>, <i>IMAGES_NOT_ALLOWED</i>).</li>
+<li>Đọc mà không lộ "Đã xem": máy chủ vẫn ghi giờ đọc của người nhận nhưng không gửi sự kiện socket <i>message:read</i> và trả <i>peerReadAt = null</i> cho người mở khi hội thoại chưa được chấp nhận.</li>
+<li>Người nhận có: <b>Chấp nhận</b> (<i>POST /conversations/:id/accept</i>), <b>Xóa</b> (<i>/decline</i>, đặt <i>DECLINED</i>, người mở vẫn thấy "đang chờ"), <b>Báo cáo</b> (lý do <i>SCAM</i> đứng đầu, lưu bản chụp 50 tin), <b>Chặn</b> (trong menu "..." của màn chat). Trả lời coi như chấp nhận.</li>
+<li>App: hộp thư có hai thư mục "Tin nhắn" và "Tin nhắn chờ" (<i>ConversationsScreen.tsx</i>), xem trước tin chờ chỉ ghi "Muốn gửi tin nhắn cho bạn"; màn chat có thanh Xóa / Báo cáo / Chấp nhận (<i>ChatScreen.tsx</i>). Huy hiệu tab không tính tin chờ (<i>GET /conversations/unread-count</i> trả <i>count</i> và <i>requests</i> riêng).</li>
+<li>Chặn người dùng có sẵn (<i>Block</i>, hàm <i>blockedUserIds</i> xét cả hai chiều); người bị chặn nhận 404 khi mở hội thoại.</li>
+</ul>
+<p><b>Còn thiếu hoặc chưa đúng</b> (đọc từ code):</p>
+<ul>
+<li>Không có cài đặt "ai được nhắn tin cho tôi". Mọi tài khoản không bị chặn đều mở được tin chờ, kể cả với tài khoản riêng tư (<i>open()</i> không xét <i>isPrivate</i>).</li>
+<li>Không giới hạn số tin chờ mới một người được mở mỗi ngày. Chỉ có trần chung 300 request/phút theo IP (<i>ThrottlerModule</i> trong <i>app.module.ts</i>). Một tài khoản rác có thể nhắn cho hàng nghìn người.</li>
+<li>Không có thư mục lọc rác. Tin chờ có dấu hiệu lừa đảo vẫn nằm chung với tin chờ bình thường và vẫn đẩy thông báo.</li>
+<li>Thông báo đẩy của tin chờ <b>có nội dung tin</b> ("[Tin nhắn chờ] ..."), trong khi hộp thư cố ý giấu nội dung. Tin lừa đảo vì vậy hiện thẳng trên màn hình khóa.</li>
+<li>Sau khi người nhận bấm Xóa (<i>DECLINED</i>), nếu người mở còn lượt (dưới 3 tin) thì tin mới <b>vẫn đẩy thông báo và vẫn phát socket</b> tới người nhận: <i>send()</i> không xét trạng thái <i>DECLINED</i> trước khi gọi <i>pushToUser</i>.</li>
+<li>Báo cáo một tin chờ thường (không ẩn danh) không làm nó rời thư mục: <i>reportConversation</i> chỉ đóng hội thoại ẩn danh.</li>
+<li>Thanh tin chờ không có nút Chặn (phải mở menu "..."); không có "Xóa tất cả".</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Cài đặt "Ai được nhắn tin cho bạn"</b></p>
+<ol>
+<li>Người dùng vào Cài đặt → Quyền riêng tư → "Tin nhắn". Có 3 lựa chọn: <b>Mọi người</b> (mặc định, giữ đúng hành vi hiện nay), <b>Người tôi theo dõi</b>, <b>Không ai</b>.</li>
+<li>Bên dưới có công tắc "Lọc tin nhắn chờ đáng ngờ" (mặc định bật) và dòng giải thích: tin bị lọc nằm trong "Đã lọc", không có thông báo.</li>
+<li>App gửi <i>PATCH /users/me</i>. Máy chủ lưu và áp dụng ngay cho các hội thoại <b>mới</b>. Hội thoại đã được chấp nhận không bị ảnh hưởng.</li>
+<li>Trang cá nhân của người khác: máy chủ trả thêm <i>canMessage</i>. Nếu <i>false</i>, app ẩn nút "Nhắn tin" và ô trả lời story, thay bằng dòng "Người này chỉ nhận tin nhắn từ người họ theo dõi" (hoặc "không nhận tin nhắn mới").</li>
+</ol>
+<p><b>Luồng 2: Gửi tin đầu tiên cho người lạ</b> (sơ đồ 1)</p>
+<ol>
+<li>Người gửi bấm "Nhắn tin" trên trang cá nhân (hoặc trả lời story). App gọi <i>POST /conversations</i>.</li>
+<li>Máy chủ kiểm tra theo thứ tự: có chặn nhau không (có → 404 như hiện nay, không lộ lý do); người nhận có cho phép không (<i>Người tôi theo dõi</i> mà người nhận chưa theo dõi người gửi, hoặc <i>Không ai</i> → 403 <i>MESSAGE_NOT_ALLOWED</i>); người nhận đã theo dõi người gửi chưa (rồi → hội thoại thường, vào hộp thư chính như hiện nay).</li>
+<li>Nếu là người lạ: máy chủ đếm số tin chờ mới người gửi đã mở trong 24 giờ. Vượt hạn mức → 429 <i>REQUEST_DAILY_LIMIT</i>, app hiện "Hôm nay bạn đã nhắn cho quá nhiều người lạ. Thử lại sau."</li>
+<li>Tạo hội thoại <i>PENDING</i> (như hiện nay). App mở màn chat với ghi chú "Tin nhắn của bạn sẽ nằm trong mục Tin nhắn chờ. Bạn gửi được tối đa 3 tin cho tới khi người kia trả lời."</li>
+<li>Người gửi gửi tin. Máy chủ giữ nguyên các kiểm tra hiện có (3 tin, chỉ chữ, không liên lạc), rồi <b>chấm điểm rác</b> (mục e, dùng bộ chấm lừa đảo của B3).</li>
+<li>Điểm từ ngưỡng lọc → hội thoại chuyển vào thư mục <b>Đã lọc</b> của người nhận: không thông báo đẩy, không socket, không tính vào số tin chờ. Người gửi không biết (vẫn thấy "đã gửi").</li>
+<li>Dưới ngưỡng → nằm trong <b>Tin nhắn chờ</b>. Thông báo đẩy tới người nhận chỉ ghi "<i>Tên người gửi</i>: Muốn gửi tin nhắn cho bạn", <b>không có nội dung</b>.</li>
+</ol>
+<p><b>Luồng 3: Người nhận xử lý tin nhắn chờ</b> (sơ đồ 2)</p>
+<ol>
+<li>Người nhận mở Tin nhắn → "Tin nhắn chờ" (có số đếm) hoặc "Đã lọc" (không đếm, nằm cuối thư mục Tin nhắn chờ). Danh sách hiện tên, ảnh, thời gian, nhãn cảnh báo nếu có (giả mạo, lừa đảo), không hiện nội dung tin.</li>
+<li>Chạm một yêu cầu: app tải tin và gọi đánh dấu đã đọc. Máy chủ ghi giờ đọc nhưng không báo người gửi (như hiện nay). Máy chủ gắn cảnh báo lừa đảo, giả mạo (B3) vào dữ liệu trả về.</li>
+<li>Màn chat hiện thanh 4 nút: <b>Chấp nhận</b>, <b>Xóa</b>, <b>Báo cáo</b>, <b>Chặn</b>. Tin bị B3 đánh mức cao thì bị che sẵn, chạm mới xem.</li>
+<li><b>Chấp nhận hoặc trả lời</b>: hội thoại thành <i>ACCEPTED</i>, chuyển vào hộp thư chính. Từ lúc này người gửi mới thấy "Đã xem", mới gửi được ảnh và link.</li>
+<li><b>Xóa</b>: <i>DECLINED</i>, biến khỏi thư mục. Người gửi không được báo. Mọi tin sau đó của người gửi (nếu còn lượt) được lưu nhưng không thông báo, không socket, không hiện lại.</li>
+<li><b>Báo cáo</b>: chọn lý do, máy chủ lưu báo cáo kèm bản chụp 50 tin (như hiện nay) và <b>tự xóa yêu cầu</b> (<i>DECLINED</i>). App hỏi tiếp "Chặn luôn người này?".</li>
+<li><b>Chặn</b>: hỏi xác nhận, lưu <i>Block</i> và xóa yêu cầu. Người gửi không mở lại được (404).</li>
+<li>Thư mục "Đã lọc" có thêm nút <b>"Không phải rác"</b> để chuyển một yêu cầu về Tin nhắn chờ, và <b>"Xóa tất cả"</b> (xác nhận một lần).</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1 mô tả đường đi của tin đầu tiên từ người lạ, từ lúc bấm "Nhắn tin" tới lúc vào đúng thư mục.</p>
+<!--FLOW:b1-gui-tin-dau-nguoi-la-->
+<p>Sơ đồ 2 mô tả những gì người nhận làm được với một tin nhắn chờ.</p>
+<!--FLOW:b1-xu-ly-tin-nhan-cho-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<table>
+<tr><th>Quy tắc</th><th>Giá trị đề xuất</th></tr>
+<tr><td>Tin chờ mới mỗi người gửi / 24 giờ</td><td>20; tài khoản dưới 7 ngày tuổi hoặc chưa xác thực email: 5; điểm lạm dụng từ 30 (xem B2): 2</td></tr>
+<tr><td>Số tin trước khi được trả lời</td><td>3 (giữ như hiện nay), chỉ chữ, không link / SĐT / số tài khoản</td></tr>
+<tr><td>Vào "Đã lọc" khi có một trong các điều kiện</td><td>(1) điểm rủi ro B3 của tin từ 3; (2) người gửi dưới 7 ngày tuổi và không ai mà người nhận theo dõi đang theo dõi người gửi; (3) điểm lạm dụng của người gửi từ 30; (4) người nhận đang bật Giới hạn (B4) và người gửi thuộc nhóm bị giới hạn</td></tr>
+<tr><td>Đã vào "Đã lọc"</td><td>Chỉ người nhận chuyển ra được ("Không phải rác"). Máy chủ không tự chuyển ngược.</td></tr>
+<tr><td>Tin chờ quá cũ</td><td>Ẩn khỏi danh sách sau 30 ngày không có tin mới (dữ liệu vẫn giữ để phục vụ báo cáo)</td></tr>
+<tr><td>Điểm lạm dụng cộng thêm cho người gửi</td><td>Bị xóa: +3; bị báo cáo: +25 (bảng SafetyEvent, mục f)</td></tr>
+</table>
+<ul>
+<li><b>Đổi cài đặt sau khi đã có tin chờ:</b> tin chờ cũ vẫn nằm đó; người gửi không gửi thêm được nếu cài đặt mới không cho phép (403 <i>MESSAGE_NOT_ALLOWED</i>).</li>
+<li><b>"Người tôi theo dõi"</b> và tài khoản riêng tư: không đổi gì, vì người được nhắn là người mình đã theo dõi.</li>
+<li><b>"Không ai"</b>: không ai mở được hội thoại mới, kể cả người mình theo dõi; hội thoại cũ đã chấp nhận vẫn nhắn bình thường. Nhắn ẩn danh do cài đặt riêng (B2) quyết định.</li>
+<li><b>Người nhận theo dõi người gửi sau đó:</b> tin chờ cũ không tự thành <i>ACCEPTED</i>; người nhận chấp nhận hoặc trả lời như thường.</li>
+<li><b>Mất mạng khi gửi:</b> giữ cơ chế <i>clientId</i> hiện có, gửi lại không tạo tin trùng và không bị tính thêm lượt.</li>
+<li><b>Tài khoản bị khóa:</b> hội thoại của họ ẩn khỏi hộp thư của người khác (giữ như hiện nay); điểm lạm dụng giữ nguyên để admin xem.</li>
+<li><b>Lạm dụng "Xóa" để gây áp lực:</b> không có; người gửi không bao giờ biết bị xóa, không biết bị lọc.</li>
+<li><b>Gửi lặp lại nội dung giống nhau</b> cho nhiều người (từ 5 người trong 1 giờ, cùng nội dung sau chuẩn hóa) được tính là dấu hiệu rác, cộng 10 điểm lạm dụng (đề xuất).</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><i>Đây là đề xuất. Phải ghi vào docs/api-contract.md và docs/decisions.md trước khi code.</i></p>
+<table>
+<tr><th>Thay đổi</th><th>Chi tiết</th></tr>
+<tr><td><i>User.messagePermission</i></td><td>String, mặc định <i>EVERYONE</i>; giá trị <i>EVERYONE | FOLLOWING | NOBODY</i></td></tr>
+<tr><td><i>User.filterRequests</i></td><td>Boolean, mặc định <i>true</i></td></tr>
+<tr><td><i>Conversation.requestFolder</i></td><td>String?, <i>null</i> hoặc <i>FILTERED</i>; chỉ có nghĩa khi <i>PENDING</i></td></tr>
+<tr><td><i>Conversation.filterReason</i></td><td>String?, ví dụ <i>SCAM_TEXT | NEW_ACCOUNT | LOW_REPUTATION | LIMITS</i>, để admin và người dùng thấy lý do</td></tr>
+<tr><td>Bảng mới <i>SafetyEvent</i> (dùng chung B1–B4)</td><td><i>id, userId</i> (người bị chấm điểm), <i>type, weight</i> (Int), <i>actorId?</i>, <i>conversationId?</i>, <i>createdAt</i>; chỉ mục <i>(userId, createdAt)</i>. Điểm lạm dụng = tổng <i>weight</i> trong 30 ngày.</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Ghi chú</th></tr>
+<tr><td><i>PATCH /users/me</i></td><td>Thêm <i>messagePermission</i>, <i>filterRequests</i></td></tr>
+<tr><td><i>GET /users/:id</i></td><td>Thêm <i>canMessage</i> (boolean)</td></tr>
+<tr><td><i>POST /conversations</i></td><td>Lỗi mới: 403 <i>MESSAGE_NOT_ALLOWED</i>, 429 <i>REQUEST_DAILY_LIMIT</i></td></tr>
+<tr><td><i>GET /conversations</i></td><td>Mỗi hội thoại thêm <i>folder: INBOX | REQUESTS | FILTERED</i>; giữ <i>isRequest</i> cho bản app cũ (hội thoại FILTERED có <i>isRequest = true</i>)</td></tr>
+<tr><td><i>GET /conversations/unread-count</i></td><td>Thêm <i>filtered</i> (chỉ để hiện số trong thư mục, không lên huy hiệu)</td></tr>
+<tr><td><i>POST /conversations/:id/not-spam</i></td><td>Chuyển từ Đã lọc về Tin nhắn chờ</td></tr>
+<tr><td><i>POST /conversations/requests/decline-all</i></td><td><i>{ folder: "REQUESTS" | "FILTERED" }</i></td></tr>
+<tr><td><i>POST /reports</i> (CONVERSATION)</td><td>Thêm hành vi: tin chờ bị báo cáo thì tự <i>DECLINED</i></td></tr>
+<tr><td>Thông báo đẩy</td><td>Tin chờ: "Muốn gửi tin nhắn cho bạn", không nội dung. Không đẩy và không phát socket cho hội thoại <i>DECLINED</i> hoặc <i>FILTERED</i>.</td></tr>
+</table>
+<p>Code cần sửa: <i>messages.service.ts</i> (<i>open, send, list, unreadCount</i>), <i>reports.service.ts</i>, <i>users</i> (DTO cập nhật hồ sơ, hồ sơ công khai), màn <i>ConversationsScreen</i>, <i>ChatScreen</i>, Cài đặt; thêm một màn "Tin nhắn" trong Cài đặt.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị mới, không cần thư viện mới. Mọi màn dùng thành phần React Native sẵn có, chạy giống nhau trên Android và iOS.</li>
+<li>Thông báo đẩy đi qua dịch vụ Expo hiện có (<i>notifications.service.ts</i> gọi <i>exp.host</i>), Expo chuyển tiếp tới APNs (iOS) và FCM (Android). Cả hai phía phải có khóa cấu hình (thuộc D8). Nội dung đẩy không còn chứa tin nhắn, nên màn hình khóa trên cả hai hệ điều hành không lộ nội dung tin chờ.</li>
+<li>Thanh 4 nút ở màn chat phải nằm trên vùng an toàn (safe-area) và không bị bàn phím che: kiểm tra trên iPhone có "tai thỏ" và Android có thanh điều hướng.</li>
+<li>Trang quản trị (web): hiện thêm <i>filterReason</i> và điểm lạm dụng ở báo cáo hội thoại.</li>
+<li>App Store và Google Play đều yêu cầu ứng dụng có nội dung do người dùng tạo phải có báo cáo và chặn. Tính năng này làm phần đó rõ hơn; không có chi phí dịch vụ ngoài.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Ba lựa chọn "Ai được nhắn tin" hoạt động: kiểm thử với 3 tài khoản (người theo dõi, người lạ, người mình theo dõi); nút Nhắn tin và ô trả lời story ẩn đúng khi <i>canMessage = false</i>.</li>
+<li>Người lạ mở quá 20 tin chờ mới trong 24 giờ nhận 429; tài khoản mới bị giới hạn 5.</li>
+<li>Tin chờ chứa cụm "chuyển khoản gấp vào stk" từ tài khoản mới vào "Đã lọc", không có thông báo đẩy, không tính vào số tin chờ.</li>
+<li>Thông báo đẩy của tin chờ không chứa nội dung tin (kiểm trên màn hình khóa).</li>
+<li>Sau khi bấm Xóa, tin tiếp theo của người gửi không tạo thông báo, không socket; người gửi vẫn thấy "đang chờ".</li>
+<li>Người nhận đọc tin chờ: người gửi không thấy "Đã xem" và không nhận <i>message:read</i>; sau khi chấp nhận thì thấy.</li>
+<li>Báo cáo tin chờ: báo cáo có bản chụp, yêu cầu biến khỏi thư mục, app hỏi chặn.</li>
+<li><i>scripts/safety-smoke.cjs</i> có thêm phép thử cho mọi mục trên; test đơn vị cho hàm quyết định thư mục.</li>
+<li>Chạy tay toàn bộ luồng trên Android (máy ảo hoặc máy thật) <b>và</b> iPhone; báo cáo ghi rõ nền tảng nào đã chạy.</li>
+<li>Admin thấy lý do lọc và điểm lạm dụng trong trang báo cáo.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (cài đặt quyền, hạn mức, thư mục lọc, sửa đẩy thông báo, SafetyEvent), mobile 3 ngày (màn cài đặt, thư mục Đã lọc, thanh 4 nút, xử lý <i>canMessage</i>), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B3 (bộ chấm điểm lừa đảo; trước khi có B3 dùng tạm <i>hasScamWarning</i> hiện có), D8 (cấu hình đẩy APNs/FCM). B2, B3, B4 dùng lại bảng <i>SafetyEvent</i> và thư mục "Đã lọc" của B1, nên làm B1 trước.</li>
+<li>Rủi ro: lọc nhầm tin thật vào "Đã lọc" (người nhận bỏ lỡ). Giảm bằng nút "Không phải rác", hiện số tin trong "Đã lọc", và đo tỉ lệ "Không phải rác" trong 2 tuần đầu để chỉnh ngưỡng.</li>
+<li>Rủi ro: đổi mặc định sang "Người tôi theo dõi" sẽ làm app khó kết bạn mới; đề xuất giữ mặc định "Mọi người".</li>
+</ul>

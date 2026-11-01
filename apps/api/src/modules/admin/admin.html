@@ -40,6 +40,12 @@
   .tag.banned { background:#F7D9D4; color:var(--danger); }
   .quote { margin:8px 0 0; padding:8px 12px; background:#fff; border:1px solid var(--border); border-radius:10px; white-space:pre-wrap; word-break:break-word; }
   .quote img { display:block; max-width:220px; max-height:220px; border-radius:8px; margin-top:8px; }
+  /* Ảnh nhạy cảm trong bản chụp tin nhắn: mờ cho tới khi người duyệt bấm vào (bảo vệ người duyệt). */
+  .quote img.blurred { filter:blur(24px); cursor:pointer; }
+  .chat { margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:360px; overflow:auto; }
+  .bubble { padding:6px 10px; border-radius:10px; background:#F7EEF2; }
+  .bubble.reported { background:#FBE3E0; }
+  .warn { margin-bottom:16px; padding:10px 14px; border-radius:10px; background:#FBE3E0; color:var(--danger); font-weight:600; }
   .actions { display:flex; flex-direction:column; gap:6px; min-width:150px; }
   .empty { padding:36px 16px; text-align:center; color:var(--muted); }
   .pager { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:14px; color:var(--muted); }
@@ -91,8 +97,8 @@
   var token = sessionStorage.getItem('adminToken');
   var state = { tab: 'reports', page: 1, status: 'OPEN', q: '' };
   var $ = function (id) { return document.getElementById(id); };
-  var REASONS = { SPAM: 'Spam', HARASSMENT: 'Quấy rối', SENSITIVE: 'Nội dung nhạy cảm', MISINFORMATION: 'Thông tin sai', OTHER: 'Khác' };
-  var TYPES = { POST: 'Bài viết', COMMENT: 'Bình luận', USER: 'Người dùng' };
+  var REASONS = { SPAM: 'Spam', HARASSMENT: 'Quấy rối', SENSITIVE: 'Nội dung nhạy cảm', MISINFORMATION: 'Thông tin sai', SCAM: 'Lừa đảo', OTHER: 'Khác' };
+  var TYPES = { POST: 'Bài viết', COMMENT: 'Bình luận', USER: 'Người dùng', CONVERSATION: 'Tin nhắn' };
 
   // Nội dung do người dùng viết: luôn đưa vào trang dưới dạng văn bản, không bao giờ dưới dạng HTML.
   function el(tag, attrs, children) {
@@ -184,9 +190,37 @@
       [stats.posts, 'Bài viết'], [stats.newPosts, 'Bài viết mới (7 ngày)'], [stats.activeStories, 'Tin đang hiển thị'],
       [stats.newMessages, 'Tin nhắn (7 ngày)'], [stats.bannedUsers, 'Tài khoản bị khoá']
     ];
-    $('stats').replaceChildren.apply($('stats'), items.map(function (item) {
+    var cards = items.map(function (item) {
       return el('div', { class: 'card stat' }, [el('b', { text: String(item[0]) }), el('span', { text: item[1] })]);
-    }));
+    });
+    if (stats.imageModeration === 'unavailable') {
+      cards.unshift(el('div', { class: 'warn', style: 'grid-column:1/-1', text: 'Bộ nhận diện ảnh không chạy: ảnh trong tin nhắn đang KHÔNG được làm mờ. Chạy "node scripts/download-moderation-model.cjs" trong apps/api rồi khởi động lại API.' }));
+    }
+    $('stats').replaceChildren.apply($('stats'), cards);
+  }
+
+  // Bản chụp hội thoại lúc báo cáo. Hiện danh tính thật của người bị báo cáo, kể cả khi họ ẩn danh.
+  function conversationQuote(target, author) {
+    var quote = el('div', { class: 'quote' }, [
+      el('div', { class: 'meta', text: 'Người bị báo cáo: ' + name(author) + (target.anonymous ? ' — đã nhắn ẨN DANH' : '') }),
+      author && author.anonymousSuspendedAt ? el('div', { class: 'meta', text: 'Đang bị tước quyền gửi ẩn danh.' }) : null
+    ]);
+    var chat = el('div', { class: 'chat' });
+    (target.messages || []).forEach(function (message) {
+      var fromReported = message.senderId === target.reportedUserId;
+      var bubble = el('div', { class: 'bubble' + (fromReported ? ' reported' : '') }, [
+        el('div', { class: 'meta', text: (fromReported ? 'Người bị báo cáo' : 'Người báo cáo') + ' · ' + when(message.createdAt) }),
+        message.content ? el('div', { text: message.content }) : null
+      ]);
+      if (message.imageUrl) {
+        var image = el('img', { src: message.imageUrl, alt: 'Ảnh trong tin nhắn bị báo cáo', loading: 'lazy', class: message.sensitive ? 'blurred' : '' });
+        image.addEventListener('click', function () { image.classList.remove('blurred'); });
+        bubble.appendChild(image);
+      }
+      chat.appendChild(bubble);
+    });
+    quote.appendChild(chat);
+    return quote;
   }
 
   function reportRow(report) {
@@ -204,6 +238,8 @@
 
     if (!target) {
       info.appendChild(el('div', { class: 'quote meta', text: 'Nội dung đã bị xoá.' }));
+    } else if (report.targetType === 'CONVERSATION') {
+      info.appendChild(conversationQuote(target, author));
     } else {
       var quote = el('div', { class: 'quote' }, [el('div', { class: 'meta', text: 'Của: ' + name(author) })]);
       if (report.targetType !== 'USER') {
@@ -222,7 +258,7 @@
         return function () { if (confirm(question)) act(api('POST', '/admin/reports/' + report.id + '/resolve', { action: action })); };
       };
       actions.appendChild(el('button', { text: 'Bỏ qua', onclick: resolve('DISMISS', 'Bỏ qua báo cáo này?') }));
-      if (report.targetType !== 'USER' && target && !target.deletedAt) {
+      if ((report.targetType === 'POST' || report.targetType === 'COMMENT') && target && !target.deletedAt) {
         actions.appendChild(el('button', { class: 'danger', text: 'Gỡ nội dung', onclick: resolve('REMOVE_CONTENT', 'Gỡ nội dung này khỏi ứng dụng?') }));
       }
       if (author && !author.bannedAt) {
@@ -239,7 +275,9 @@
       el('div', {}, [
         el('b', { text: name(user) + ' ' }),
         user.role === 'ADMIN' ? el('span', { class: 'tag', text: 'Quản trị' }) : null,
-        user.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null
+        user.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null,
+        user.ageLockedAt ? el('span', { class: 'tag banned', text: 'Khoá vì dưới 18 tuổi' }) : null,
+        user.anonymousSuspendedAt ? el('span', { class: 'tag banned', text: 'Bị tước quyền ẩn danh' }) : null
       ]),
       el('div', { class: 'meta', text: user.email + ' · ' + user._count.posts + ' bài viết · ' + user._count.followers + ' người theo dõi · tham gia ' + when(user.createdAt) })
     ]);
@@ -248,6 +286,14 @@
       actions.appendChild(el('button', { text: 'Mở khoá', onclick: function () { act(api('DELETE', '/admin/users/' + user.id + '/ban')); } }));
     } else if (user.role !== 'ADMIN') {
       actions.appendChild(el('button', { class: 'danger', text: 'Khoá tài khoản', onclick: function () { if (confirm('Khoá tài khoản ' + name(user) + '?')) act(api('POST', '/admin/users/' + user.id + '/ban')); } }));
+    }
+    if (user.ageLockedAt) {
+      actions.appendChild(el('button', { text: 'Mở khoá tuổi', onclick: function () { if (confirm('Mở khoá và cho ' + name(user) + ' khai lại ngày sinh?')) act(api('DELETE', '/admin/users/' + user.id + '/age-lock')); } }));
+    }
+    if (user.anonymousSuspendedAt) {
+      actions.appendChild(el('button', { text: 'Trả quyền ẩn danh', onclick: function () { if (confirm('Cho ' + name(user) + ' gửi tin ẩn danh trở lại?')) act(api('POST', '/admin/users/' + user.id + '/anonymous')); } }));
+    } else {
+      actions.appendChild(el('button', { text: 'Tước quyền ẩn danh', onclick: function () { if (confirm('Không cho ' + name(user) + ' gửi tin ẩn danh nữa?')) act(api('DELETE', '/admin/users/' + user.id + '/anonymous')); } }));
     }
     return el('div', { class: 'row' }, [info, actions]);
   }

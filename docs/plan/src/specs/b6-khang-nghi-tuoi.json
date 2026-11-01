@@ -1,0 +1,32 @@
+{"id":"b6-khang-nghi-tuoi","title":"Tài khoản bị khóa vì tuổi: kháng nghị và xác minh",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ"},{"name":"Người duyệt / dịch vụ xác minh"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Đăng nhập tài khoản bị khóa tuổi"},
+ {"id":"send","type":"process","lane":1,"row":0,"label":"Gửi đăng nhập"},
+ {"id":"tok","type":"process","lane":2,"row":0,"label":"Trả 401 + mã kháng nghị 15 phút"},
+ {"id":"scr","type":"io","lane":1,"row":1,"label":"Màn 'Đã khóa vì tuổi', còn n lượt"},
+ {"id":"want","type":"decision","lane":0,"row":2,"label":"Gửi kháng nghị?"},
+ {"id":"pick","type":"io","lane":1,"row":2,"label":"Chọn cách xác minh, gửi bằng chứng"},
+ {"id":"store","type":"data","lane":2,"row":2,"label":"Lưu kháng nghị; ảnh vào kho riêng"},
+ {"id":"check","type":"process","lane":3,"row":2,"label":"Xem giấy tờ hoặc nhận kết quả dịch vụ"},
+ {"id":"out","type":"end","lane":0,"row":3,"label":"Đăng xuất; xóa sau 90 ngày"},
+ {"id":"adult","type":"decision","lane":3,"row":3,"label":"Đủ 18 tuổi?"},
+ {"id":"unlock","type":"data","lane":2,"row":3,"label":"Mở khóa, ghi ngày sinh đã xác minh"},
+ {"id":"okmsg","type":"end","lane":1,"row":3,"label":"Email + màn: đã mở khóa"},
+ {"id":"keep","type":"process","lane":3,"row":4,"label":"Giữ khóa, ghi lý do"},
+ {"id":"wipe","type":"data","lane":2,"row":4,"label":"Xóa ảnh giấy tờ sau 30 ngày"},
+ {"id":"nomsg","type":"end","lane":1,"row":4,"label":"Email: kháng nghị không đạt"}
+],
+"edges":[
+ {"from":"s","to":"send"},{"from":"send","to":"tok"},
+ {"from":"tok","to":"scr","exit":"bottom","entry":"right","via":[[2,1]]},
+ {"from":"scr","to":"want","exit":"bottom","entry":"top","via":[[1,1.5],[0,1.5]]},
+ {"from":"want","to":"pick","label":"Có"},{"from":"want","to":"out","label":"Không"},
+ {"from":"pick","to":"store"},{"from":"store","to":"check"},
+ {"from":"check","to":"adult"},
+ {"from":"adult","to":"unlock","label":"Có","exit":"left","entry":"right"},
+ {"from":"adult","to":"keep","label":"Không"},
+ {"from":"unlock","to":"okmsg","exit":"left","entry":"right"},
+ {"from":"keep","to":"wipe","exit":"left","entry":"right"},
+ {"from":"wipe","to":"nomsg","exit":"left","entry":"right"}
+]}

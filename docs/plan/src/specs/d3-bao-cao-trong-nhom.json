@@ -1,0 +1,24 @@
+{"id":"d3-bao-cao-trong-nhom","title":"Báo cáo trong nhóm và chuyển lên quản trị viên app",
+"lanes":[{"name":"Máy chủ","cols":2},{"name":"Quản trị nhóm"},{"name":"Quản trị viên app"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Thành viên báo cáo bài trong nhóm"},
+ {"id":"db","type":"data","lane":0,"row":1,"label":"Ghi Report kèm groupId, lý do"},
+ {"id":"app","type":"decision","lane":0,"row":2,"label":"Lý do thuộc luật app?"},
+ {"id":"c1","type":"sub","lane":2,"row":2,"label":"Hàng đợi kiểm duyệt app (C1, C2)"},
+ {"id":"grp","type":"process","lane":0,"row":3,"label":"Đưa vào hàng chờ của nhóm"},
+ {"id":"view","type":"io","lane":1,"row":3,"label":"Quản trị nhóm xem báo cáo"},
+ {"id":"dec","type":"decision","lane":1,"row":4,"label":"Xử lý thế nào?"},
+ {"id":"skip","type":"end","lane":0,"col":1,"row":4,"label":"Đóng báo cáo, báo người gửi"},
+ {"id":"rm","type":"process","lane":1,"row":5,"label":"Gỡ bài, cảnh cáo hoặc cấm khỏi nhóm"},
+ {"id":"log","type":"data","lane":1,"row":6,"label":"Ghi nhật ký quản trị nhóm"},
+ {"id":"end","type":"end","lane":1,"row":7,"label":"Báo người đăng và người báo cáo"}
+],
+"edges":[
+ {"from":"s","to":"db"},{"from":"db","to":"app"},
+ {"from":"app","to":"c1","label":"Có"},{"from":"app","to":"grp","label":"Không"},
+ {"from":"grp","to":"view"},{"from":"view","to":"dec"},
+ {"from":"dec","to":"rm","label":"Gỡ bài"},
+ {"from":"dec","to":"skip","label":"Bỏ qua"},
+ {"from":"dec","to":"c1","label":"Chuyển lên app","exit":"right","entry":"bottom"},
+ {"from":"rm","to":"log"},{"from":"log","to":"end"}
+]}

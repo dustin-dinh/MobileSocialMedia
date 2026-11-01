@@ -1,0 +1,30 @@
+{"id":"a3-phat-hien-dang-nhap-la","title":"Phát hiện đăng nhập lạ và gửi cảnh báo",
+"lanes":[{"name":"Thiết bị mới"},{"name":"Máy chủ","cols":2},{"name":"Chủ tài khoản"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Đăng nhập thành công"},
+ {"id":"sess","type":"data","lane":1,"row":0,"label":"Tạo phiên: máy, IP, nơi"},
+ {"id":"seen","type":"decision","lane":1,"row":1,"label":"Thiết bị đã quen?"},
+ {"id":"quiet","type":"end","lane":1,"col":1,"row":1,"label":"Không cảnh báo"},
+ {"id":"place","type":"decision","lane":1,"row":2,"label":"Quốc gia quen?"},
+ {"id":"low","type":"process","lane":1,"col":1,"row":2,"label":"Mức thường: thông báo trong app"},
+ {"id":"high","type":"process","lane":1,"row":3,"label":"Mức cao: email + push"},
+ {"id":"log","type":"data","lane":1,"row":4,"label":"Ghi sự kiện, tạo link 7 ngày"},
+ {"id":"see","type":"io","lane":2,"row":5,"label":"Nhận: máy X, ở Y, lúc Z"},
+ {"id":"me","type":"decision","lane":2,"row":6,"label":"Có phải bạn?"},
+ {"id":"trust","type":"data","lane":1,"col":1,"row":6,"label":"Đánh dấu thiết bị quen"},
+ {"id":"notme","type":"sub","lane":2,"row":7,"label":"Xử lý Không phải tôi"}
+],
+"edges":[
+ {"from":"s","to":"sess"},
+ {"from":"sess","to":"seen"},
+ {"from":"seen","to":"quiet","label":"Có"},
+ {"from":"seen","to":"place","label":"Không"},
+ {"from":"place","to":"low","label":"Có"},
+ {"from":"place","to":"high","label":"Không"},
+ {"from":"low","to":"log","exit":"bottom","entry":"right","via":[[2,4]]},
+ {"from":"high","to":"log"},
+ {"from":"log","to":"see"},
+ {"from":"see","to":"me"},
+ {"from":"me","to":"trust","label":"Là tôi"},
+ {"from":"me","to":"notme","label":"Không phải tôi"}
+]}

@@ -2,14 +2,25 @@
  * Stories (24-hour posts) — data-access layer. Mock mode keeps stories in
  * memory; live mode uses `/stories` and the direct-upload endpoints
  * (see docs/api-contract.md).
+ *
+ * The owner never learns who viewed a story, only who reacted; reactions and
+ * replies can be anonymous when the owner allowed it on that story.
  */
 import { USE_MOCK_API } from '../../../config/runtime';
 import { httpClient } from '../../../services/httpClient';
 import type { AuthUser } from '../../auth/services/authService';
+import type { ReactionType } from '../../feed/reactions';
 import type { PostAuthor } from '../../feed/types';
 import { createThumbnail, uploadToStorage } from '../../reel/services/reelService';
 
+export type StoryReactionMark = {
+  isAnonymous: boolean;
+  type: ReactionType;
+};
+
 export type Story = {
+  /** The owner allows anonymous reactions and replies on this story. */
+  allowAnonymous?: boolean;
   createdAt: string;
   /** Videos only. */
   durationMs?: number | null;
@@ -19,8 +30,18 @@ export type Story = {
   thumbnailUrl?: string | null;
   type: 'IMAGE' | 'VIDEO';
   url: string;
-  /** Only on the viewer's own stories. */
-  viewsCount?: number;
+  /** Someone else's story: your reaction to it. */
+  myReaction?: StoryReactionMark | null;
+  /** Your own story: how many people reacted. */
+  reactionsCount?: number;
+};
+
+/** One reaction as the story's owner sees it; `user` is null when it was anonymous. */
+export type StoryReaction = {
+  createdAt: string;
+  isAnonymous: boolean;
+  type: ReactionType;
+  user: PostAuthor | null;
 };
 
 export type StoryGroup = {
@@ -61,19 +82,23 @@ export const storyService = {
     return response.data.map((group) => ({ ...group, stories: group.stories.map(mapStory) }));
   },
 
-  /** Upload a picture or a short video and publish it for 24 hours. */
-  async create(media: StoryMedia, author: AuthUser): Promise<void> {
+  /**
+   * Upload a picture or a short video and publish it for 24 hours.
+   * `allowAnonymous`: viewers may react and reply without showing who they are.
+   */
+  async create(media: StoryMedia, author: AuthUser, allowAnonymous = false): Promise<void> {
     if (USE_MOCK_API) {
       const now = Date.now();
       const story: Story = {
+        allowAnonymous,
         createdAt: new Date(now).toISOString(),
         durationMs: media.durationMs,
         expiresAt: new Date(now + 86_400_000).toISOString(),
         id: `mock-story-${now}`,
         isSeen: true,
         type: media.isVideo ? 'VIDEO' : 'IMAGE',
+        reactionsCount: 0,
         url: media.uri,
-        viewsCount: 0,
       };
       const own = mockGroups.find((group) => group.author.id === author.id);
 
@@ -121,7 +146,7 @@ export const storyService = {
       body = { storageKey: await uploadToStorage('image', file), type: 'IMAGE' };
     }
 
-    await httpClient.requestVoid({ body, method: 'POST', path: 'stories' });
+    await httpClient.requestVoid({ body: { ...body, allowAnonymous }, method: 'POST', path: 'stories' });
   },
 
   async markViewed(storyId: string): Promise<void> {
@@ -132,15 +157,57 @@ export const storyService = {
     await httpClient.requestVoid({ method: 'POST', path: `stories/${storyId}/view` });
   },
 
-  /** Who watched one of the viewer's own stories. */
-  async getViewers(storyId: string): Promise<PostAuthor[]> {
+  /** Who reacted to one of your own stories, newest first. */
+  async getReactions(storyId: string): Promise<StoryReaction[]> {
     if (USE_MOCK_API) {
       return [];
     }
 
-    const response = await httpClient.requestJson<{ data: PostAuthor[] }>({
+    const response = await httpClient.requestJson<{ data: StoryReaction[] }>({
       method: 'GET',
-      path: `stories/${storyId}/viewers`,
+      path: `stories/${storyId}/reactions`,
+    });
+
+    return response.data;
+  },
+
+  /** React to someone's story; reacting again replaces the reaction. */
+  async react(storyId: string, type: ReactionType, anonymous: boolean): Promise<void> {
+    if (USE_MOCK_API) {
+      return;
+    }
+
+    await httpClient.requestVoid<{ anonymous: boolean; type: ReactionType }>({
+      body: { anonymous, type },
+      method: 'POST',
+      path: `stories/${storyId}/reactions`,
+    });
+  },
+
+  async removeReaction(storyId: string): Promise<void> {
+    if (USE_MOCK_API) {
+      return;
+    }
+
+    await httpClient.requestVoid({ method: 'DELETE', path: `stories/${storyId}/reactions` });
+  },
+
+  /**
+   * Reply to a story. It lands in your conversation with its owner, or in an
+   * anonymous conversation when `anonymous` (and the owner allowed it).
+   */
+  async reply(storyId: string, content: string, anonymous: boolean): Promise<{ conversationId: string }> {
+    if (USE_MOCK_API) {
+      return { conversationId: 'mock-conversation-1' };
+    }
+
+    const response = await httpClient.requestJson<
+      { data: { conversationId: string } },
+      { anonymous: boolean; content: string }
+    >({
+      body: { anonymous, content },
+      method: 'POST',
+      path: `stories/${storyId}/reply`,
     });
 
     return response.data;

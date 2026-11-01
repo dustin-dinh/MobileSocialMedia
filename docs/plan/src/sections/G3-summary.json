@@ -1,0 +1,22 @@
+[
+ {"id": "B5", "name": "Làm mờ nội dung nhạy cảm toàn app", "phase": 2, "be_days": 7, "mb_days": 5, "qa_days": 2,
+  "depends": ["C1", "C2"],
+  "flows": ["b5-quet-anh-khi-tai-len", "b5-quet-video-story", "b5-hien-thi-nhay-cam"],
+  "new_services": ["ffmpeg phía máy chủ để lấy khung hình video (nếu chọn cách A; thư viện backend mới)"],
+  "risks": ["Mô hình làm mờ nhầm ảnh hở da; giữ nhầm bài ở ngưỡng 0,9 cần đo trước", "CPU máy chủ tăng (0,5–0,7 giây mỗi ảnh, 3–5 khung mỗi video)", "Mô hình chỉ nhận diện khỏa thân/gợi dục, không nhận diện bạo lực hay xâm hại trẻ em", "Khác đề xuất C1 về quét trước/sau khi hiện và khi thiếu mô hình: cần chủ dự án chọn"]},
+ {"id": "B6", "name": "Bảo vệ 18+ và xác minh tuổi (báo cáo dưới 18, khóa, kháng nghị)", "phase": 2, "be_days": 5, "mb_days": 4, "qa_days": 2,
+  "depends": ["C1", "C2", "C3", "E2"],
+  "flows": ["b6-bao-cao-duoi-18", "b6-khang-nghi-tuoi"],
+  "new_services": ["Dịch vụ xác minh tuổi bên ngoài (eKYC / ước lượng tuổi từ khuôn mặt / định danh điện tử) nếu chọn, tính phí mỗi lượt, thêm 3–5 ngày tích hợp"],
+  "risks": ["Lưu ảnh giấy tờ tùy thân và dữ liệu sinh trắc (Nghị định 13/2023, Luật BVDLCN)", "Báo cáo sai để quấy rối", "Người dưới 18 dùng giấy tờ người khác", "Thời hạn xóa tài khoản và giữ dữ liệu cần luật sư xác nhận"]},
+ {"id": "B7", "name": "Bộ lọc bình luận, từ ngữ ẩn và giới hạn ai được bình luận", "phase": 2, "be_days": 4, "mb_days": 4, "qa_days": 2,
+  "depends": ["B8"],
+  "flows": ["b7-gui-binh-luan", "b7-duyet-binh-luan-an"],
+  "new_services": [],
+  "risks": ["Chặn nhầm vì tiếng Việt bỏ dấu dễ trùng từ", "Người dùng lách bằng cách viết khác; danh sách từ cần cập nhật thường xuyên", "Danh sách từ nặng/nhẹ phải do người soạn và duyệt trước khi kiểm thử"]},
+ {"id": "B8", "name": "Hạn chế (Restrict) và tắt tiếng (Mute)", "phase": 1, "be_days": 4, "mb_days": 3, "qa_days": 2,
+  "depends": [],
+  "flows": ["b8-han-che", "b8-tat-tieng"],
+  "new_services": [],
+  "risks": ["Lộ việc bị hạn chế qua chi tiết nhỏ trong phản hồi API (số đếm, đã xem)", "Hộp thư xếp theo từng người xem làm truy vấn phức tạp hơn", "Cần thống nhất với B1 (tin nhắn chờ) và D8 (cài đặt thông báo)"]}
+]

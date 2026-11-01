@@ -16,7 +16,7 @@ const NEW_NOTIFICATION_EVENT = 'notification:new';
 const listeners = new Set<Listener>();
 
 /** Events whose payload is handed to subscribers as is (direct messages). */
-const FORWARDED_EVENTS = ['message:new', 'message:read'] as const;
+const FORWARDED_EVENTS = ['message:new', 'message:read', 'conversation:updated'] as const;
 type ForwardedEvent = (typeof FORWARDED_EVENTS)[number];
 type EventHandler = (payload: unknown) => void;
 const eventHandlers = new Map<string, Set<EventHandler>>();

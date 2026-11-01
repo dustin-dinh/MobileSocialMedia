@@ -5,7 +5,7 @@ import {
     NestInterceptor,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { map, Observable } from 'rxjs';
+import { mergeMap, Observable } from 'rxjs';
 
 import { resolveMediaUrls } from './media-url';
 
@@ -15,6 +15,6 @@ export class MediaUrlInterceptor implements NestInterceptor {
     intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
         const host = context.switchToHttp().getRequest<Request>().hostname;
 
-        return next.handle().pipe(map((body) => resolveMediaUrls(body, host)));
+        return next.handle().pipe(mergeMap((body) => resolveMediaUrls(body, host)));
     }
 }

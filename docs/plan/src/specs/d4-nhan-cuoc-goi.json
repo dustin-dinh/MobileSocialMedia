@@ -1,0 +1,226 @@
+{
+ "id": "d4-nhan-cuoc-goi",
+ "title": "Nhận cuộc gọi khi app đang tắt và kết nối âm thanh/video",
+ "lanes": [
+  {
+   "name": "Hệ điều hành"
+  },
+  {
+   "name": "Ứng dụng người nhận"
+  },
+  {
+   "name": "Máy chủ"
+  },
+  {
+   "name": "Dịch vụ ngoài"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 2,
+   "row": 0,
+   "label": "Có cuộc gọi tới"
+  },
+  {
+   "id": "push",
+   "type": "process",
+   "lane": 3,
+   "row": 0,
+   "label": "APNs VoIP / FCM ưu tiên cao"
+  },
+  {
+   "id": "os",
+   "type": "decision",
+   "lane": 0,
+   "row": 1,
+   "label": "iOS hay Android?"
+  },
+  {
+   "id": "and",
+   "type": "process",
+   "lane": 1,
+   "row": 1,
+   "label": "Xử lý FCM nền, mở ConnectionService"
+  },
+  {
+   "id": "ios",
+   "type": "process",
+   "lane": 0,
+   "row": 2,
+   "label": "PushKit đánh thức app, báo CallKit ngay"
+  },
+  {
+   "id": "ui",
+   "type": "io",
+   "lane": 0,
+   "row": 3,
+   "label": "Màn hình cuộc gọi, cả khi khóa máy"
+  },
+  {
+   "id": "pick",
+   "type": "decision",
+   "lane": 0,
+   "row": 4,
+   "label": "Bắt máy?"
+  },
+  {
+   "id": "dc",
+   "type": "process",
+   "lane": 1,
+   "row": 4,
+   "label": "Gửi call:decline"
+  },
+  {
+   "id": "ddb",
+   "type": "data",
+   "lane": 2,
+   "row": 4,
+   "label": "Ghi DECLINED hoặc MISSED"
+  },
+  {
+   "id": "open",
+   "type": "process",
+   "lane": 0,
+   "row": 5,
+   "label": "Mở app, bật micro/camera"
+  },
+  {
+   "id": "acc",
+   "type": "process",
+   "lane": 1,
+   "row": 5,
+   "label": "Kết nối socket, gửi call:accept"
+  },
+  {
+   "id": "still",
+   "type": "decision",
+   "lane": 2,
+   "row": 5,
+   "label": "Cuộc gọi còn chờ?"
+  },
+  {
+   "id": "sdp",
+   "type": "process",
+   "lane": 2,
+   "row": 6,
+   "label": "Chuyển offer, answer, ICE qua socket"
+  },
+  {
+   "id": "ice",
+   "type": "decision",
+   "lane": 1,
+   "row": 7,
+   "label": "Nối thẳng được (STUN)?"
+  },
+  {
+   "id": "turn",
+   "type": "process",
+   "lane": 3,
+   "row": 7,
+   "label": "Chuyển tiếp qua máy TURN"
+  },
+  {
+   "id": "end",
+   "type": "end",
+   "lane": 1,
+   "row": 8,
+   "label": "Đang gọi hai chiều"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "push"
+  },
+  {
+   "from": "push",
+   "to": "os"
+  },
+  {
+   "from": "os",
+   "to": "ios",
+   "label": "iOS"
+  },
+  {
+   "from": "os",
+   "to": "and",
+   "label": "Android"
+  },
+  {
+   "from": "and",
+   "to": "ui",
+   "exit": "bottom",
+   "entry": "right",
+   "via": [
+    [
+     1,
+     3
+    ]
+   ]
+  },
+  {
+   "from": "ios",
+   "to": "ui"
+  },
+  {
+   "from": "ui",
+   "to": "pick"
+  },
+  {
+   "from": "pick",
+   "to": "dc",
+   "label": "Không"
+  },
+  {
+   "from": "dc",
+   "to": "ddb"
+  },
+  {
+   "from": "pick",
+   "to": "open",
+   "label": "Có"
+  },
+  {
+   "from": "open",
+   "to": "acc"
+  },
+  {
+   "from": "acc",
+   "to": "still"
+  },
+  {
+   "from": "still",
+   "to": "ddb",
+   "label": "Không",
+   "exit": "top",
+   "entry": "bottom"
+  },
+  {
+   "from": "still",
+   "to": "sdp",
+   "label": "Có"
+  },
+  {
+   "from": "sdp",
+   "to": "ice"
+  },
+  {
+   "from": "ice",
+   "to": "end",
+   "label": "Có"
+  },
+  {
+   "from": "ice",
+   "to": "turn",
+   "label": "Không"
+  },
+  {
+   "from": "turn",
+   "to": "end",
+   "exit": "bottom",
+   "entry": "right"
+  }
+ ]
+}

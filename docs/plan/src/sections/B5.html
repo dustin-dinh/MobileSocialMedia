@@ -1,0 +1,163 @@
+<h3>B5. Làm mờ nội dung nhạy cảm toàn app</h3>
+<p><i>Nhóm: An toàn và kiểm duyệt · Giai đoạn: GĐ2 · Ước lượng: 13–15 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện nay chỉ ảnh trong tin nhắn được máy tự nhận diện và làm mờ. Ảnh bài viết, video, story, ảnh đại diện và ảnh bìa thì hiện thẳng, nên người dùng có thể bất ngờ thấy ảnh khỏa thân hoặc gợi dục trên bảng tin. Tính năng này đưa cùng bộ nhận diện sang mọi nơi có ảnh và video công khai, cho tác giả tự gắn nhãn "nhạy cảm", cho người xem chọn làm mờ hay ẩn hẳn, và đưa nội dung có điểm rất cao vào hàng đợi kiểm duyệt (C1). Người được lợi là người xem (không bị sốc), tác giả (không bị gỡ bài oan vì một ảnh hở da) và đội kiểm duyệt (chỉ phải xem phần rủi ro cao).</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Bộ nhận diện ảnh đã có</b>: <i>apps/api/src/modules/moderation/image-moderation.service.ts</i>. Mô hình ONNX <i>AdamCodd/vit-base-nsfw-detector</i> (ảnh 384×384, hai nhãn sfw / nsfw), chạy trên máy chủ bằng <i>onnxruntime-node</i>, ảnh được giải mã bằng <i>sharp</i>. Hàm <i>classify(buffer)</i> chỉ trả <i>{ sensitive: true/false }</i>, không trả điểm. Ngưỡng <i>IMAGE_MODERATION_THRESHOLD</i> mặc định 0,7.</li>
+<li><b>Khi không có mô hình</b> (chưa tải hoặc nạp lỗi): <i>classify</i> trả "không nhạy cảm", trừ khi đặt <i>IMAGE_MODERATION_REQUIRED=true</i> thì ném lỗi 503. <b>Khi ảnh hỏng, chấm lỗi</b>: coi là nhạy cảm. Hàm <i>status()</i> trả <i>ready / unavailable</i> và trang quản trị hiện cảnh báo (<i>admin.service.ts</i>, mục thống kê).</li>
+<li><b>Nơi duy nhất đang gọi bộ nhận diện</b>: gửi ảnh tin nhắn trong <i>messages/messages.service.ts</i>. Kết quả lưu vào <i>Message.sensitive</i>. Ứng dụng làm mờ bằng <i>blurRadius</i> của <i>expo-image</i> và hiện "Ảnh có thể nhạy cảm · Chạm để xem" (<i>apps/mobile/src/features/messages/screens/ChatScreen.tsx</i>); người gửi thấy dòng báo ảnh bị làm mờ với người nhận.</li>
+<li><b>Ảnh bài viết</b>: đi qua máy chủ (<i>POST /posts</i>, <i>PATCH /posts/:id</i>, tối đa 4 ảnh, mỗi ảnh ≤ 5 MB, JPEG/PNG/WebP) trong <i>posts/posts.service.ts</i>. Không quét. Bảng <i>PostMedia</i> không có cột nhạy cảm.</li>
+<li><b>Video bài viết và story</b>: điện thoại tải thẳng tệp lên kho qua <i>POST /media/upload-url</i>; máy chủ chỉ đọc loại tệp và dung lượng (<i>HeadObject</i>), không đọc nội dung (<i>posts.service.ts</i> hàm <i>createWithMedia</i>, <i>stories/stories.service.ts</i> hàm <i>create</i>). Ảnh bìa video do điện thoại tạo bằng <i>expo-video-thumbnails</i> ở giây 0,5 (<i>reel/services/reelService.ts</i>). Thời lượng video do điện thoại báo (có ghi chú "shortcut" trong code). <i>StorageService</i> chưa có hàm đọc tệp từ kho.</li>
+<li><b>Ảnh đại diện, ảnh bìa</b>: đi qua máy chủ (<i>POST /users/me/avatar</i>, <i>/users/me/cover</i>, ≤ 5 MB) trong <i>users/users.service.ts</i> hàm <i>setImage</i>. Không quét.</li>
+<li><b>Báo cáo</b>: đã có lý do <i>SENSITIVE</i> ("Nội dung nhạy cảm") cho bài viết, bình luận, người dùng (<i>reports/dto/create-report.dto.ts</i>). Báo cáo chỉ vào danh sách cho quản trị viên, không tự làm mờ.</li>
+<li><b>Chưa có</b>: nhãn nhạy cảm cho bài viết / story / ảnh đại diện; tác giả tự gắn nhãn; cài đặt của người xem; quét video; quét bù; hàng đợi kiểm duyệt (C1, chưa có trong code). <i>docs/moderation/MODERATION_PLAN.md</i> mục 8 đã ghi đây là kế hoạch.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p>Mỗi ảnh hoặc video công khai có một <b>nhãn nhạy cảm</b> (có / không) kèm <b>nguồn</b>: tác giả tự gắn, máy nhận diện, nhiều người báo cáo, hoặc quản trị viên. Nội dung có điểm rất cao thì bị <b>giữ lại</b>: chỉ tác giả thấy, kèm dòng "Đang được xem xét", cho tới khi người duyệt quyết định.</p>
+<p>Đề xuất hai ngưỡng: <b>0,7</b> (đang dùng cho tin nhắn) thì làm mờ; <b>0,9</b> thì giữ lại và đưa vào hàng đợi C1. Theo nguyên tắc ở <i>MODERATION_PLAN.md</i>, máy chủ không lưu điểm số, chỉ lưu kết quả đã quy đổi (bình thường / làm mờ / giữ lại).</p>
+
+<p><b>Luồng 1: Đăng ảnh qua máy chủ (ảnh bài viết, ảnh đại diện, ảnh bìa)</b></p>
+<ol>
+<li>Người dùng chọn ảnh. Ở màn tạo bài có công tắc "Đánh dấu nội dung nhạy cảm" (mặc định tắt). Ảnh đại diện và ảnh bìa không có công tắc này.</li>
+<li>Ứng dụng gửi ảnh kèm cờ tự gắn nhãn như hiện nay (multipart).</li>
+<li>Máy chủ kiểm tra loại và dung lượng như hiện nay.</li>
+<li>Máy chủ xem bộ nhận diện có sẵn không:
+  <ul>
+  <li>Không có, và <i>IMAGE_MODERATION_REQUIRED=true</i>: trả 503, không lưu ảnh. Ứng dụng báo "Chưa kiểm tra được ảnh, vui lòng thử lại sau".</li>
+  <li>Không có, và không bắt buộc: lưu như bình thường và tạo một việc quét ở trạng thái chờ (bảng <i>ScanJob</i> của C1). Khi mô hình chạy lại, máy chủ quét bù (luồng 4).</li>
+  </ul></li>
+<li>Có mô hình: chấm từng ảnh (khoảng 0,5–0,7 giây một ảnh trên CPU; bài 4 ảnh mất tới khoảng 3 giây). Ảnh hỏng, chấm lỗi thì coi như đạt ngưỡng làm mờ, giống tin nhắn.</li>
+<li>Điểm ≥ 0,7, hoặc tác giả tự gắn: ảnh có nhãn nhạy cảm, ghi nguồn (MODEL hoặc AUTHOR).</li>
+<li>Điểm ≥ 0,9: bài (hoặc ảnh đại diện, ảnh bìa mới) bị giữ lại. Tác giả thấy "Đang được xem xét". Máy chủ tạo một mục trong hàng đợi C1. Với ảnh đại diện / ảnh bìa bị giữ, người khác vẫn thấy ảnh cũ (hoặc ảnh mặc định nếu chưa có ảnh cũ).</li>
+<li>Còn lại: lưu và hiện ngay. Ảnh có nhãn thì người xem thấy bản mờ.</li>
+</ol>
+
+<p><b>Luồng 2: Đăng video hoặc story (tệp tải thẳng lên kho)</b></p>
+<ol>
+<li>Điện thoại tạo ảnh bìa và tải tệp lên kho như hiện nay, gửi kèm cờ tự gắn nhãn.</li>
+<li>Máy chủ kiểm tra loại và dung lượng như hiện nay, rồi lưu bài / story ở trạng thái "đang xử lý". Tác giả thấy bài của mình kèm nhãn "Đang xử lý". Người khác chưa thấy.</li>
+<li>Tiến trình quét nền của C1 (chạy trong chính tiến trình API, lấy việc từ bảng <i>ScanJob</i>, không thêm hệ thống hàng đợi) lấy ảnh bìa và 3–5 khung hình (đầu, 25%, 50%, 75%, cuối) rồi chấm từng khung. Story ảnh thì chấm chính ảnh đó. Có hai cách lấy khung hình, chủ dự án chọn (mục g).</li>
+<li>Chấm lỗi (đọc tệp hỏng, mô hình không có): thử lại sau 1 phút, tối đa 3 lần. Vẫn lỗi thì xử lý như khi thiếu mô hình: nếu không bắt buộc quét thì công khai với trạng thái "chưa quét"; nếu bắt buộc thì giữ ẩn và báo trên trang quản trị.</li>
+<li>Khung nào ≥ 0,9: giữ ẩn, đưa vào hàng đợi C1.</li>
+<li>Khung nào ≥ 0,7, hoặc tác giả tự gắn: gắn nhãn nhạy cảm.</li>
+<li>Công khai. Thông thường toàn bộ mất 2–10 giây (đề xuất giới hạn: quá 2 phút vẫn "đang xử lý" thì coi là lỗi và xử lý như bước 4).</li>
+</ol>
+
+<p><b>Luồng 3: Người xem mở bảng tin, Reels, story, trang cá nhân</b></p>
+<ol>
+<li>Máy chủ lọc trước khi trả danh sách. Nội dung bị giữ chỉ trả cho tác giả. Bộ lọc này đặt trong <i>visiblePostWhere</i> (<i>posts/post-view.ts</i>), nơi duy nhất quyết định ai xem được bài nào, nên mọi màn hình dùng chung.</li>
+<li>Người xem chọn "Ẩn hẳn" trong Cài đặt: bảng tin, Reels, tìm kiếm và khay story bỏ hẳn nội dung có nhãn. Trên trang cá nhân và màn chi tiết bài viết, ứng dụng hiện ô "Nội dung nhạy cảm đã ẩn · Xem".</li>
+<li>Người xem để mặc định "Làm mờ": máy chủ trả kèm <i>sensitive: true</i>. Ứng dụng hiện ảnh mờ (cùng cách tin nhắn đang làm), dòng "Nội dung có thể nhạy cảm", nút "Xem". Video không tự phát, chỉ hiện ảnh bìa mờ. Story dừng đếm giờ cho tới khi người xem chọn "Xem" hoặc "Bỏ qua".</li>
+<li>Người xem chạm "Xem": hiện rõ lần đó. Ứng dụng nhớ lựa chọn cho bài đó trong phiên đang mở, không lưu lên máy chủ.</li>
+<li>Tác giả luôn thấy bản gốc của mình, kèm nhãn và nguồn nhãn (ví dụ "Hệ thống đã đánh dấu ảnh này là nhạy cảm · Yêu cầu xem lại").</li>
+<li>Ảnh đại diện có nhãn: ở danh sách (bảng tin, bình luận, tin nhắn, tìm kiếm) ứng dụng hiện ảnh mặc định, vì ảnh nhỏ không có chỗ cho nút "Xem". Trên trang cá nhân thì hiện bản mờ, chạm để xem. Ảnh bìa có nhãn hiện mờ, chạm để xem.</li>
+<li>Tin nhắn giữ nguyên cách đang làm (luôn làm mờ với người nhận). Cài đặt "Ẩn hẳn" không áp dụng cho tin nhắn, vì người nhận cần biết có ảnh gửi đến.</li>
+</ol>
+
+<p><b>Luồng 4: Quét bù khi mô hình chạy lại</b></p>
+<ol>
+<li>Khi API khởi động và nạp được mô hình, tiến trình quét lấy các việc quét còn chờ của ảnh, video, story trong 7 ngày gần nhất (story: còn hạn) và chấm lần lượt, tối đa 2 tệp cùng lúc để không chiếm hết CPU.</li>
+<li>Kết quả xử lý như luồng 1 và 2. Bài đã đăng mà bị giữ thì tác giả nhận thông báo "Bài viết của bạn đang được xem xét".</li>
+</ol>
+
+<p><b>Luồng 5: Nhiều người báo cáo "Nội dung nhạy cảm"</b></p>
+<ol>
+<li>Một bài nhận báo cáo lý do <i>SENSITIVE</i> từ 3 người khác nhau (đề xuất) trong 7 ngày: máy chủ tự gắn nhãn nhạy cảm (nguồn REPORT) và đưa vào hàng đợi C1.</li>
+<li>Người duyệt quyết định: bỏ nhãn, giữ nhãn, hoặc gỡ bài (C2).</li>
+</ol>
+
+<p><b>Luồng 6: Tác giả không đồng ý với nhãn</b></p>
+<ol>
+<li>Tác giả bấm "Yêu cầu xem lại" trên bài của mình. Mỗi ảnh / video chỉ được yêu cầu một lần.</li>
+<li>Yêu cầu vào hàng đợi C1 với mức ưu tiên thấp. Trong lúc chờ, nhãn vẫn giữ.</li>
+<li>Người duyệt bỏ nhãn hoặc giữ. Tác giả nhận thông báo kết quả. Nhãn do tác giả tự gắn thì tác giả tự gỡ được bất cứ lúc nào bằng cách sửa bài.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: quét ảnh đi qua máy chủ khi tải lên và gắn nhãn.</p>
+<!--FLOW:b5-quet-anh-khi-tai-len-->
+<p>Sơ đồ 2: quét video và story được điện thoại tải thẳng lên kho.</p>
+<!--FLOW:b5-quet-video-story-->
+<p>Sơ đồ 3: máy chủ và ứng dụng quyết định cách hiện nội dung cho từng người xem.</p>
+<!--FLOW:b5-hien-thi-nhay-cam-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Ngưỡng (đề xuất)</b>: làm mờ từ 0,7 (giữ như tin nhắn); giữ lại chờ duyệt từ 0,9. Hai ngưỡng đặt bằng biến môi trường. Trước khi chốt, đo trên 200–300 ảnh có gán nhãn (<i>MODERATION_PLAN.md</i> mục 8.6) để biết tỉ lệ giữ nhầm.</li>
+<li><b>Mô hình chỉ nhận diện khỏa thân, gợi dục.</b> Nó không nhận diện bạo lực, máu me, ma túy. Các loại này chỉ có nhãn khi tác giả tự gắn, khi bị báo cáo, hoặc khi thêm mô hình khác (ngoài phạm vi B5).</li>
+<li><b>Ảnh xâm hại trẻ em</b>: mô hình này không phát hiện đáng tin, không dùng thay công cụ chuyên dụng (đối chiếu dấu vân tay ảnh đã biết). Việc đăng ký công cụ đó và báo cáo cho cơ quan chức năng là trách nhiệm người vận hành (<i>MODERATION_PLAN.md</i> mục 4).</li>
+<li><b>Thiếu mô hình</b>: mặc định vẫn đăng được, ghi "chưa quét", trang quản trị hiện cảnh báo đỏ kèm số mục chưa quét. Bật <i>IMAGE_MODERATION_REQUIRED=true</i> thì ảnh qua máy chủ bị từ chối (503), còn video / story nằm ở "đang xử lý" cho tới khi quét được. Story hết hạn sau 24 giờ thì bỏ qua.</li>
+<li><b>Chấm lỗi một ảnh</b> (tệp hỏng, định dạng lạ): coi là nhạy cảm (làm mờ), không đưa vào hàng đợi.</li>
+<li><b>Tải chậm</b>: bài 4 ảnh chờ thêm tới khoảng 3 giây. Ứng dụng giữ trạng thái "Đang đăng" như hiện nay. Nếu thấy chậm, chuyển ảnh sang quét nền như video (đổi lại: ảnh hiện ra rồi mới mờ).</li>
+<li><b>Sửa bài</b> (thêm, thay ảnh): ảnh mới được quét như khi đăng. Bỏ ảnh có nhãn thì nhãn đi theo ảnh đó.</li>
+<li><b>Đăng lại (repost)</b>: dùng nhãn của bài gốc.</li>
+<li><b>Người xem đổi cài đặt</b>: áp dụng từ lần tải danh sách tiếp theo.</li>
+<li><b>Lạm dụng báo cáo</b> để làm mờ bài của người khác: hậu quả nhẹ (chỉ mờ) và quản trị viên gỡ được. Chỉ tính người báo cáo có tài khoản từ 7 ngày tuổi (đề xuất, giống luật nhắn ẩn danh).</li>
+<li><b>Làm mờ ở ứng dụng chỉ để tôn trọng người xem</b>, không phải để giấu ảnh: ứng dụng vẫn tải ảnh gốc. Ảnh công khai vẫn nằm trong kho công khai như hiện nay.</li>
+<li><b>Riêng tư</b>: ảnh không gửi ra ngoài; không lưu điểm số; nhật ký máy chủ không ghi nội dung ảnh.</li>
+<li><b>Nhiều bản API</b>: tiến trình quét phải khóa việc trước khi làm để hai bản không quét trùng (C1 đã ghi cách làm).</li>
+<li><b>Chỗ B5 khác đề xuất C1, chủ dự án chọn</b>: (1) C1 cho nội dung hiện ngay rồi mới quét; B5 đề xuất ảnh qua máy chủ được quét trước khi lưu (chờ thêm tới 3 giây), video và story chỉ hiện với người khác sau khi quét (2–10 giây), để không có lúc ảnh nhạy cảm hiện rõ trên bảng tin. (2) C1 đưa mọi nội dung có ảnh vào hàng đợi khi mô hình không chạy; B5 đề xuất chỉ ghi việc quét chờ và quét bù, vì mô hình hỏng một ngày có thể đẩy hàng nghìn mục vào hàng đợi. (3) Ảnh 0,7–0,9: B5 đề xuất chỉ làm mờ, không vào hàng đợi; C1 có mức "cần xem" (P3), cần thống nhất ngưỡng.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Tất cả là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và thống nhất với người phụ trách backend trước khi code.</p>
+<table>
+<tr><th>Bảng</th><th>Trường mới</th><th>Ý nghĩa</th></tr>
+<tr><td>PostMedia</td><td>sensitive Boolean (mặc định false), sensitiveSource String? (AUTHOR / MODEL / REPORT / ADMIN)</td><td>Nhãn theo từng ảnh / video. Trạng thái quét nằm ở bảng <i>ScanJob</i> của C1; ảnh cũ được tạo việc quét bù một lần.</td></tr>
+<tr><td>Post</td><td>markedSensitive Boolean, pendingScan Boolean</td><td>Tác giả tự gắn nhãn; đang chờ quét lần đầu (video). Việc "giữ chờ duyệt" dùng trường <i>hiddenAt</i> và mục <i>ModerationCase</i> mà C1 đề xuất, không thêm trường riêng.</td></tr>
+<tr><td>Story</td><td>sensitive, sensitiveSource, markedSensitive, pendingScan</td><td>Như trên; giữ chờ duyệt dùng <i>hiddenAt</i> của C1</td></tr>
+<tr><td>User</td><td>avatarSensitive Boolean, coverSensitive Boolean, avatarHeldUrl String?, coverHeldUrl String?, sensitiveFilter String (BLUR / HIDE, mặc định BLUR)</td><td>Nhãn ảnh đại diện, ảnh bìa; ảnh mới đang chờ duyệt; cài đặt của người xem</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Thay đổi</th></tr>
+<tr><td>POST /posts, PATCH /posts/:id</td><td>Thêm trường multipart <i>markSensitive</i> (true/false). Có thể trả 503 <i>IMAGE_CHECK_UNAVAILABLE</i> khi bắt buộc quét mà thiếu mô hình.</td></tr>
+<tr><td>POST /posts/media, POST /stories</td><td>Thêm <i>markSensitive</i>. Trả bài / story với <i>processing: true</i> cho tới khi quét xong.</td></tr>
+<tr><td>Bài viết, story trả về</td><td>Mỗi media thêm <i>sensitive</i>. Chỉ tác giả nhận thêm <i>sensitiveSource</i>, <i>held</i>, <i>processing</i>.</td></tr>
+<tr><td>authorSelect (mọi chỗ trả người dùng)</td><td>Thêm <i>avatarSensitive</i>. Hồ sơ thêm <i>coverSensitive</i>.</td></tr>
+<tr><td>PATCH /users/me</td><td>Thêm <i>sensitiveFilter</i> (BLUR / HIDE).</td></tr>
+<tr><td>POST /posts/:id/media/:mediaId/review-request</td><td>Tác giả yêu cầu xem lại nhãn (một lần mỗi media).</td></tr>
+<tr><td>Quản trị</td><td>Thống kê thêm số mục chưa quét; POST /admin/media/:id/sensitive và DELETE (gắn / bỏ nhãn); hàng đợi do C1 định nghĩa.</td></tr>
+</table>
+<p>Trong code: <i>ImageModerationService</i> thêm hàm trả xác suất (chỉ dùng trong bộ nhớ, không lưu); <i>StorageService</i> thêm hàm đọc tệp từ kho (<i>GetObject</i>); tiến trình quét nền và bảng <i>ScanJob</i> dùng chung với C1 cho video, story và quét bù.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Làm mờ</b>: dùng <i>blurRadius</i> của <i>expo-image</i>, đã chạy trong tin nhắn và hỗ trợ cả Android và iOS. Nên tách thành một thành phần dùng chung (ảnh mờ + nút "Xem" + nhãn cho trình đọc màn hình), dùng ở <i>PostCard</i>, <i>FeedVideo</i>, <i>ReelPlayer</i>, <i>StoryViewerScreen</i>, <i>ProfileHeader</i>. Không cần thư viện mới. Độ mờ phải đủ trên cả hai nền tảng (Android và iOS xử lý <i>blurRadius</i> khác nhau một chút): kiểm tra bằng mắt trên máy thật cả hai bên.</li>
+<li><b>Video</b>: video có nhãn không tự phát trên cả hai nền tảng; hiện ảnh bìa mờ thay cho trình phát cho tới khi chạm.</li>
+<li><b>Lấy khung hình video, chủ dự án chọn một</b>:
+  <ul>
+  <li>Cách A: máy chủ dùng ffmpeg (thư viện mới phía backend, khoảng 70 MB, tốn CPU). Tin được vì máy chủ đọc chính tệp đã tải lên; cũng dùng được để đo thời lượng thật (đang tin số điện thoại báo).</li>
+  <li>Cách B: điện thoại tạo thêm 3–5 khung hình bằng <i>expo-video-thumbnails</i> (đã cài, chạy cả hai nền tảng) và tải lên cùng video. Làm nhanh, không thêm thư viện, nhưng người cố ý có thể gửi khung hình giả.</li>
+  </ul>
+  Đề xuất: Cách A.</li>
+<li><b>Quyền thiết bị</b>: không cần quyền mới.</li>
+<li><b>App Store / Google Play</b>: cả hai yêu cầu app có nội dung người dùng tạo phải có lọc nội dung, báo cáo và chặn. Tính năng này góp phần đáp ứng. Mức "Không làm mờ" (hiện thẳng nội dung nhạy cảm) không đưa vào bản này vì có thể vướng quy định App Store về nội dung khiêu dâm: cần chủ dự án quyết và kiểm tra quy định trước khi thêm.</li>
+<li><b>Web</b>: trang quản trị đã làm mờ ảnh tin nhắn cho người duyệt; hàng đợi C1 dùng cùng cách. Nếu ứng dụng chạy trên web (<i>react-native-web</i> đang có trong dự án) thì <i>blurRadius</i> trên web cần kiểm tra.</li>
+<li><b>Chi phí</b>: không có dịch vụ ngoài. Tốn thêm CPU máy chủ: khoảng 0,5–0,7 giây cho mỗi ảnh; mỗi video thêm 3–5 lần chấm. Máy chủ nhiều lượt đăng thì cần thêm CPU hoặc tách tiến trình quét riêng.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Đăng bài có ảnh nhạy cảm (ảnh thử ≥ 0,7): người theo dõi thấy ảnh mờ, chạm "Xem" thì hiện rõ; tác giả thấy bản gốc kèm nhãn.</li>
+<li>Ảnh thử ≥ 0,9: bài bị giữ, tác giả thấy "Đang được xem xét", người khác không thấy, hàng đợi C1 có mục mới.</li>
+<li>Tác giả bật "Đánh dấu nội dung nhạy cảm": bài mờ với người khác dù ảnh bình thường.</li>
+<li>Video và story nhạy cảm: không tự phát, ảnh bìa mờ; story dừng đếm giờ cho tới khi chọn.</li>
+<li>Ảnh đại diện nhạy cảm: danh sách hiện ảnh mặc định; trang cá nhân hiện mờ.</li>
+<li>Người xem chọn "Ẩn hẳn": bảng tin, Reels, tìm kiếm, khay story không còn nội dung có nhãn; trang cá nhân hiện ô "đã ẩn".</li>
+<li>Tắt mô hình (đổi tên thư mục mô hình): ảnh vẫn đăng được, ghi "chưa quét", trang quản trị cảnh báo; bật lại thì quét bù. Với <i>IMAGE_MODERATION_REQUIRED=true</i>: đăng ảnh bị 503 với thông báo tiếng Việt.</li>
+<li>Tệp ảnh hỏng: bị làm mờ, không làm sập máy chủ.</li>
+<li>3 người báo cáo "Nội dung nhạy cảm": bài tự mờ và vào hàng đợi.</li>
+<li>Chạy trên Android và trên iPhone, ghi rõ máy đã thử trong <i>docs/change.md</i>.</li>
+<li>Test tự động: thêm vào <i>safety-smoke.cjs</i> (ảnh thử nhạy cảm / bình thường, bài bị giữ không lộ ra bảng tin người khác, cài đặt "Ẩn hẳn").</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 7 ngày (nhãn và lọc trong <i>visiblePostWhere</i> 1,5; quét ảnh qua máy chủ 1; quét nền video / story và quét bù 2,5; báo cáo tự làm mờ, yêu cầu xem lại, quản trị 2). Mobile 5 ngày (thành phần làm mờ dùng chung và gắn vào 6 màn 2,5; công tắc tự gắn nhãn 0,5; cài đặt người xem 1; nhãn và "Đang xử lý" / "Đang được xem xét" cho tác giả 1). Kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: <b>C1</b> (hàng đợi kiểm duyệt, bảng <i>ScanJob</i>, tiến trình quét, trường <i>hiddenAt</i>) cho nội dung bị giữ, quét nền và yêu cầu xem lại; <b>C2</b> nếu gỡ bài kèm cảnh cáo. Nếu C1 chưa xong, tạm dùng bảng <i>Report</i> có sẵn (tạo báo cáo hệ thống) để nội dung bị giữ hiện trong trang quản trị.</li>
+<li>Rủi ro: mô hình làm mờ nhầm ảnh hở da (đã biết, chủ ý chặt tay); giữ nhầm bài ở ngưỡng 0,9 làm tác giả khó chịu, cần đo trước; CPU máy chủ tăng; quyết định ffmpeg là thêm thư viện backend.</li>
+</ul>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Kế hoạch tích hợp tính năng</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 20mm 20mm 30mm;
+    @bottom-center { content: counter(page); font-family: "Times New Roman", serif; font-size: 12pt; color: #000; }
+  }
+  html, body { background: #fff; }
+  body { font-family: "Times New Roman", Times, serif; font-size: 13pt; line-height: 1.5; color: #000; margin: 0; text-align: justify; }
+  h1 { font-size: 18pt; font-weight: bold; text-align: center; text-transform: uppercase; margin: 0 0 4pt; }
+  .subtitle { font-size: 14pt; font-weight: bold; text-align: center; margin: 0 0 6pt; }
+  .meta { text-align: center; font-style: italic; margin: 0 0 18pt; }
+  h2 { font-size: 15pt; font-weight: bold; text-transform: uppercase; margin: 18pt 0 6pt; break-after: avoid; }
+  h3 { font-size: 13pt; font-weight: bold; margin: 14pt 0 4pt; break-after: avoid; }
+  h3.group { font-size: 14pt; text-transform: uppercase; margin-top: 18pt; }
+  h4 { font-size: 13pt; font-weight: bold; font-style: italic; margin: 8pt 0 2pt; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 6pt; padding-left: 22pt; text-align: left; }
+  p:has(+ .fig), h4:has(+ .fig) { break-after: avoid; }
+  .toc ul { list-style: none; padding-left: 14pt; }
+  .toc > ul { padding-left: 0; }
+  .toc a { color: #000; text-decoration: none; }
+  li { margin: 0 0 2pt; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 8pt; font-size: 12pt; line-height: 1.35; }
+  th, td { border: 1px solid #000; padding: 3pt 5pt; vertical-align: top; text-align: left; }
+  th { font-weight: bold; }
+  tr { break-inside: avoid; }
+  .fig { break-inside: avoid; text-align: center; margin: 6pt 0 0; }
+  .fig svg { display: block; margin: 0 auto; height: auto; }
+  .caption { text-align: center; font-style: italic; margin: 4pt 0 10pt; break-before: avoid; }
+  .feature { break-before: page; }
+  .newpage { break-before: page; }
+</style>
+</head>
+<body>
+
+<h1>Kế hoạch tích hợp tính năng</h1>
+<p class="subtitle">Ứng dụng mạng xã hội trên di động (Mobile Social)</p>
+<p class="meta">Ngày lập: 31/10/2026 · Bản kế hoạch: chưa có dòng code nào được viết cho các tính năng trong tài liệu này</p>
+
+<h2>Mục lục</h2>
+<!--TOC-->
+
+<h2 class="newpage">I. Mục tiêu và cách đọc tài liệu</h2>
+<p><b>Mục tiêu.</b> Đưa sản phẩm lên mức khoảng 60% những gì Facebook và các mạng xã hội nhỏ đang có, đủ để người dùng thật dùng hằng ngày. Sản phẩm không cạnh tranh bằng số lượng tính năng mà bằng <b>sự an toàn</b>: tin nhắn chờ, nhắn ẩn danh có giới hạn, tự làm mờ ảnh nhạy cảm, cảnh báo lừa đảo và giới hạn 18+. Vì vậy nhóm an toàn được đặc tả kỹ nhất, và bảo mật tài khoản (trong đó có xác thực hai lớp) được đưa lên sớm.</p>
+<p><b>Tài liệu gồm:</b> định nghĩa thế nào là "hoàn hảo" (mục II), so sánh hiện trạng với Facebook (mục III), danh sách <!--FEATURE_COUNT--> tính năng chia bốn giai đoạn (mục IV), đặc tả chi tiết từng tính năng (mục V), rồi rủi ro, pháp lý, chi phí và các câu hỏi cần chủ dự án quyết (mục VI, VII).</p>
+<p><b>Mỗi tính năng ở mục V có chín phần cố định:</b> a) Mục đích · b) Hiện trạng trong code · c) Cách hoạt động, từng bước · d) Flowchart · e) Quy tắc, giới hạn và trường hợp đặc biệt · f) Dữ liệu và API đề xuất · g) Android, iOS và web · h) Tiêu chí hoàn thành · i) Ước lượng và phụ thuộc.</p>
+<p><b>Cách đọc flowchart.</b> Mỗi cột (làn) là một bên tham gia: người dùng, ứng dụng trên điện thoại, máy chủ, người nhận, quản trị viên hoặc dịch vụ bên ngoài. Thời gian đi từ trên xuống. Mũi tên đi từ cột này sang cột khác là lúc việc được chuyển cho bên kia.</p>
+<table>
+  <tr><th style="width:30%">Hình</th><th>Ý nghĩa</th></tr>
+  <tr><td>Hình bầu dục viền đậm</td><td>Điểm bắt đầu của luồng (nền trắng) hoặc điểm kết thúc (nền xám).</td></tr>
+  <tr><td>Hình chữ nhật</td><td>Một bước xử lý: ai đó làm một việc.</td></tr>
+  <tr><td>Hình thoi</td><td>Một câu hỏi; mỗi nhánh đi ra có nhãn trả lời (Có, Không hoặc điều kiện).</td></tr>
+  <tr><td>Hình bình hành</td><td>Màn hình ứng dụng hiện ra, hoặc người dùng nhập thông tin.</td></tr>
+  <tr><td>Hình trụ</td><td>Đọc hoặc ghi cơ sở dữ liệu (đường nét đứt: chỉ tra cứu).</td></tr>
+  <tr><td>Hình chữ nhật hai vạch dọc</td><td>Gọi sang một luồng khác đã vẽ riêng.</td></tr>
+</table>
+<p><b>Về các con số.</b> Giới hạn (số lần, số phút, số ngày) và ước lượng công sức trong tài liệu là <b>đề xuất</b>, dùng để bàn và chốt. Ước lượng tính theo ngày công của một lập trình viên đã quen code dự án. Mọi endpoint và bảng dữ liệu mới cũng là đề xuất: theo RULE.md, phải ghi vào <i>docs/api-contract.md</i> và được thống nhất trước khi code.</p>
+
+<h2 class="newpage">II. Thế nào là "hoàn hảo"</h2>
+<h3>1. Phạm vi "60% Facebook"</h3>
+<p>Facebook có hàng trăm tính năng, nhưng phần người dùng chạm tới mỗi ngày gồm: tài khoản an toàn, đăng và xem nội dung, tương tác, kết nối với người khác, nhắn tin, cộng đồng, thông báo, tìm kiếm, và một hệ thống an toàn và kiểm duyệt đứng sau. "60%" trong kế hoạch này nghĩa là <b>có đủ các vòng sử dụng đó ở mức người dùng không thấy thiếu</b>, chứ không phải đếm đủ 60% số tính năng.</p>
+<p><b>Không nằm trong kế hoạch</b> (chủ ý bỏ ra vì tốn công mà không phục vụ mục tiêu): Marketplace, Trang (Pages) cho doanh nghiệp, quảng cáo, phát trực tiếp (livestream), hẹn hò, trò chơi, sự kiện, gây quỹ, video dài.</p>
+<h3>2. Tiêu chí hoàn thành chung</h3>
+<p>Một tính năng chỉ được tính là "xong" khi đạt <b>tất cả</b> các điều sau. Đây là định nghĩa "hoàn hảo" dùng xuyên suốt tài liệu; phần h) của mỗi tính năng chỉ ghi thêm các tiêu chí riêng.</p>
+<ol>
+  <li><b>Đủ luồng:</b> có luồng chính, luồng lỗi, trạng thái đang tải, danh sách trống và mất mạng giữa chừng; người dùng luôn biết chuyện gì đang xảy ra và làm gì tiếp.</li>
+  <li><b>Chạy trên Android và iPhone</b> (và trên web khi bản web được bật), đã chạy thử trên máy thật hoặc máy ảo của từng nền tảng, và ghi rõ đã chạy ở đâu.</li>
+  <li><b>Tôn trọng an toàn:</b> người bị chặn, bị hạn chế, tài khoản bị khóa và tài khoản riêng tư được xử lý đúng ở cả API, socket và thông báo đẩy; có giới hạn tần suất để chống lạm dụng.</li>
+  <li><b>Quản trị được:</b> nếu tính năng tạo ra nội dung của người dùng thì nội dung đó báo cáo được, và quản trị viên xem và xử lý được.</li>
+  <li><b>Có kiểm thử tự động:</b> backend có phép thử trên API thật (theo kiểu các script <i>*-smoke.cjs</i> hiện có), mobile có test Jest cho phần logic.</li>
+  <li><b>Tiếng Việt thống nhất</b> và đọc được bằng trình đọc màn hình (nút có nhãn, chữ đủ tương phản).</li>
+  <li><b>Đo được:</b> có số liệu tối thiểu (bao nhiêu người dùng, bao nhiêu lỗi) để biết tính năng có được dùng và có chạy đúng không.</li>
+  <li><b>Có tài liệu:</b> cập nhật <i>docs/api-contract.md</i>, <i>docs/change.md</i>, và <i>docs/decisions.md</i> nếu có quyết định ảnh hưởng tới người khác.</li>
+</ol>
+
+<h2>III. Hiện trạng và khoảng trống so với Facebook</h2>
+<table>
+  <tr><th style="width:17%">Mảng</th><th style="width:30%">Facebook và các app nhỏ có</th><th style="width:31%">Sản phẩm đang có</th><th>Kế hoạch bổ sung</th></tr>
+  <tr><td>Tài khoản và bảo mật</td><td>Đăng nhập email hoặc số điện thoại, 2FA, cảnh báo đăng nhập lạ, quản lý thiết bị, chống dò mật khẩu</td><td>Email và mã xác thực, quên và đổi mật khẩu, Google (có code, chưa cấu hình), giới hạn 18+, phiên 30 ngày</td><td>A1–A6</td></tr>
+  <tr><td>Hồ sơ</td><td>Ảnh đại diện, ảnh bìa, tiểu sử, tài khoản riêng tư, dấu tick xác minh</td><td>Có đủ, trừ dấu tick</td><td>E4</td></tr>
+  <tr><td>Bài viết</td><td>Chữ, ảnh, video, quyền riêng tư, gắn thẻ, bình chọn, chia sẻ kèm lời bình, lịch sử sửa, ghim bài</td><td>Chữ, ảnh, video, quyền riêng tư, đăng lại, lưu, ẩn, hashtag, nhắc tên</td><td>D6</td></tr>
+  <tr><td>Bảng tin và Reels</td><td>Sắp xếp theo mức quan tâm, "vì sao tôi thấy bài này"</td><td>Bài của mình và người đang theo dõi; Reels đã ghi nhận tương tác nhưng chưa dùng để sắp xếp</td><td>D5</td></tr>
+  <tr><td>Tương tác</td><td>Cảm xúc, bình luận nhiều tầng, thích bình luận, lọc bình luận</td><td>Sáu cảm xúc, bình luận, trả lời, thích bình luận</td><td>B7</td></tr>
+  <tr><td>Story</td><td>Story 24 giờ, bạn thân, tin nổi bật, lưu trữ</td><td>Story ảnh và video, cảm xúc, trả lời (có thể ẩn danh)</td><td>D7</td></tr>
+  <tr><td>Kết nối</td><td>Theo dõi hoặc kết bạn, gợi ý, hạn chế, tắt tiếng</td><td>Theo dõi, yêu cầu theo dõi, gợi ý, chặn</td><td>B8</td></tr>
+  <tr><td>Nhắn tin</td><td>1-1 và nhóm, thu hồi, sửa, cảm xúc, ghi âm, video, gọi thoại và video</td><td>1-1 bằng chữ và ảnh, "Đã xem", tin nhắn chờ, nhắn ẩn danh có giới hạn</td><td>D1, D2, D4</td></tr>
+  <tr><td>Cộng đồng</td><td>Nhóm công khai, riêng tư, duyệt thành viên và bài</td><td>Chưa có</td><td>D3</td></tr>
+  <tr><td>Thông báo</td><td>Trong app, thông báo đẩy, cài đặt theo loại</td><td>Trong app và thời gian thực; thông báo đẩy có code nhưng chưa từng chạy thử</td><td>D8</td></tr>
+  <tr><td>Tìm kiếm</td><td>Người, bài, hashtag, lịch sử, tìm trong tin nhắn</td><td>Người, bài, hashtag thịnh hành</td><td>D9</td></tr>
+  <tr><td>An toàn</td><td>Báo cáo, chặn, hạn chế, lọc từ ngữ, cảnh báo lừa đảo, làm mờ, giới hạn tạm thời</td><td>Báo cáo, chặn, tin nhắn chờ, nhắn ẩn danh có giới hạn, làm mờ ảnh trong tin nhắn, cảnh báo lừa đảo cơ bản, 18+</td><td>B1–B8</td></tr>
+  <tr><td>Kiểm duyệt</td><td>Hàng đợi kiểm duyệt, xử phạt theo bậc, kháng nghị, phân quyền nhân viên</td><td>Trang quản trị xử lý báo cáo bằng ba cách (bỏ qua, gỡ, khóa), khóa và mở khóa tài khoản</td><td>C1–C3</td></tr>
+  <tr><td>Quyền riêng tư và tuân thủ</td><td>Tải dữ liệu, xóa tài khoản có thời gian chờ, kiểm tra quyền riêng tư</td><td>Xóa tài khoản ngay lập tức trong app</td><td>E1–E3</td></tr>
+</table>
+
+<h2 class="newpage">IV. Danh sách tính năng và lộ trình</h2>
+<h3>1. Danh sách tính năng</h3>
+<!--FEATURE_TABLE-->
+<h3>2. Lộ trình bốn giai đoạn</h3>
+<p>Các giai đoạn được xếp theo nguyên tắc: <b>thứ chặn việc phát hành làm trước, điểm khác biệt làm ngay sau, phần mở rộng làm sau cùng</b>. Mỗi giai đoạn kết thúc bằng một điểm kiểm tra: chỉ đi tiếp khi mọi tính năng của giai đoạn đạt tiêu chí hoàn thành trên cả Android và iPhone.</p>
+<ul>
+  <li><b>GĐ1 – Sẵn sàng phát hành:</b> những thứ thiếu thì không lên được store hoặc sẽ hỏng khi có người dùng thật: phiên đăng nhập an toàn, chống dò mật khẩu, Đăng nhập bằng Apple, thông báo đẩy, xóa tài khoản đúng quy định, hàng đợi kiểm duyệt, hạn chế và tắt tiếng. Kết thúc bằng thử nghiệm kín trên TestFlight và Google Play Internal testing.</li>
+  <li><b>GĐ2 – Bảo mật và an toàn:</b> làm sâu điểm khác biệt (B1–B7), thêm 2FA, cảnh báo đăng nhập lạ, xử phạt theo bậc và kháng nghị. Kết thúc bằng việc mở đăng ký công khai trên store.</li>
+  <li><b>GĐ3 – Mạng xã hội đầy đủ:</b> nhắn tin nhóm và tin nhắn nâng cao, xếp hạng bảng tin, bài viết nâng cao, bạn thân và tin nổi bật, tìm kiếm nâng cao, tải dữ liệu, kiểm tra quyền riêng tư, phân quyền quản trị.</li>
+  <li><b>GĐ4 – Mở rộng:</b> nhóm cộng đồng, gọi thoại và video, dấu tick xác minh, và xác thực số điện thoại nếu luật không bắt buộc sớm hơn.</li>
+</ul>
+<!--FLOW:tq-lo-trinh-->
+<!--PHASE_TABLE-->
+<h3 class="newpage">3. Hệ thống an toàn nhiều lớp</h3>
+<p>Các tính năng an toàn không đứng riêng lẻ mà xếp thành nhiều lớp. Một tin nhắn hay một bài đăng phải đi qua từng lớp; lớp sau bắt những gì lớp trước bỏ sót. Hình dưới là bức tranh chung, các tính năng ở mục V là chi tiết của từng lớp.</p>
+<!--FLOW:tq-an-toan-nhieu-lop-->
+<table>
+  <tr><th style="width:28%">Lớp</th><th>Việc của lớp</th><th style="width:18%">Tính năng</th></tr>
+  <tr><td>1. Tài khoản</td><td>Chỉ người đủ 18 tuổi, đăng nhập an toàn, không bị khóa mới được tương tác.</td><td>A1–A6, B6, C2</td></tr>
+  <tr><td>2. Quyền liên lạc</td><td>Ai được nhắn, bình luận, gắn thẻ mình; người lạ vào tin nhắn chờ; chặn, hạn chế, tắt tiếng; giới hạn tạm thời khi bị quấy rối.</td><td>B1, B2, B4, B7, B8</td></tr>
+  <tr><td>3. Quét tự động</td><td>Quét chữ, đường link và ảnh; rủi ro vừa thì cảnh báo hoặc làm mờ, rủi ro cao thì ẩn tạm chờ người duyệt.</td><td>B3, B5, B7, C1</td></tr>
+  <tr><td>4. Người dùng tự bảo vệ</td><td>Báo cáo, chặn, hạn chế ngay tại chỗ; xem ảnh mờ hay không là do người nhận chọn.</td><td>B1, B5, B8</td></tr>
+  <tr><td>5. Con người kiểm duyệt</td><td>Hàng đợi ưu tiên theo mức nghiêm trọng, xử phạt theo bậc, kháng nghị, nhật ký mọi thao tác nhạy cảm.</td><td>C1, C2, C3</td></tr>
+</table>
+
+<h2 class="newpage">V. Đặc tả chi tiết từng tính năng</h2>
+<!--FEATURES-->
+
+<h2 class="newpage">VI. Rủi ro, pháp lý và chi phí</h2>
+<!--RISKS-->
+
+<h2>VII. Câu hỏi cần chủ dự án quyết</h2>
+<!--QUESTIONS-->
+
+</body>
+</html>

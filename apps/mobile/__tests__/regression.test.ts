@@ -35,6 +35,7 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
       email: 'tester01@example.com',
       password: 'StrongPassword123!',
       confirmPassword: 'StrongPassword123!',
+      birthDate: '15/06/1995',
     };
     const errors = validateRegister(validValues);
     expect(Object.keys(errors).length).toBe(0);
@@ -47,12 +48,14 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
       email: 'bad-email',
       password: '123', // too short
       confirmPassword: '456',
+      birthDate: '31/02/2000', // not a real date
     };
     const errors = validateRegister(invalidValues);
     expect(errors.username).toBeDefined();
     expect(errors.email).toBeDefined();
     expect(errors.password).toBeDefined();
     expect(errors.confirmPassword).toBe('Passwords do not match.');
+    expect(errors.birthDate).toBe('Enter your date of birth as DD/MM/YYYY.');
   });
 
   // R-03: Auth - Login (Valid form)

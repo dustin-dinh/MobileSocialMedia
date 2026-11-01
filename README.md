@@ -34,6 +34,15 @@ corepack pnpm start:dev
 
 Backend chạy ở `http://localhost:3000/api`. Hai lệnh đầu chỉ cần chạy lại khi vừa lấy code mới.
 
+Ảnh gửi trong tin nhắn được kiểm tra và làm mờ nếu nhạy cảm. Mô hình nhận diện (~88 MB) không nằm trong git; tải một lần:
+
+```bash
+cd apps/api
+node scripts/download-moderation-model.cjs
+```
+
+Không tải thì backend vẫn chạy, chỉ là ảnh tin nhắn không được làm mờ (trang quản trị sẽ báo). Chi tiết ở [docs/moderation/MODERATION_PLAN.md](docs/moderation/MODERATION_PLAN.md).
+
 Khi code mới có thêm migration (thư mục `apps/api/prisma/migrations`), áp chúng lên database trước khi chạy:
 
 ```bash
@@ -110,6 +119,8 @@ New-NetFirewallRule -DisplayName "MinIO dev (9000)" -Direction Inbound -Protocol
 ```bash
 cd apps/api
 corepack pnpm typecheck
+# Với backend đang chạy và tài khoản thử (xem đầu mỗi script):
+node scripts/safety-smoke.cjs
 ```
 
 ```bash
@@ -123,4 +134,5 @@ corepack pnpm test
 - [apps/api/README.md](apps/api/README.md): cấu hình backend và quy trình database.
 - [apps/mobile/README.md](apps/mobile/README.md): chi tiết về ứng dụng mobile.
 - [docs/api-contract.md](docs/api-contract.md): hợp đồng API giữa mobile và backend.
+- [docs/moderation/MODERATION_PLAN.md](docs/moderation/MODERATION_PLAN.md): kiểm duyệt nội dung, nhắn tin ẩn danh, chống lừa đảo, giới hạn 18+.
 - [docs/change.md](docs/change.md): nhật ký thay đổi.

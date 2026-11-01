@@ -74,6 +74,12 @@ export class MessagesController {
         return this.messagesService.open(request.user.userId, dto.userId);
     }
 
+    // Hội thoại ẩn danh với người đã bật nhận tin ẩn danh (nút trên trang cá nhân).
+    @Post('anonymous')
+    openAnonymous(@Request() request: AuthedRequest, @Body() dto: OpenConversationDto) {
+        return this.messagesService.openAnonymous(request.user.userId, dto.userId);
+    }
+
     // Route tĩnh phải đứng trước `:id`.
     @Get('unread-count')
     unreadCount(@Request() request: AuthedRequest) {
@@ -109,5 +115,28 @@ export class MessagesController {
     @Post(':id/read')
     markRead(@Request() request: AuthedRequest, @Param('id') id: string) {
         return this.messagesService.markRead(request.user.userId, id);
+    }
+
+    // Tin nhắn chờ: chấp nhận / xóa (người mở không được báo).
+    @Post(':id/accept')
+    accept(@Request() request: AuthedRequest, @Param('id') id: string) {
+        return this.messagesService.accept(request.user.userId, id);
+    }
+
+    @Post(':id/decline')
+    decline(@Request() request: AuthedRequest, @Param('id') id: string) {
+        return this.messagesService.decline(request.user.userId, id);
+    }
+
+    // Người nhận chặn người ẩn danh của hội thoại này.
+    @Post(':id/close')
+    close(@Request() request: AuthedRequest, @Param('id') id: string) {
+        return this.messagesService.closeAnonymous(request.user.userId, id);
+    }
+
+    // Người ẩn danh tự tiết lộ danh tính.
+    @Post(':id/reveal')
+    reveal(@Request() request: AuthedRequest, @Param('id') id: string) {
+        return this.messagesService.reveal(request.user.userId, id);
     }
 }

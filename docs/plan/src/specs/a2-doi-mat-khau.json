@@ -1,0 +1,29 @@
+{"id":"a2-doi-mat-khau","title":"Đổi hoặc đặt lại mật khẩu: đăng xuất các thiết bị khác",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Đổi mật khẩu"},
+ {"id":"form","type":"io","lane":1,"row":1,"label":"Nhập mật khẩu cũ, mới, xác nhận"},
+ {"id":"enter","type":"process","lane":0,"row":2,"label":"Nhập, bấm Lưu"},
+ {"id":"old","type":"decision","lane":2,"row":2,"label":"Mật khẩu cũ đúng?"},
+ {"id":"bad","type":"end","lane":2,"col":1,"row":2,"label":"400, tính vào A4"},
+ {"id":"save","type":"data","lane":2,"row":3,"label":"Lưu mật khẩu mới (bcrypt)"},
+ {"id":"reset","type":"start","lane":2,"col":1,"row":3,"label":"Hoặc: Quên mật khẩu"},
+ {"id":"rev","type":"data","lane":2,"row":4,"label":"Thu hồi phiên khác (đặt lại: tất cả)"},
+ {"id":"cut","type":"process","lane":2,"row":5,"label":"Ngắt socket, xóa push token"},
+ {"id":"mail","type":"process","lane":2,"col":1,"row":5,"label":"Email: mật khẩu đã đổi, Không phải tôi"},
+ {"id":"show","type":"io","lane":1,"row":6,"label":"Báo đã đăng xuất N thiết bị"},
+ {"id":"done","type":"end","lane":1,"row":7,"label":"Phiên hiện tại vẫn dùng tiếp"}
+],
+"edges":[
+ {"from":"s","to":"form"},
+ {"from":"form","to":"enter","exit":"left","entry":"top","via":[[0,1]]},
+ {"from":"enter","to":"old"},
+ {"from":"old","to":"bad","label":"Không"},
+ {"from":"old","to":"save","label":"Có"},
+ {"from":"reset","to":"save"},
+ {"from":"save","to":"rev"},
+ {"from":"rev","to":"cut"},
+ {"from":"cut","to":"mail"},
+ {"from":"cut","to":"show"},
+ {"from":"show","to":"done"}
+]}

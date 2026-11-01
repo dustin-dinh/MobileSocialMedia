@@ -1,4 +1,4 @@
-import { NativeModules, TurboModuleRegistry } from 'react-native';
+import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 
@@ -21,6 +21,13 @@ function removeTrailingSlashes(value: string): string {
 function getDevServerApiBaseUrl(): string | undefined {
   if (!__DEV__) {
     return undefined;
+  }
+
+  // Web has no SourceCode native module: the page itself is served by Metro on the dev machine.
+  if (Platform.OS === 'web') {
+    return typeof window !== 'undefined' && window.location?.hostname
+      ? `http://${window.location.hostname}:${DEV_API_PORT}/api`
+      : undefined;
   }
 
   try {

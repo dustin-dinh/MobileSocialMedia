@@ -13,11 +13,12 @@ type ReportModalProps = {
 
 const TITLES: Record<ReportTarget['type'], string> = {
   COMMENT: 'Báo cáo bình luận',
+  CONVERSATION: 'Báo cáo cuộc trò chuyện',
   POST: 'Báo cáo bài viết',
   USER: 'Báo cáo người dùng',
 };
 
-/** Reason picker used for posts, comments and users. */
+/** Reason picker used for posts, comments, users and conversations. */
 export function ReportModal({ onClose, onReported, target }: ReportModalProps) {
   const options = useMemo(
     () =>
@@ -33,7 +34,11 @@ export function ReportModal({ onClose, onReported, target }: ReportModalProps) {
           reportService
             .report(target, reason.code)
             .then(() => {
-              showToast('Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét nội dung này.');
+              showToast(
+                target.type === 'CONVERSATION'
+                  ? 'Đã gửi báo cáo kèm các tin nhắn. Chúng tôi sẽ xem xét.'
+                  : 'Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét nội dung này.',
+              );
               onReported?.();
             })
             .catch(() => {

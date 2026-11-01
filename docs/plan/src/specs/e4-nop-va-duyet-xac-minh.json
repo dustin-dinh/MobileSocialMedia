@@ -1,0 +1,29 @@
+{"id":"e4-nop-va-duyet-xac-minh","title":"Nộp đơn và duyệt xác minh tài khoản","lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ"},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Mở Yêu cầu xác minh"},
+ {"id":"rq","type":"process","lane":1,"row":0,"label":"Hỏi điều kiện"},
+ {"id":"el","type":"decision","lane":2,"row":1,"label":"Đủ điều kiện cơ bản?"},
+ {"id":"ms","type":"end","lane":1,"row":1,"label":"Hiện điều kiện còn thiếu"},
+ {"id":"fm","type":"io","lane":1,"row":2,"label":"Mẫu đơn: loại, giấy tờ, link"},
+ {"id":"fl","type":"process","lane":0,"row":2,"label":"Điền, chụp giấy tờ"},
+ {"id":"sb","type":"process","lane":1,"row":3,"label":"Gửi đơn"},
+ {"id":"sv","type":"data","lane":2,"row":3,"label":"Lưu đơn, giấy tờ riêng tư"},
+ {"id":"q","type":"io","lane":3,"row":3,"label":"Hàng đợi xác minh"},
+ {"id":"rv","type":"decision","lane":3,"row":4,"label":"Giấy tờ khớp, đủ nổi bật?"},
+ {"id":"rj","type":"data","lane":2,"row":4,"label":"REJECTED + lý do"},
+ {"id":"rn","type":"end","lane":1,"row":4,"label":"Báo từ chối kèm lý do"},
+ {"id":"ap","type":"process","lane":3,"row":5,"label":"Duyệt đơn"},
+ {"id":"gr","type":"data","lane":2,"row":5,"label":"Ghi verifiedAt, nhật ký"},
+ {"id":"pn","type":"io","lane":1,"row":5,"label":"Thông báo: đã xác minh"},
+ {"id":"dn","type":"end","lane":0,"row":5,"label":"Dấu tick hiện trên hồ sơ"},
+ {"id":"dd","type":"data","lane":2,"row":6,"label":"Xóa ảnh giấy tờ sau 30 ngày"}
+],
+"edges":[
+ {"from":"s","to":"rq"},{"from":"rq","to":"el"},
+ {"from":"el","to":"ms","label":"Không","exit":"left","entry":"right"},
+ {"from":"el","to":"fm","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"fm","to":"fl"},{"from":"fl","to":"sb"},{"from":"sb","to":"sv"},{"from":"sv","to":"q"},{"from":"q","to":"rv"},
+ {"from":"rv","to":"rj","label":"Không"},{"from":"rj","to":"rn"},
+ {"from":"rv","to":"ap","label":"Có"},{"from":"ap","to":"gr"},{"from":"gr","to":"pn"},{"from":"pn","to":"dn"},
+ {"from":"gr","to":"dd","dashed":true}
+]}

@@ -1,0 +1,231 @@
+{
+ "id": "b5-quet-anh-khi-tai-len",
+ "title": "Quét ảnh tải lên qua máy chủ (ảnh bài viết, ảnh đại diện, ảnh bìa)",
+ "lanes": [
+  {
+   "name": "Người dùng"
+  },
+  {
+   "name": "Ứng dụng"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Chọn ảnh, có thể bật 'Nhạy cảm'"
+  },
+  {
+   "id": "send",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Gửi ảnh kèm nhãn tự gắn"
+  },
+  {
+   "id": "fmt",
+   "type": "decision",
+   "lane": 2,
+   "row": 0,
+   "label": "Đúng loại, ≤ 5 MB?"
+  },
+  {
+   "id": "e400",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 0,
+   "label": "Lỗi 400, không lưu"
+  },
+  {
+   "id": "model",
+   "type": "decision",
+   "lane": 2,
+   "row": 1,
+   "label": "Mô hình nhận diện?"
+  },
+  {
+   "id": "e503",
+   "type": "io",
+   "lane": 0,
+   "row": 1,
+   "label": "Thấy 'Chưa kiểm tra được ảnh, thử lại'"
+  },
+  {
+   "id": "skip",
+   "type": "data",
+   "lane": 2,
+   "col": 1,
+   "row": 1,
+   "label": "Lưu, ghi 'chưa quét'"
+  },
+  {
+   "id": "later",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 2,
+   "label": "Quét bù khi mô hình chạy lại"
+  },
+  {
+   "id": "score",
+   "type": "process",
+   "lane": 2,
+   "row": 2,
+   "label": "Chấm điểm từng ảnh (0,5–0,7 giây)"
+  },
+  {
+   "id": "mid",
+   "type": "decision",
+   "lane": 2,
+   "row": 3,
+   "label": "≥ 0,7, lỗi ảnh hoặc tự gắn?"
+  },
+  {
+   "id": "label",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 3,
+   "label": "Gắn nhãn nhạy cảm, ghi nguồn"
+  },
+  {
+   "id": "high",
+   "type": "decision",
+   "lane": 2,
+   "col": 1,
+   "row": 4,
+   "label": "Điểm ≥ 0,9?"
+  },
+  {
+   "id": "save",
+   "type": "data",
+   "lane": 2,
+   "row": 4,
+   "label": "Lưu bài, ảnh và nhãn"
+  },
+  {
+   "id": "shown",
+   "type": "end",
+   "lane": 1,
+   "row": 4,
+   "label": "Bài hiện (ảnh mờ nếu có nhãn)"
+  },
+  {
+   "id": "hold",
+   "type": "data",
+   "lane": 2,
+   "col": 1,
+   "row": 5,
+   "label": "Lưu, trạng thái 'đang xem xét'"
+  },
+  {
+   "id": "author",
+   "type": "io",
+   "lane": 1,
+   "row": 5,
+   "label": "Tác giả thấy 'Đang được xem xét'"
+  },
+  {
+   "id": "queue",
+   "type": "sub",
+   "lane": 2,
+   "col": 1,
+   "row": 6,
+   "label": "Hàng đợi kiểm duyệt (C1)"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "send"
+  },
+  {
+   "from": "send",
+   "to": "fmt"
+  },
+  {
+   "from": "fmt",
+   "to": "e400",
+   "label": "Không"
+  },
+  {
+   "from": "fmt",
+   "to": "model",
+   "label": "Có"
+  },
+  {
+   "from": "model",
+   "to": "e503",
+   "label": "Thiếu, bắt buộc quét"
+  },
+  {
+   "from": "model",
+   "to": "skip",
+   "label": "Thiếu"
+  },
+  {
+   "from": "model",
+   "to": "score",
+   "label": "Sẵn sàng"
+  },
+  {
+   "from": "skip",
+   "to": "later"
+  },
+  {
+   "from": "score",
+   "to": "mid"
+  },
+  {
+   "from": "mid",
+   "to": "label",
+   "label": "Có"
+  },
+  {
+   "from": "mid",
+   "to": "save",
+   "label": "Không"
+  },
+  {
+   "from": "label",
+   "to": "high"
+  },
+  {
+   "from": "high",
+   "to": "save",
+   "label": "Không",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "high",
+   "to": "hold",
+   "label": "Có",
+   "exit": "bottom",
+   "entry": "top"
+  },
+  {
+   "from": "save",
+   "to": "shown",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "hold",
+   "to": "author",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "hold",
+   "to": "queue"
+  }
+ ]
+}

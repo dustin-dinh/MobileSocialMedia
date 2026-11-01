@@ -1,0 +1,106 @@
+<h3>E3. Kiểm tra quyền riêng tư</h3>
+<p><i>Nhóm: Quyền riêng tư · Giai đoạn: GĐ3 · Ước lượng: 5–6 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Cài đặt quyền riêng tư nằm rải rác, người dùng ít khi vào xem. "Kiểm tra quyền riêng tư" dẫn người dùng đi qua từng nhóm cài đặt, giải thích bằng lời thường mỗi lựa chọn có nghĩa gì, và nhắc lại định kỳ. Người lợi nhiều nhất là người mới và người đang bị làm phiền: họ biết ngay cách đóng tài khoản, chặn tin nhắn lạ, bật xác thực hai lớp. Đây cũng là cách thể hiện điểm khác biệt "an toàn" của sản phẩm.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Cài đặt đã có</b> (<i>apps/mobile/src/features/settings/screens/SettingsScreen.tsx</i>, nhóm "Quyền riêng tư"):
+  <ul>
+  <li><b>Tài khoản riêng tư</b>: công tắc, lưu bằng <i>PATCH /users/me { isPrivate }</i>. Chuyển về công khai thì máy chủ tự chấp nhận mọi yêu cầu theo dõi đang chờ (<i>UsersService.updateProfile</i>). Lưu lỗi thì công tắc tự trả về.</li>
+  <li><b>Nhận tin nhắn ẩn danh</b>: mở màn cảnh báo <i>AnonymousMessagesScreen</i> trước khi bật (máy chủ ghi chú: app chỉ gửi <i>allowAnonymousMessages: true</i> sau khi người dùng đọc cảnh báo).</li>
+  <li><b>Yêu cầu theo dõi</b> (<i>FollowRequestsScreen</i>) và <b>Người dùng đã chặn</b> (<i>BlockedUsersScreen</i>, <i>GET /users/me/blocked</i>).</li>
+  <li>Đổi hoặc đặt mật khẩu (<i>ChangePasswordScreen</i>), Xóa tài khoản.</li>
+  </ul></li>
+<li><b>Quyền theo từng nội dung:</b> mỗi bài viết có quyền xem PUBLIC / FRIENDS / PRIVATE (<i>PostPrivacy</i>); mỗi story có cờ cho phép cảm xúc và trả lời ẩn danh (<i>Story.allowAnonymous</i>). Không có cài đặt mặc định cho các lựa chọn này.</li>
+<li><b>Ai nhắn tin được:</b> chưa có cài đặt. Ai chưa bị chặn đều mở được hội thoại; nếu người nhận không theo dõi người gửi thì hội thoại vào "tin nhắn chờ" (<i>MessagesService.open</i>). Nâng cấp thuộc B1.</li>
+<li><b>Chưa có:</b> cài đặt ai được bình luận (B7), ai được nhắc tên hoặc gắn thẻ (<i>notifyMentions</i> gửi thông báo khi bị @ mà không có cài đặt; gắn thẻ thuộc D6), xác thực hai lớp (A1), danh sách thiết bị và phiên (A2; JWT sống 30 ngày, không có danh sách phiên), Hạn chế/Tắt tiếng (B8), Tải dữ liệu (E1). Chưa có màn kiểm tra quyền riêng tư và chưa có lời nhắc định kỳ.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Mở kiểm tra</b></p>
+<ol>
+<li>Người dùng mở <i>Cài đặt &gt; Quyền riêng tư &gt; Kiểm tra quyền riêng tư</i>, hoặc bấm vào lời nhắc (push hoặc thẻ ở đầu màn Cài đặt).</li>
+<li>App hiện màn giới thiệu: các bước, khoảng 2 phút, có thể dừng giữa chừng. Máy chủ trả các cài đặt hiện tại.</li>
+</ol>
+<p><b>Luồng 2: Đi qua từng bước</b></p>
+<ol>
+<li>Mỗi bước là một màn: tiêu đề, một câu giải thích, các lựa chọn với giá trị hiện tại, và nhãn "Nên bật" ở lựa chọn an toàn hơn. Nút <i>Tiếp</i> và <i>Bỏ qua</i>.</li>
+<li>Người dùng đổi một lựa chọn: app lưu ngay bằng endpoint đã có của cài đặt đó (như công tắc trong Cài đặt). Lưu lỗi: trả lựa chọn về giá trị cũ và báo "Không lưu được, thử lại".</li>
+<li>Lựa chọn cần thêm bước thì mở màn riêng rồi quay lại: bật tin nhắn ẩn danh qua màn cảnh báo hiện có; bật 2FA qua luồng của A1; xem thiết bị qua màn của A2.</li>
+<li>Hết bước: màn tóm tắt liệt kê những gì đã đổi và những gì còn "Nên xem lại". Máy chủ ghi ngày hoàn thành và hẹn lần nhắc sau.</li>
+</ol>
+<p><b>Các bước (đề xuất).</b> Bước nào mà tính năng chưa có thì ẩn đi; bước nào không còn lựa chọn thì bỏ qua.</p>
+<table>
+<tr><th>Bước</th><th>Nội dung</th><th>Có sẵn hôm nay?</th></tr>
+<tr><td>1. Ai thấy nội dung của bạn</td><td>Tài khoản riêng tư; quyền xem mặc định khi đăng bài (giải thích PUBLIC / FRIENDS / PRIVATE).</td><td>Tài khoản riêng tư: có. Mặc định khi đăng: chưa (thêm trường mới).</td></tr>
+<tr><td>2. Ai liên hệ được với bạn</td><td>Ai được nhắn tin (B1), nhận tin nhắn ẩn danh, ai được bình luận (B7), ai được nhắc tên hoặc gắn thẻ (D6), yêu cầu theo dõi đang chờ.</td><td>Tin ẩn danh và yêu cầu theo dõi: có. Còn lại: chờ B1, B7, D6.</td></tr>
+<tr><td>3. Bảo vệ đăng nhập</td><td>Đặt mật khẩu (tài khoản chỉ có Google), đổi mật khẩu, bật xác thực hai lớp.</td><td>Mật khẩu: có. 2FA: chờ A1.</td></tr>
+<tr><td>4. Thiết bị đang đăng nhập</td><td>Danh sách thiết bị, đăng xuất thiết bị lạ.</td><td>Chờ A2.</td></tr>
+<tr><td>5. Người bạn đã chặn, hạn chế, tắt tiếng</td><td>Xem lại và bỏ chặn nếu muốn.</td><td>Chặn: có. Hạn chế, tắt tiếng: chờ B8.</td></tr>
+<tr><td>6. Dữ liệu của bạn</td><td>Tải dữ liệu (E1), xóa tài khoản (E2); chỉ là link, không hỏi gì.</td><td>Xóa tài khoản: có. Tải dữ liệu: chờ E1.</td></tr>
+</table>
+<p><b>Luồng 3: Lời nhắc định kỳ</b></p>
+<ol>
+<li>Việc nền chạy mỗi ngày, tìm người dùng đến hạn: 7 ngày sau khi tạo tài khoản lần đầu, sau đó 180 ngày sau lần hoàn thành gần nhất (đề xuất).</li>
+<li>Gửi push "Dành 2 phút rà lại quyền riêng tư của bạn" và đặt thẻ nhắc ở đầu màn Cài đặt. Ghi ngày đã nhắc.</li>
+<li>Bỏ qua lời nhắc: nhắc lại sau 30 ngày, tối đa 2 lần mỗi chu kỳ. Người dùng tắt được lời nhắc trong màn tóm tắt.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ: mở kiểm tra (từ lời nhắc hoặc từ Cài đặt), đi qua từng bước, lưu từng thay đổi, tóm tắt và hẹn lần nhắc sau.</p>
+<!--FLOW:e3-kiem-tra-quyen-rieng-tu-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Không tự đổi thay người dùng.</b> Kiểm tra chỉ gợi ý; mọi thay đổi do người dùng bấm. Không dùng màu hay chữ gây áp lực, không giấu nút <i>Bỏ qua</i>.</li>
+<li><b>Lưu từng thay đổi ngay</b>, không đợi cuối luồng: người dùng thoát giữa chừng thì phần đã đổi vẫn còn. Mở lại thì bắt đầu từ bước chưa xong (lưu bước trên máy).</li>
+<li><b>Bật tin nhắn ẩn danh</b> luôn đi qua màn cảnh báo hiện có, không bật thẳng bằng công tắc trong kiểm tra. Tắt thì tắt ngay.</li>
+<li><b>Chuyển tài khoản sang công khai</b> trong kiểm tra phải báo rõ "Các yêu cầu theo dõi đang chờ sẽ được chấp nhận" (máy chủ làm việc này).</li>
+<li><b>Lỗi mạng:</b> trả lựa chọn về cũ, báo lỗi, cho thử lại; không chuyển bước khi đang lưu.</li>
+<li><b>Lời nhắc:</b> không quá 1 push mỗi 30 ngày cho tính năng này; không gửi cho tài khoản bị khóa, dưới 18 tuổi bị khóa, đang chờ xóa (E2). Tôn trọng giờ yên lặng và cài đặt thông báo theo loại (D8).</li>
+<li><b>Sự kiện bảo mật</b> (đề xuất, cần A3): khi có đăng nhập lạ, thẻ nhắc mở thẳng bước 3–4 thay vì cả luồng.</li>
+<li><b>Tài khoản bị quấy rối</b> (B4): thẻ nhắc có thể mở thẳng bước 2.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Trường mới trên User</th><th>Ý nghĩa</th></tr>
+<tr><td>privacyCheckCompletedAt DateTime?</td><td>Lần hoàn thành gần nhất.</td></tr>
+<tr><td>privacyCheckRemindedAt DateTime?, privacyCheckReminderCount Int</td><td>Lần nhắc gần nhất, số lần nhắc trong chu kỳ.</td></tr>
+<tr><td>privacyCheckRemindersEnabled Boolean @default(true)</td><td>Người dùng tắt lời nhắc.</td></tr>
+<tr><td>defaultPostPrivacy PostPrivacy @default(PUBLIC)</td><td>(Tùy chọn) quyền xem mặc định khi đăng bài; app soạn bài đọc giá trị này.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td>GET /users/me/privacy-summary</td><td>Một lần gọi trả mọi giá trị cần cho các bước: isPrivate, allowAnonymousMessages, hasPassword, số người đã chặn, số yêu cầu theo dõi đang chờ, và (khi có) trạng thái 2FA, số thiết bị, quyền nhắn tin, quyền bình luận, quyền gắn thẻ; kèm <i>nextReminderAt</i>.</td></tr>
+<tr><td>POST /users/me/privacy-check/complete { changed: string[] }</td><td>Ghi ngày hoàn thành, đặt lại bộ đếm nhắc.</td></tr>
+<tr><td>PATCH /users/me { privacyCheckRemindersEnabled, defaultPostPrivacy }</td><td>Thêm 2 trường vào <i>UpdateProfileDto</i>.</td></tr>
+</table>
+<p>Lưu từng cài đặt dùng endpoint sẵn có của nó (<i>PATCH /users/me</i>, các endpoint của A1, A2, B1, B7, B8, D6). Việc nhắc dùng chung lịch chạy <i>@nestjs/schedule</i> với E1, E2 và hàm <i>pushToUser</i> đã có.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Toàn bộ là màn hình React Native thường, không thư viện mới, không quyền thiết bị mới. Dùng lại các thành phần Cài đặt hiện có; giữ vùng an toàn (safe area) và nút <i>Tiếp</i> không bị thanh điều hướng Android hay vạch Home của iPhone che.</li>
+<li>Push qua Expo (FCM + APNs) đã có. Người dùng từ chối quyền thông báo (iOS hỏi lần đầu; Android 13 trở lên cũng hỏi) vẫn thấy thẻ nhắc trong Cài đặt.</li>
+<li>Không có chi phí dịch vụ ngoài.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Đi hết các bước đang có; mỗi thay đổi lưu ngay và đúng với màn Cài đặt; thoát giữa chừng rồi mở lại tiếp tục đúng bước.</li>
+<li>Lưu lỗi (tắt mạng) thì lựa chọn trả về cũ và có báo lỗi.</li>
+<li>Bật tin nhắn ẩn danh từ kiểm tra luôn qua màn cảnh báo.</li>
+<li>Lời nhắc: tài khoản 7 ngày tuổi nhận push; hoàn thành thì 180 ngày sau mới nhắc lại; tắt lời nhắc thì không nhận nữa; tài khoản khóa hoặc chờ xóa không nhận (có test tự động cho việc chọn người cần nhắc).</li>
+<li>Bước của tính năng chưa có (2FA, thiết bị…) bị ẩn, không có nút chết.</li>
+<li>Chạy trên Android và trên iPhone; báo cáo ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 1,5 ngày (trường mới, privacy-summary, complete, việc nhắc); mobile 3 ngày (6 màn bước + giới thiệu + tóm tắt + thẻ nhắc); kiểm thử 1 ngày. Mỗi khi một tính năng phụ thuộc ra mắt, thêm bước tương ứng khoảng 0,5 ngày.</li>
+<li>Phụ thuộc (mềm, làm được bản đầu khi chưa có): A1, A2, B1, B7, B8, D6, E1, D8 (giờ yên lặng cho lời nhắc). Nên làm sau khi ít nhất A1 và B1 xong, nếu không kiểm tra chỉ có 2–3 lựa chọn.</li>
+<li>Rủi ro: lời nhắc gây phiền nếu dày; chữ giải thích phải được duyệt để không hứa quá mức (ví dụ "riêng tư" không có nghĩa là quản trị viên không xem được khi có báo cáo).</li>
+</ul>

@@ -144,6 +144,14 @@ export function SettingsScreen() {
               toggle: user?.isPrivate ?? false,
             },
             {
+              icon: 'Mask',
+              key: 'anonymous',
+              label: 'Nhận tin nhắn ẩn danh',
+              // Turning it on goes through the risk warning; off is immediate.
+              onPress: () => navigation.open('AnonymousMessages'),
+              toggle: user?.allowAnonymousMessages ?? false,
+            },
+            {
               icon: 'UserPlus',
               key: 'requests',
               label: 'Yêu cầu theo dõi',

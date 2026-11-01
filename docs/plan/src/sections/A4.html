@@ -1,0 +1,96 @@
+<h3>A4. Chống dò mật khẩu</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ1 · Ước lượng: 4 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Kẻ gian thường thử hàng loạt mật khẩu cho một tài khoản, hoặc thử các cặp email/mật khẩu bị lộ từ trang khác trên rất nhiều tài khoản. Tính năng này làm việc thử chậm dần, khóa tạm khi sai quá nhiều, và báo cho chủ tài khoản qua email. Người dùng bình thường gõ nhầm vài lần không bị ảnh hưởng.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li>Đã có <b>@nestjs/throttler</b> (<i>apps/api/src/app.module.ts</i>): mặc định 300 yêu cầu/phút cho mỗi IP trên toàn API. Trong <i>auth.controller.ts</i>: đăng nhập 10 lần/phút/IP, đăng ký 10 lần/giờ, xác minh email 10 lần/phút, gửi lại mã 10 lần/giờ, quên mật khẩu 10 lần/giờ, đặt lại mật khẩu 10 lần/phút. Đăng nhập Google không có giới hạn riêng (chỉ có mức chung 300/phút).</li>
+<li>Throttler đang đếm <b>theo IP</b> và lưu <b>trong bộ nhớ</b> của tiến trình API (không cấu hình nơi lưu khác) — chạy nhiều bản API thì mỗi bản đếm riêng. Kẻ gian đổi IP (mạng botnet) là vượt qua.</li>
+<li><b>Không có đếm sai theo tài khoản</b>, không khóa tạm, không email báo. Có 10 lần/phút/IP thì một IP vẫn thử được 14.400 mật khẩu mỗi ngày cho một tài khoản.</li>
+<li>Hàm login trong <i>auth.service.ts</i>: nếu email không tồn tại thì trả lỗi <b>ngay</b>, còn email có thật thì chạy bcrypt (chậm hơn rõ rệt). Đo thời gian phản hồi là biết email nào đã đăng ký. Cần sửa cùng tính năng này.</li>
+<li>Các mã OTP email (xác minh, đặt lại mật khẩu) đã có giới hạn tốt: sai tối đa 5 lần mỗi mã, gửi tối đa 3 mã mỗi giờ (bảng <i>AuthToken</i>, trường attemptCount).</li>
+<li>PATCH /auth/password trả 400 khi mật khẩu cũ sai và chỉ có giới hạn chung 300/phút — có thể bị dùng để dò mật khẩu nếu kẻ gian cầm được một phiên.</li>
+<li><i>main.ts</i> đặt trust proxy = 1 nên IP được lấy từ header của một lớp proxy (cần kiểm tra khi triển khai thật).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng chính. Đăng nhập bằng mật khẩu</b></p>
+<ol>
+<li>Người dùng nhập email và mật khẩu.</li>
+<li>Máy chủ kiểm tra <b>IP</b>: IP này đã sai quá 50 lần trong 1 giờ (cộng mọi email) thì trả 429 "Thử lại sau" trong 1 giờ. Mục đích: chặn một máy thử hàng loạt tài khoản.</li>
+<li>Máy chủ kiểm tra <b>email</b>: email này đang trong thời gian phải chờ hoặc đang bị khóa thì trả 429 kèm số giây còn phải chờ. Kiểm tra theo email chuẩn hóa, kể cả email không tồn tại, để không lộ email nào có đăng ký.</li>
+<li>Máy chủ so mật khẩu bằng bcrypt. Email không tồn tại thì vẫn so với một bản băm giả để thời gian trả lời như nhau.</li>
+<li>Đúng: xóa bộ đếm sai của email đó, đi tiếp sang 2FA (A1) hoặc tạo phiên (A2).</li>
+<li>Sai: ghi một lần sai (email đã băm, IP, thời điểm) rồi đếm số lần sai của email trong 15 phút:
+  <ul>
+  <li>Dưới 5 lần: báo "Sai email hoặc mật khẩu" như hiện nay.</li>
+  <li>Từ lần thứ 5 đến thứ 9: <b>chậm dần</b> — phải chờ 30 giây, rồi 1 phút, 2 phút, 5 phút, 5 phút mới được thử tiếp. App hiện đếm ngược và nút "Quên mật khẩu".</li>
+  <li>Lần thứ 10: <b>khóa đăng nhập bằng mật khẩu 15 phút</b> và gửi email cho chủ tài khoản (nếu email có thật): "Có người đã nhập sai mật khẩu nhiều lần. Nếu không phải bạn, hãy đổi mật khẩu và bật xác thực hai lớp" kèm nút "Không phải tôi" (A3).</li>
+  </ul>
+</li>
+<li>Người dùng chờ hết thời gian, hoặc dùng "Quên mật khẩu": đặt lại mật khẩu thành công thì xóa luôn bộ đếm và mở khóa.</li>
+</ol>
+<p><b>Các chỗ khác cũng đếm sai</b> (cùng bảng, cùng quy tắc nhưng con số riêng):</p>
+<ul>
+<li>Mật khẩu cũ khi đổi mật khẩu, hỏi lại mật khẩu khi bật/tắt 2FA hoặc đăng xuất tất cả: sai 5 lần trong 15 phút thì phải chờ 15 phút (trả 429, không trả 401 để app không tự đăng xuất).</li>
+<li>Mã 2FA: theo quy tắc trong A1 (5 lần mỗi phiếu, 10 lần mỗi giờ mỗi tài khoản).</li>
+<li>Đăng nhập Google/Apple không dùng mật khẩu nên không bị khóa bởi tính năng này; chỉ giữ giới hạn theo IP (đề xuất thêm 20 lần/phút/IP cho /auth/google và /auth/apple).</li>
+</ul>
+
+<h4>d) Flowchart</h4>
+<!--FLOW:a4-chong-do-mat-khau-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: cửa sổ 15 phút theo email; chờ 30 giây / 1 / 2 / 5 / 5 phút cho lần sai 5–9; khóa 15 phút ở lần 10; IP sai quá 50 lần/giờ thì chặn IP 1 giờ; email cảnh báo tối đa 1 lần/giờ/tài khoản.</li>
+<li><b>Vì sao chặn IP ở mức 50 chứ không thấp hơn</b>: ở Việt Nam nhiều thuê bao di động và mạng trường học dùng chung một IP (CGNAT). Đặt thấp sẽ chặn oan cả nghìn người. Chỉ đếm lần <b>sai</b>, không đếm lần đúng.</li>
+<li><b>Khóa không phải là khóa tài khoản</b>: chỉ khóa đăng nhập bằng mật khẩu. Các phiên đang mở vẫn dùng bình thường; đăng nhập Google/Apple vẫn được; "Quên mật khẩu" vẫn được. Như vậy kẻ gian không thể cố tình khóa người khác ra ngoài lâu dài.</li>
+<li><b>Không lộ email</b>: thông báo lỗi, mã lỗi và thời gian phản hồi giống nhau dù email có tồn tại hay không. Email cảnh báo chỉ gửi khi tài khoản có thật.</li>
+<li><b>Tài khoản bị quản trị viên khóa</b> (bannedAt) và khóa vì tuổi: giữ nguyên lỗi hiện có (ACCOUNT_BANNED, AGE_RESTRICTED), nhưng chỉ trả sau khi mật khẩu đúng, như code hiện nay.</li>
+<li><b>Nhiều bản API</b>: bộ đếm nằm trong cơ sở dữ liệu nên đúng cả khi chạy nhiều bản. Riêng throttler hiện có vẫn lưu trong bộ nhớ; khi chạy nhiều bản cần chuyển sang nơi lưu chung (Redis) — ghi nhận, chưa cần làm ngay.</li>
+<li><b>Dọn dẹp</b>: xóa bản ghi lần sai quá 24 giờ (chạy định kỳ mỗi giờ).</li>
+<li><b>CAPTCHA</b>: chưa đề xuất ở giai đoạn này (cần dịch vụ ngoài và giao diện riêng cho mỗi nền tảng). Có thể xem lại nếu số lần thử hàng loạt tăng.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ là <b>đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>Bảng mới LoginFailure</td><td>id, kind (PASSWORD_LOGIN, PASSWORD_CONFIRM), emailHash (HMAC của email chuẩn hóa, không lưu email gốc), userId?, ip, createdAt. Chỉ mục (emailHash, createdAt) và (ip, createdAt).</td></tr>
+<tr><td>User: thêm trường</td><td>lastLockEmailAt (DateTime?) — để giới hạn 1 email cảnh báo mỗi giờ. Khi đã có A3 thì có thể thay bằng SecurityEvent loại LOGIN_LOCKED.</td></tr>
+</table>
+<table>
+<tr><th>Thay đổi API (đề xuất)</th><th>Nội dung</th></tr>
+<tr><td>POST /auth/login</td><td>Thêm phản hồi 429 { code: "LOGIN_THROTTLED", retryAfterSeconds } và header Retry-After. Lỗi sai mật khẩu giữ nguyên 401 như hiện nay.</td></tr>
+<tr><td>PATCH /auth/password và các chỗ hỏi lại mật khẩu</td><td>Thêm 429 { code: "PASSWORD_CONFIRM_THROTTLED", retryAfterSeconds }.</td></tr>
+<tr><td>POST /auth/reset-password</td><td>Thành công thì xóa LoginFailure của email đó.</td></tr>
+<tr><td>POST /auth/google (và /auth/apple)</td><td>Thêm @Throttle riêng 20 lần/phút/IP.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Chỉ thay đổi ở máy chủ và cách app hiển thị lỗi 429: hiện đếm ngược "Thử lại sau 1:45" và nút "Quên mật khẩu" trên LoginScreen. Không cần thư viện, không cần quyền thiết bị, giống nhau trên Android và iOS.</li>
+<li>Cần kiểm tra httpClient của app đã đọc được nội dung lỗi 429 (hiện nó phân loại lỗi theo mã trạng thái; 401 là "unauthorized").</li>
+<li>Màn đăng nhập hiện vẫn hiển thị tiếng Anh (theo báo cáo tính năng); thông báo mới nên viết tiếng Việt.</li>
+<li>Chi phí: không có. Email dùng SMTP hiện có.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Sai mật khẩu 4 lần: vẫn thử ngay được. Lần 5: phải chờ 30 giây, app hiện đếm ngược. Lần 10: khóa 15 phút, email cảnh báo đến hộp thư.</li>
+<li>Trong lúc khóa: đăng nhập Google vẫn được; "Quên mật khẩu" đặt lại xong đăng nhập được ngay.</li>
+<li>Email không tồn tại: thông báo, mã lỗi và thời gian phản hồi giống email có thật (đo trung bình 20 lần, chênh lệch dưới 50 ms).</li>
+<li>51 lần sai từ một IP với nhiều email khác nhau: IP bị chặn 1 giờ.</li>
+<li>Sai mật khẩu cũ 5 lần ở màn Đổi mật khẩu: app hiện chờ, không bị đăng xuất.</li>
+<li>Chạy trên Android và iPhone (màn đăng nhập hiển thị đúng đếm ngược và nút).</li>
+<li>Test tự động ở backend cho từng ngưỡng và cho việc xóa bộ đếm.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 2 ngày, mobile 1 ngày, kiểm thử 1 ngày.</li>
+<li>Phụ thuộc: không phụ thuộc mã nào. Nút "Không phải tôi" trong email cần A3 (làm A4 trước thì email chỉ có hướng dẫn đổi mật khẩu).</li>
+<li>Rủi ro: đặt ngưỡng IP quá thấp chặn oan người dùng dùng chung mạng; IP lấy sai nếu cấu hình proxy khi triển khai khác với trust proxy = 1.</li>
+</ul>

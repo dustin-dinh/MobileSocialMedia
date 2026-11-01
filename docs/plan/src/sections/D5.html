@@ -1,0 +1,125 @@
+<h3>D5. Xếp hạng bảng tin và Reels theo tương tác</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 11–13 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Bảng tin hiện xếp bài theo thời gian. Người theo dõi nhiều tài khoản sẽ bỏ lỡ bài của người thân quen vì bị bài mới hơn đẩy xuống. Tính năng này xếp bài theo một công thức đơn giản, giải thích được: bài của người mình hay tương tác, bài mới, bài được nhiều người quan tâm đứng trước; bài bị báo cáo hoặc nhạy cảm bị hạ xuống. Mỗi bài có nút "Vì sao tôi thấy bài này" để người dùng hiểu và tự điều chỉnh (Không quan tâm, Bỏ theo dõi). Reels dùng cùng bộ tín hiệu, nâng cấp từ bản xếp hạng đầu tiên đang chạy.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Bảng tin</b> (<i>apps/api/src/modules/posts/posts.service.ts</i>, hàm <i>getFeed</i>): gồm bài của chính mình và của người mình theo dõi, cộng các lượt đăng lại (repost) của những người đó. Hai nguồn được lấy riêng, ghép lại và <b>xếp thuần theo thời gian</b> (<i>createdAt</i> giảm dần, trùng giờ thì theo id). Phân trang kiểu <i>page/limit</i> (mặc định 10, tối đa 50); vì ghép hai nguồn nên trang càng sâu càng chậm (ghi chú <i>shortcut</i> trong code và DEC-020).</li>
+<li><b>Quyền xem</b> dùng chung hàm <i>visiblePostWhere</i> (<i>posts/post-view.ts</i>): chưa xóa, không chặn nhau hai chiều, bài PUBLIC (tài khoản riêng tư thì chỉ người theo dõi), bài của chính mình, bài FRIENDS khi theo dõi hai chiều. Bài đã ẩn (<i>HiddenPost</i>) bị loại khỏi bảng tin và Reels.</li>
+<li><b>Ẩn bài và "Không quan tâm"</b>: <i>POST /posts/:id/hide</i> và <i>POST /posts/:id/not-interested</i> làm cùng một việc (ghi <i>HiddenPost</i>). App có "Ẩn bài viết" ở bảng tin và "Không quan tâm" ở Reels. Cả hai chỉ ẩn đúng bài đó, <b>không</b> ảnh hưởng tới bài khác của cùng tác giả.</li>
+<li><b>Reels</b> (<i>apps/api/src/modules/reels/reels.service.ts</i>): lấy 200 video dọc mới nhất mà người xem được phép xem, chấm điểm trong bộ nhớ: <i>2/(1 + tuổi giờ/24) + log(1 + thích + 2×bình luận + 3×đăng lại) + 1,5 nếu đang theo dõi tác giả − 100 nếu đã xem trong 7 ngày</i>. Mỗi video trả kèm <i>reason</i> (<i>FOLLOWING</i>, <i>TRENDING</i>, <i>FRESH</i>). Phân trang bằng danh sách id đã hiện (<i>exclude</i>, tối đa 50 id).</li>
+<li><b>Ghi tương tác Reels</b>: app (<i>apps/mobile/src/features/reel/hooks/useReelViewTracker.ts</i>) gom sự kiện <i>VIEW</i>, <i>COMPLETE</i> (xem ≥ 90% hoặc phát lại), <i>REPLAY</i>, <i>SKIP</i> (lướt qua dưới 2 giây), <i>LIKE</i>, <i>SAVE</i>, <i>NOT_INTERESTED</i>; gửi theo lô khi đủ 10 sự kiện, mỗi 10 giây và khi app vào nền; mất mạng thì giữ tối đa 200 sự kiện. Máy chủ ghi vào <i>ContentInteraction</i>, bỏ sự kiện trùng <i>eventId</i> và sự kiện của bài không còn tồn tại. Máy chủ <b>chưa kiểm tra</b> người gửi có quyền xem bài đó không.</li>
+<li><b>Dữ liệu ghi rồi nhưng chưa dùng</b>: ngoài "đã xem 7 ngày", <i>ContentInteraction</i> chưa được dùng để xếp hạng (chưa có <i>COMPLETE</i> rate, chưa có điểm sở thích). Bảng tin chưa ghi sự kiện nào.</li>
+<li><b>"Vì sao tôi thấy"</b>: API Reels đã trả <i>reason</i>, nhưng app <b>chưa hiển thị</b> (không thấy dùng trong <i>features/reel</i>). Bảng tin chưa có lý do.</li>
+<li><b>An toàn</b>: bài viết chưa có cờ nhạy cảm (chỉ tin nhắn có <i>Message.sensitive</i>); báo cáo (<i>Report</i>) không ảnh hưởng thứ hạng. Cần kiểm tra: bảng tin, Reels và tìm kiếm hiện không lọc bài của tác giả bị khóa (<i>User.bannedAt</i>); khóa chỉ chặn đăng nhập (<i>auth.service.ts</i>).</li>
+<li><b>Kế hoạch cũ</b>: <i>docs/reel/REEL_FINAL_SPEC_AND_PLAN.md</i> mục 6 đã đề xuất bộ máy gợi ý cho Reels (chủ đề, <i>UserInterest</i>, <i>PostStats</i>, <i>RecommendationLog</i>). Các bảng đó <b>chưa có</b> trong <i>schema.prisma</i>. Đặc tả này dùng lại công thức và trọng số của tài liệu đó cho Reels, và thêm phần bảng tin.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Dựng một trang bảng tin</b></p>
+<ol>
+<li>Người dùng mở tab Trang chủ hoặc kéo xuống để làm mới. App gửi <i>GET /posts/feed</i>, kèm con trỏ (cursor, tức "dấu trang" do máy chủ trả ở lần trước) nếu đang cuộn tiếp.</li>
+<li>Máy chủ xem có bản xếp hạng còn hạn của người này không (<i>FeedSnapshot</i>, sống 15 phút, đề xuất). Có và người dùng đang cuộn tiếp thì cắt 10 bài kế tiếp từ bản đó, khỏi tính lại. Kéo để làm mới luôn tính lại.</li>
+<li>Không có thì lấy <b>ứng viên</b> (candidate, tức các bài có thể được hiện): bài và lượt đăng lại của người mình theo dõi trong 7 ngày (tối đa 300), bài của chính mình trong 7 ngày.</li>
+<li>Nếu dưới 100 ứng viên và chủ dự án bật "gợi ý" (xem câu hỏi mở), thêm tối đa 30 bài công khai nổi bật trong 3 ngày từ tài khoản công khai. Khi tắt, bảng tin vẫn chỉ gồm người mình theo dõi như DEC-023.</li>
+<li><b>Lọc</b>: dùng <i>visiblePostWhere</i>, bỏ bài đã ẩn, bài của tác giả bị khóa, bài bị kiểm duyệt ẩn hoặc gỡ (trường <i>hiddenAt</i>/<i>removedAt</i> của C1), và tác giả bị người xem tắt tiếng (B8).</li>
+<li><b>Hạ hạng an toàn</b>: bài có từ 3 báo cáo đang mở từ 3 người khác nhau, hoặc được đánh dấu nhạy cảm (B5) mà người xem chưa bật "hiện nội dung nhạy cảm", bị nhân điểm 0,3. Bài có từ 10 báo cáo đang mở thì loại khỏi bảng tin của người khác (vẫn hiện trên trang cá nhân) cho tới khi người duyệt xử lý trong hàng đợi C1.</li>
+<li><b>Tính điểm</b> từng bài theo công thức ở mục e, lưu lại điểm từng phần để giải thích.</li>
+<li><b>Trộn đa dạng</b>: không quá 2 bài liền nhau của cùng một tác giả; không quá 3 video liền nhau; một bài và lượt đăng lại của chính bài đó chỉ hiện một lần (giữ mục có điểm cao hơn, ghi "X đã đăng lại").</li>
+<li>Lưu thứ tự vào <i>FeedSnapshot</i>, cắt 10 bài đầu, trả kèm <i>reason</i> cho từng bài và con trỏ trang sau.</li>
+<li>App hiện bài như hiện nay. Menu ba chấm của mỗi bài có thêm "Vì sao tôi thấy bài này".</li>
+</ol>
+<p><b>Luồng 2: Ghi nhận tương tác và dùng lại</b></p>
+<ol>
+<li>Reels: giữ nguyên cách gom sự kiện hiện có. Bảng tin: thêm cùng bộ gom cho <i>surface = "feed"</i>, chỉ ghi <i>VIEW</i> khi bài hiện trên màn hình ít nhất 1 giây (đề xuất) và các thao tác thích, bình luận, lưu, chia sẻ, ẩn.</li>
+<li>App gửi lô <i>POST /interactions</i> (tối đa 50 sự kiện). Lỗi mạng thì giữ lại và gửi kèm lô sau, như hiện nay.</li>
+<li>Máy chủ bổ sung kiểm tra: bài phải còn xem được với người gửi (dùng <i>visiblePostWhere</i>), không chỉ "còn tồn tại". Sự kiện trùng <i>eventId</i> không ghi lần hai.</li>
+<li>Khi ghi xong, máy chủ cộng, trừ điểm sở thích ngay theo bảng ở mục e: điểm theo chủ đề (<i>UserInterest</i>, theo kế hoạch Reels) và điểm theo tác giả (<i>AuthorAffinity</i>, mới). Điểm giảm dần theo thời gian bằng cách nhân hệ số lúc đọc, không cần tác vụ chạy định kỳ.</li>
+<li>"Không quan tâm" vừa ẩn bài (như hiện nay) vừa trừ điểm tác giả và chủ đề, nên các bài tương tự của tác giả đó cũng chìm xuống trong 30 ngày.</li>
+<li>Lần xếp hạng sau (bảng tin hoặc Reels) đọc các điểm này.</li>
+</ol>
+<p><b>Luồng 3: "Vì sao tôi thấy bài này"</b></p>
+<ol>
+<li>Người dùng bấm "Vì sao tôi thấy bài này" trong menu bài viết (bảng tin) hoặc menu Reels.</li>
+<li>App hiện ngay lý do chính đã nhận từ máy chủ (không cần gọi thêm), ví dụ: "Bạn theo dõi Lan", "Bạn hay tương tác với bài của Lan", "Minh đã đăng lại", "Bài mới đăng", "Đang được nhiều người quan tâm", "Gợi ý: bài công khai về chủ đề bạn hay xem".</li>
+<li>Bên dưới là các nút điều chỉnh: "Không quan tâm" (ẩn bài, hạ điểm tác giả), "Tắt tiếng [tên]" (B8), "Bỏ theo dõi". Bấm xong app báo "Bạn sẽ thấy ít bài như thế này hơn".</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1 mô tả cách máy chủ dựng một trang bảng tin, có bộ đệm và các bước lọc an toàn.</p>
+<!--FLOW:d5-trang-bang-tin-->
+<p>Sơ đồ 2 mô tả cách app ghi và gửi tương tác, và cách máy chủ biến chúng thành điểm sở thích.</p>
+<!--FLOW:d5-ghi-tuong-tac-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Công thức bảng tin (mọi trọng số là đề xuất, đặt trong một file cấu hình để chỉnh mà không sửa code):</b></p>
+<table>
+<tr><th>Thành phần</th><th>Cách tính</th><th>Trọng số</th></tr>
+<tr><td>Độ mới</td><td>0,5 mũ (số giờ tuổi / 12): bài 12 giờ còn 50%, 24 giờ còn 25%</td><td>4</td></tr>
+<tr><td>Quan hệ với tác giả</td><td>Điểm <i>AuthorAffinity</i> 30 ngày, đưa về 0–1: thích 1, lưu 2, bình luận 3, đăng lại 4, xem hết video 1, có nhắn tin 1-1 trong 30 ngày +5</td><td>3</td></tr>
+<tr><td>Mức quan tâm của bài</td><td>log(1 + thích + 2×bình luận + 3×đăng lại + 2×lưu), tối đa 1,5 (giống Reels hiện nay, thêm lưu)</td><td>1</td></tr>
+<tr><td>Thưởng</td><td>+0,5 nếu theo dõi hai chiều; +2 bài của chính mình trong 1 giờ đầu (để thấy ngay bài vừa đăng)</td><td>—</td></tr>
+<tr><td>Phạt</td><td>−2 nếu bài đã hiện trên màn hình của người này trong 3 ngày; −50% phần "quan hệ" nếu người xem bấm "Không quan tâm" bài của tác giả này trong 30 ngày</td><td>—</td></tr>
+<tr><td>Hệ số an toàn</td><td>× 0,3 nếu ≥ 3 báo cáo mở hoặc nhạy cảm (người xem chưa bật xem); loại nếu ≥ 10 báo cáo mở, bị kiểm duyệt ẩn/gỡ, hoặc tác giả bị khóa</td><td>—</td></tr>
+</table>
+<p><b>Reels</b> dùng công thức đã chốt trong <i>REEL_FINAL_SPEC_AND_PLAN.md</i>: 0,30 × chủ đề + 0,25 × chất lượng (tỷ lệ xem hết, làm mượt cho video ít lượt xem) + 0,25 × quan hệ + 0,20 × độ mới (0,5 mũ giờ/48), cộng hệ số an toàn như trên. Bảng cộng, trừ điểm sở thích giữ như tài liệu đó: xem hết +3, phát lại +4, thích +4, bình luận +5, lưu +5, theo dõi +8, lướt qua dưới 2 giây −2, Không quan tâm −10.</p>
+<ul>
+<li><b>Giải thích được</b>: <i>reason</i> lấy từ thành phần đóng góp nhiều điểm nhất. Máy chủ không trả con số điểm cho app (tránh người dùng dò công thức để câu tương tác), nhưng lưu điểm từng phần vào <i>RecommendationLog</i> để dev và admin xem lại.</li>
+<li><b>Tài khoản mới</b> chưa theo dõi ai: bảng tin trống như hiện nay (có nút sang Tìm kiếm), hoặc có bài gợi ý nếu chủ dự án bật.</li>
+<li><b>Bộ đệm</b>: <i>FeedSnapshot</i> sống 15 phút, tối đa 300 mục. Bị xóa khi người dùng đăng bài, theo dõi/bỏ theo dõi, chặn ai đó hoặc kéo để làm mới. Khi cắt trang từ bản đệm, máy chủ vẫn lọc lại quyền xem (bài có thể bị xóa hoặc chặn trong 15 phút đó); bài bị lọc thì bỏ qua, không hiện chỗ trống.</li>
+<li><b>Ổn định khi cuộn</b>: trang sau lấy từ cùng một bản xếp hạng, nên không lặp hoặc sót bài khi điểm thay đổi giữa hai lần cuộn.</li>
+<li><b>Lỗi khi tính điểm</b> (ví dụ bảng điểm sở thích lỗi): máy chủ trả bảng tin theo thời gian như hiện nay, không trả lỗi cho người dùng. Ghi log để dev xem.</li>
+<li><b>Chống lạm dụng</b>: <i>POST /interactions</i> tối đa 50 sự kiện mỗi lô, đề xuất tối đa 600 sự kiện mỗi người mỗi giờ; vượt thì bỏ phần thừa (trả 204 như thường). Thích/bỏ thích liên tục cùng một bài chỉ tính một lần mỗi ngày. Báo cáo dùng để hạ hạng chỉ tính từ tài khoản ≥ 7 ngày tuổi, đã xác minh email, để một nhóm tài khoản mới không đè được bài của người khác.</li>
+<li><b>Người bị chặn</b>: không bao giờ vào ứng viên (đã có trong <i>visiblePostWhere</i>). Chặn ai đó thì xóa bộ đệm ngay.</li>
+<li><b>Quyền riêng tư dữ liệu</b>: <i>ContentInteraction</i> là dữ liệu cá nhân; giữ 90 ngày (đề xuất) rồi xóa; đưa vào gói "Tải xuống dữ liệu của bạn" (E1) và xóa cùng tài khoản (đã có <i>onDelete: Cascade</i>).</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và được Dev B duyệt trước khi code. Mọi thay đổi bảng là migration mới, chỉ thêm (không <i>db push</i>).</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>AuthorAffinity</i> (mới)</td><td><i>userId</i>, <i>authorId</i>, <i>score</i> (Float), <i>updatedAt</i>; khóa chính (<i>userId</i>, <i>authorId</i>). Giảm dần khi đọc: nhân 0,5 mũ (số ngày từ <i>updatedAt</i> / 14).</td></tr>
+<tr><td><i>Topic</i>, <i>PostTopic</i>, <i>UserInterest</i>, <i>PostStats</i>, <i>RecommendationLog</i></td><td>Đúng như <i>REEL_FINAL_SPEC_AND_PLAN.md</i> mục 4. <i>RecommendationLog</i> lưu điểm từng phần; giữ 30 ngày.</td></tr>
+<tr><td><i>FeedSnapshot</i> (mới)</td><td><i>id</i>, <i>userId</i> (duy nhất), <i>items</i> (Json: danh sách <i>{ type, id, reason }</i>), <i>createdAt</i>, <i>expiresAt</i>. Dùng PostgreSQL sẵn có, không cần Redis.</td></tr>
+<tr><td><i>ContentInteraction.eventType</i></td><td>Thêm giá trị <i>COMMENT</i>, <i>SHARE</i>, <i>HIDE</i>; <i>surface</i> thêm <i>"feed"</i>. Thêm chỉ mục (<i>userId</i>, <i>postId</i>).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Thay đổi</th></tr>
+<tr><td><i>GET /posts/feed?cursor=&amp;limit=&amp;refresh=</i></td><td>Thêm <i>cursor</i> và <i>refresh</i>; vẫn nhận <i>page</i> trong một bản phát hành để app cũ chạy được. Mỗi mục có thêm <i>reason: { code, text }</i>. <i>meta</i> có <i>nextCursor</i> (null khi hết).</td></tr>
+<tr><td><i>GET /reels/feed</i></td><td>Giữ nguyên hình dạng; <i>reason.code</i> thêm <i>TOPIC</i>, <i>CLOSE_INTERACTION</i>.</td></tr>
+<tr><td><i>POST /interactions</i></td><td>Giữ nguyên; thêm kiểm tra quyền xem và giới hạn mỗi giờ.</td></tr>
+<tr><td><i>POST /posts/:id/not-interested</i></td><td>Giữ nguyên kết quả; thêm việc trừ điểm tác giả và chủ đề.</td></tr>
+</table>
+<p>Mã lý do đề xuất: <i>OWN</i>, <i>FOLLOWING</i>, <i>CLOSE_INTERACTION</i>, <i>REPOSTED_BY</i>, <i>TRENDING</i>, <i>FRESH</i>, <i>TOPIC</i>, <i>SUGGESTED</i>.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Phần lớn việc ở máy chủ; app chỉ thêm bộ gom sự kiện cho bảng tin (dùng lại <i>useReelViewTracker</i>), hiện <i>reason</i> và thêm mục menu. Không cần quyền thiết bị, không thêm thư viện.</li>
+<li>Đo "bài hiện trên màn hình ≥ 1 giây" dùng <i>onViewableItemsChanged</i> của <i>FlatList</i>, có trên cả Android và iOS. Khi app vào nền thì gửi lô ngay (đã có với <i>AppState</i>); iOS có thể dừng app nhanh hơn Android nên lô cuối có thể mất, chấp nhận được.</li>
+<li>Bảng "Vì sao tôi thấy" dùng <i>ActionSheet</i> sẵn có của app, không dùng <i>ActionSheetIOS</i>.</li>
+<li>Trang quản trị web: thêm ô xem <i>RecommendationLog</i> của một bài (vì sao bài lên cao) để xử lý khiếu nại.</li>
+<li>Chi phí: không có dịch vụ ngoài. Tải cơ sở dữ liệu tăng do ghi sự kiện bảng tin; ước tính 50–100 dòng mỗi người dùng hoạt động mỗi ngày.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Bảng tin xếp theo công thức: test tự động với dữ liệu mẫu chứng minh bài của người hay tương tác đứng trên bài mới hơn của người ít tương tác; bài 2 ngày tuổi không đứng trên bài 1 giờ tuổi cùng tác giả khi tương tác ngang nhau.</li>
+<li>Không có hai bài liền nhau của cùng tác giả quá 2 lần; bài và lượt đăng lại của nó không cùng hiện.</li>
+<li>Bài có ≥ 3 báo cáo mở bị hạ; bài ≥ 10 báo cáo mở không hiện cho người khác; tác giả bị khóa không còn bài trong bảng tin, Reels, tìm kiếm.</li>
+<li>Cuộn 5 trang liên tiếp không lặp bài; kéo làm mới cho thứ tự mới.</li>
+<li>"Không quan tâm" làm bài đó biến mất và bài khác của tác giả đó tụt hạng ở lần làm mới sau (test tự động).</li>
+<li>"Vì sao tôi thấy bài này" hiện đúng lý do ở bảng tin và Reels.</li>
+<li>Gửi lại một lô sự kiện không tạo dòng trùng; sự kiện của bài không có quyền xem bị bỏ.</li>
+<li>Chạy trên máy Android và iPhone thật: cuộn bảng tin, Reels, menu "Vì sao". Báo cáo ghi rõ đã chạy trên nền tảng nào.</li>
+<li>Bảng tin trả trang đầu dưới 500 ms với 1.000 người theo dõi và 10.000 bài trong 7 ngày (đo trên máy chủ thử).</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 6 ngày (ứng viên, lọc, điểm, đa dạng, bộ đệm, cập nhật điểm sở thích, test), mobile 3 ngày (gom sự kiện bảng tin, lý do, menu, cursor), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B5 (cờ nhạy cảm của bài), C1 (trạng thái ẩn/gỡ do kiểm duyệt, hàng đợi khi bị báo cáo nhiều), B8 (tắt tiếng). Có thể làm trước với hệ số an toàn chỉ dựa trên số báo cáo, rồi nối B5/C1 khi có.</li>
+<li>Phần chủ đề (<i>Topic</i>, <i>UserInterest</i>) là Phase 4–5 của kế hoạch Reels; nếu chưa làm thì công thức bảng tin vẫn chạy được không có chủ đề.</li>
+<li>Rủi ro: ít dữ liệu tương tác khi số người dùng còn nhỏ, nên công thức gần như theo thời gian; trọng số cần chỉnh sau khi có số liệu thật. Đổi phân trang sang cursor phải giữ tương thích với app đang cài.</li>
+</ul>

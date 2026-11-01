@@ -1,0 +1,33 @@
+{"id":"d2-gui-lai-khi-mat-mang","title":"Gửi khi mất mạng và tự gửi lại",
+"lanes":[{"name":"Ứng dụng","cols":2},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"col":1,"row":0,"label":"Người dùng bấm Gửi"},
+ {"id":"mk","type":"process","lane":0,"col":1,"row":1,"label":"Tạo clientId, hiện tin mờ"},
+ {"id":"q","type":"data","lane":0,"col":1,"row":2,"label":"Lưu hàng đợi trên máy"},
+ {"id":"net","type":"decision","lane":0,"col":1,"row":3,"label":"Có mạng?"},
+ {"id":"wait","type":"process","lane":0,"col":0,"row":3,"label":"Chờ có mạng lại"},
+ {"id":"send","type":"process","lane":0,"col":1,"row":4,"label":"Gửi tin kèm clientId"},
+ {"id":"rule","type":"decision","lane":1,"row":4,"label":"Bị luật chặn?"},
+ {"id":"rerr","type":"end","lane":1,"col":1,"row":4,"label":"Trả lỗi; app gỡ tin, không thử lại"},
+ {"id":"to","type":"decision","lane":0,"col":1,"row":5,"label":"Thử dưới 5 lần?"},
+ {"id":"back","type":"process","lane":0,"col":0,"row":5,"label":"Đợi 2, 4, 8… giây"},
+ {"id":"dup","type":"decision","lane":1,"row":5,"label":"clientId đã lưu?"},
+ {"id":"old","type":"process","lane":1,"col":1,"row":5,"label":"Trả tin cũ, không tạo mới"},
+ {"id":"red","type":"io","lane":0,"col":1,"row":6,"label":"Tin đỏ: Chạm để gửi lại"},
+ {"id":"db","type":"data","lane":1,"row":6,"label":"Ghi Message với id = clientId"},
+ {"id":"ret","type":"process","lane":1,"row":7,"label":"Trả tin, socket message:new"},
+ {"id":"done","type":"end","lane":0,"col":1,"row":8,"label":"Thay tin mờ, xóa khỏi hàng đợi"}
+],
+"edges":[
+ {"from":"s","to":"mk"},{"from":"mk","to":"q"},{"from":"q","to":"net"},
+ {"from":"net","to":"wait","label":"Không"},{"from":"net","to":"send","label":"Có"},
+ {"from":"wait","to":"send","exit":"bottom","entry":"left"},
+ {"from":"send","to":"rule"},
+ {"from":"rule","to":"rerr","label":"Có"},{"from":"rule","to":"dup","label":"Không"},
+ {"from":"send","to":"to","label":"Lỗi mạng","dashed":true},
+ {"from":"to","to":"back","label":"Có"},{"from":"to","to":"red","label":"Không"},
+ {"from":"back","to":"send","exit":"top","entry":"left"},
+ {"from":"dup","to":"old","label":"Có"},{"from":"dup","to":"db","label":"Không"},
+ {"from":"old","to":"ret","exit":"bottom","entry":"right"},
+ {"from":"db","to":"ret"},{"from":"ret","to":"done"}
+]}

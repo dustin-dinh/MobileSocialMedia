@@ -2,3 +2,6 @@
 // shortcut: nằm trong bộ nhớ của một tiến trình API; khi chạy nhiều bản API thì chuyển sang Redis
 // hoặc kiểm tra database trong JwtStrategy.
 export const bannedUserIds = new Set<string>();
+
+// Tài khoản bị khóa vì khai dưới 18 tuổi. Cùng cách nạp và cùng giới hạn như bannedUserIds.
+export const ageLockedUserIds = new Set<string>();

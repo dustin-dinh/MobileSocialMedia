@@ -1,0 +1,33 @@
+{"id":"b2-bao-cao-tuoc-quyen","title":"Báo cáo hội thoại ẩn danh, tước quyền và xét duyệt",
+"lanes":[{"name":"Người nhận"},{"name":"Máy chủ","cols":2},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Báo cáo, chọn lý do"},
+ {"id":"rep","type":"data","lane":1,"row":0,"label":"Lưu Report, bản chụp 50 tin"},
+ {"id":"close","type":"data","lane":1,"row":1,"label":"Đóng hội thoại, tước quyền ẩn danh"},
+ {"id":"rv","type":"io","lane":0,"row":1,"label":"Hội thoại đã đóng, đã chặn"},
+ {"id":"note","type":"process","lane":1,"col":1,"row":1,"label":"Báo người gửi: tạm mất quyền"},
+ {"id":"ev","type":"process","lane":1,"row":2,"label":"Cộng điểm lạm dụng, vào hàng chờ"},
+ {"id":"view","type":"io","lane":2,"row":3,"label":"Xem bản chụp, danh tính thật"},
+ {"id":"log","type":"data","lane":2,"row":4,"label":"Ghi nhật ký: ai xem danh tính"},
+ {"id":"d1","type":"decision","lane":2,"row":5,"label":"Có vi phạm?"},
+ {"id":"d2","type":"decision","lane":1,"col":1,"row":5,"label":"Từ 3 người báo/30 ngày?"},
+ {"id":"keep","type":"end","lane":1,"col":1,"row":6,"label":"Giữ tước quyền, xét tay"},
+ {"id":"back","type":"data","lane":1,"row":5,"label":"Trả lại quyền ẩn danh"},
+ {"id":"eback","type":"end","lane":1,"row":6,"label":"Báo cáo DISMISSED"},
+ {"id":"lvl","type":"decision","lane":2,"row":7,"label":"Lần đầu, mức nhẹ?"},
+ {"id":"t30","type":"data","lane":1,"col":1,"row":7,"label":"Tước 30 ngày, ghi cảnh cáo"},
+ {"id":"perm","type":"data","lane":2,"row":8,"label":"Tước vĩnh viễn hoặc khóa"},
+ {"id":"res","type":"process","lane":1,"col":1,"row":9,"label":"Báo người gửi kết quả, kháng nghị"},
+ {"id":"e","type":"end","lane":1,"col":1,"row":10,"label":"Báo cáo RESOLVED"}
+],
+"edges":[
+ {"from":"s","to":"rep"},{"from":"rep","to":"close"},
+ {"from":"close","to":"rv"},{"from":"close","to":"note"},
+ {"from":"close","to":"ev"},{"from":"ev","to":"view","exit":"bottom","entry":"top"},{"from":"view","to":"log"},{"from":"log","to":"d1"},
+ {"from":"d1","to":"d2","label":"Không","exit":"left","entry":"right"},
+ {"from":"d2","to":"keep","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"d2","to":"back","label":"Không","exit":"left","entry":"right"},{"from":"back","to":"eback"},
+ {"from":"d1","to":"lvl","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"lvl","to":"t30","label":"Có","exit":"left","entry":"right"},{"from":"lvl","to":"perm","label":"Không"},
+ {"from":"t30","to":"res","exit":"bottom","entry":"top"},{"from":"perm","to":"res","exit":"bottom","entry":"right"},{"from":"res","to":"e"}
+]}

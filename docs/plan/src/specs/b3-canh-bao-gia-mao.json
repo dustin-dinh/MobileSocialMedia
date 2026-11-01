@@ -1,0 +1,31 @@
+{"id":"b3-canh-bao-gia-mao","title":"Cảnh báo tài khoản giả mạo người quen",
+"lanes":[{"name":"Người nhận"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":2,"row":0,"label":"Có tin chờ hoặc xin theo dõi mới"},
+ {"id":"age","type":"decision","lane":2,"row":1,"label":"Tài khoản dưới 30 ngày?"},
+ {"id":"eage","type":"end","lane":2,"col":1,"row":1,"label":"Không kiểm tra thêm"},
+ {"id":"cmp","type":"process","lane":2,"row":2,"label":"So tên với người nhận theo dõi"},
+ {"id":"sim","type":"decision","lane":2,"row":3,"label":"Tên giống, khác người?"},
+ {"id":"esim","type":"end","lane":2,"col":1,"row":3,"label":"Không cảnh báo"},
+ {"id":"db","type":"data","lane":2,"row":4,"label":"Lưu impersonationOfId, SafetyEvent"},
+ {"id":"bar","type":"io","lane":1,"row":5,"label":"Thanh: tên giống X, mới tạo"},
+ {"id":"ch","type":"decision","lane":0,"row":6,"label":"Người nhận chọn?"},
+ {"id":"real","type":"end","lane":1,"row":6,"label":"Mở hồ sơ thật của X"},
+ {"id":"rp","type":"process","lane":0,"row":7,"label":"Bấm Báo cáo giả mạo"},
+ {"id":"send","type":"process","lane":1,"row":7,"label":"Gửi báo cáo IMPERSONATION"},
+ {"id":"rdb","type":"data","lane":2,"row":7,"label":"Report, xóa yêu cầu, chặn"},
+ {"id":"many","type":"decision","lane":2,"row":8,"label":"Từ 3 báo cáo/7 ngày?"},
+ {"id":"lim","type":"data","lane":2,"col":1,"row":8,"label":"Tạm lọc mọi tin của tài khoản"},
+ {"id":"q","type":"end","lane":2,"row":9,"label":"Vào hàng chờ kiểm duyệt"}
+],
+"edges":[
+ {"from":"s","to":"age"},
+ {"from":"age","to":"eage","label":"Không"},{"from":"age","to":"cmp","label":"Có"},
+ {"from":"cmp","to":"sim"},
+ {"from":"sim","to":"esim","label":"Không"},{"from":"sim","to":"db","label":"Có"},
+ {"from":"db","to":"bar"},{"from":"bar","to":"ch","exit":"bottom","entry":"top"},
+ {"from":"ch","to":"real","label":"Xem"},{"from":"ch","to":"rp","label":"Báo cáo"},
+ {"from":"rp","to":"send"},{"from":"send","to":"rdb"},{"from":"rdb","to":"many"},
+ {"from":"many","to":"lim","label":"Có"},{"from":"many","to":"q","label":"Không"},
+ {"from":"lim","to":"q","exit":"bottom","entry":"right"}
+]}

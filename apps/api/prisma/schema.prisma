@@ -50,6 +50,15 @@ model User {
   messages              Message[]
   stories               Story[]
   storyViews            StoryView[]
+  storyReactions        StoryReaction[]
+  // Ngày sinh (chỉ ngày). Null ở tài khoản cũ: app bắt khai trước khi dùng. Phải đủ 18 tuổi.
+  birthDate              DateTime? @db.Date
+  // Khai dưới 18 tuổi: tài khoản bị khóa (khác bannedAt do admin khóa). Admin mở được.
+  ageLockedAt            DateTime?
+  // Người dùng tự bật: cho phép người ẩn danh nhắn tin (nút "Nhắn ẩn danh" trên trang cá nhân).
+  allowAnonymousMessages Boolean   @default(false)
+  // Bị tước quyền gửi tin ẩn danh (bị báo cáo); admin trả lại.
+  anonymousSuspendedAt   DateTime?
 }
 
 model Post {
@@ -222,6 +231,8 @@ model Report {
   createdAt  DateTime @default(now())
   resolvedAt   DateTime?
   resolvedById String?
+  // Báo cáo hội thoại: bản chụp các tin lúc báo cáo, để bằng chứng không mất khi tin bị xóa.
+  snapshot     Json?
 
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
@@ -319,12 +330,24 @@ model Conversation {
   // Thời điểm mỗi bên đọc gần nhất: dùng để tính số chưa đọc và hiện "Đã xem".
   userAReadAt   DateTime?
   userBReadAt   DateTime?
+  // DIRECT | ANON_A (userA ẩn danh với userB) | ANON_B. Mỗi cặp: một hội thoại thường và
+  // tối đa một hội thoại ẩn danh mỗi chiều, tách riêng để không lộ danh tính.
+  kind          String    @default("DIRECT")
+  // PENDING: tin nhắn chờ (người lạ hoặc ẩn danh) — chỉ chữ, giới hạn số tin, không "Đã xem".
+  // Thành ACCEPTED khi người nhận chấp nhận hoặc trả lời.
+  status        String    @default("ACCEPTED")
+  // Người mở hội thoại PENDING.
+  requesterId   String?
+  // Người ẩn danh tự tiết lộ danh tính (không thu hồi được).
+  revealedAt    DateTime?
+  // Người nhận đã báo cáo hoặc chặn: không ai gửi thêm được.
+  closedAt      DateTime?
 
   userA    User      @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB    User      @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
   messages Message[]
 
-  @@unique([userAId, userBId])
+  @@unique([userAId, userBId, kind])
   @@index([userAId, lastMessageAt])
   @@index([userBId, lastMessageAt])
 }
@@ -337,6 +360,10 @@ model Message {
   content        String?
   imageUrl       String?
   createdAt      DateTime @default(now())
+  // Ảnh bị bộ nhận diện đánh giá nhạy cảm: người nhận thấy ảnh mờ, tự chọn có xem không.
+  sensitive      Boolean  @default(false)
+  // Tin trả lời một story (story hết hạn thì chỉ còn nhãn "Đã trả lời story").
+  storyId        String?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
@@ -354,12 +381,30 @@ model Story {
   durationMs   Int?
   createdAt    DateTime @default(now())
   expiresAt    DateTime
+  // Chủ story cho phép thả cảm xúc và trả lời ẩn danh.
+  allowAnonymous Boolean @default(false)
 
-  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  views  StoryView[]
+  author    User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  views     StoryView[]
+  reactions StoryReaction[]
 
   @@index([authorId, expiresAt])
   @@index([expiresAt])
+}
+
+// Một cảm xúc mỗi người mỗi story. isAnonymous: chủ story thấy "Người ẩn danh".
+model StoryReaction {
+  storyId     String
+  userId      String
+  type        String
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, userId])
+  @@index([storyId, createdAt])
 }
 
 model StoryView {

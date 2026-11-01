@@ -732,3 +732,71 @@ On 2026-10-13 the owner asked for the missing "small" and "medium" features from
 - Push for new messages is sent through the existing Expo push path, which still needs a development build and credentials to be exercised.
 - New notification types `FOLLOW_REQUEST` and `FOLLOW_ACCEPT`.
 - The two live tests that documented the old feed behaviour as expected failures are normal tests again. The two live suites share the seeded accounts and must be run one at a time.
+
+## DEC-024 - Chat images live in a private bucket behind signed URLs; share links hidden behind a flag
+
+Date: 2026-10-17
+
+Status: Accepted (owner decision, 2026-10-17)
+
+### Context
+
+Chat images were uploaded to the same bucket as post media, which has a public-read policy (`Principal: '*'`). Anyone holding an image link could open it without signing in, for as long as the file existed. Deleting an account also left its chat images, story files and cover photo in storage.
+
+Separately, the owner asked to hide "copy link": the app has no web domain, so a `mobilesocial://` link opens only on a phone that already has the app. The feature must stay usable later.
+
+### Decision
+
+1. A second bucket, `S3_PRIVATE_BUCKET` (default `<S3_BUCKET>-private`), created on startup without any policy. Chat images are uploaded there and stored as `s3p:<key>` (public media stays `s3:<key>`).
+2. `resolveMediaUrls` (now async) turns `s3p:` values into signed GET URLs valid for 1 hour, in HTTP responses and socket events alike. Who may see an image is decided where the message is selected (conversation membership); signing adds no new access path.
+3. Account deletion removes post media and thumbnails, story files, the cover photo and every chat image of the user's conversations.
+4. Mobile: `SHARE_LINKS_ENABLED` (`EXPO_PUBLIC_SHARE_LINKS_ENABLED`, default off) hides "copy link" on posts and profiles and the link inside the system share sheet. Opening `mobilesocial://` links still works.
+
+### Consequences
+
+- Chat image URLs differ on every load: the chat caches images by message id.
+- A deployment needs credentials allowed to sign GET on the private bucket; nothing else changes for S3/R2.
+- No existing chat image was in the public bucket when this shipped (checked on the shared database), so nothing was migrated.
+
+### Related Files
+
+- `apps/api/src/modules/storage/{media-url.ts,media-url.interceptor.ts,storage.service.ts}`
+- `apps/api/src/modules/notifications/notifications.gateway.ts`
+- `apps/api/src/modules/messages/messages.service.ts`
+- `apps/api/src/modules/users/users.service.ts`
+- `apps/mobile/src/config/links.ts`, `apps/mobile/src/features/post/components/SharePostModal.tsx`, `apps/mobile/src/features/profile/components/ProfileView.tsx`, `apps/mobile/src/features/messages/screens/ChatScreen.tsx`
+
+## DEC-025 - Safety batch: 18+, message requests, anonymous conversations, blurred chat images, anonymous story reactions
+
+Date: 2026-10-17
+
+Status: Accepted (plan approved by the owner on 2026-10-17, including the four defaults below)
+
+### Context
+
+The owner wants a differentiating 1:1 messaging feature (anonymous conversations that can be revealed), anonymous reactions and replies on stories, an 18+ app, and blurring of sensitive images in chats, with explicit protection against scams, while selling the source code rather than publishing the app.
+
+### Decision
+
+1. **18+ by declared birth date.** Required at registration; accounts without one declare it once before using the app; under 18 sets `ageLockedAt` (separate from admin bans) and every token is refused with `AGE_RESTRICTED`. Admin can unlock and clear the date. Owner default: lock, do not delete.
+2. **Message requests.** A conversation opened by someone the recipient does not follow is `PENDING`: text only, 3 messages, no read receipt, decline is silent. Existing conversations stay `ACCEPTED`.
+3. **Anonymous conversations** are separate rows (`Conversation.kind` `ANON_A` / `ANON_B`, unique per pair and kind), always text only, start as requests, and are masked on the server (API, socket, push) until the sender reveals. Entry points (owner default): the story reply when the story allows it, and "Nhắn ẩn danh" on the profile of someone who enabled `allowAnonymousMessages` and whom the sender follows. Eligibility: verified email or Google, account ≥ 7 days, not suspended, 10 new anonymous conversations per day.
+4. **Scam controls** in `moderation/text-safety.ts`: links, Vietnamese phone numbers and bank-account-like digit runs are refused for anonymous senders and request openers; scam wording is flagged to the recipient. Reporting a conversation stores a 50-message snapshot; reporting an anonymous one closes it and suspends the sender's anonymous messaging at once; dismissal restores it unless 3 different reporters in 30 days.
+5. **Sensitive chat images** are classified on the server with `AdamCodd/vit-base-nsfw-detector` (Apache-2.0, ONNX, `onnxruntime-node` + `sharp`), never sent to a third party; only a `sensitive` flag is stored; the recipient sees a blur and decides. Missing model: images go through unblurred and admin is warned, unless `IMAGE_MODERATION_REQUIRED=true`. The model file is downloaded by a script, not committed.
+6. **Stories:** owners see reactions, never viewers (`GET /stories/:id/viewers` removed); anonymous reactions show as "Người ẩn danh"; anonymity is chosen per story when posting, off by default.
+7. **Migration** `20261017090000_add_safety_features` applied to the shared Supabase database (owner default): additive columns and `StoryReaction`, plus the `Conversation` unique index swapped from `(userAId, userBId)` to `(userAId, userBId, kind)`; the new index is created before the old one is dropped.
+
+### Consequences
+
+- Every existing account (including real users of the shared database) sees the birth-date screen once on next launch.
+- Clients must handle the new conversation fields and refusal codes (see `docs/api-contract.md`, section "Safety features added on 2026-10-17").
+- New backend dependencies `onnxruntime-node` and `sharp`; `onnxruntime-node`'s install script (GPU binaries only) is not run (`pnpm-workspace.yaml`).
+- Ban and age-lock lists, and the story-reaction push throttle, are per-process memory: multiple API instances need Redis or database checks.
+
+### Related Files
+
+- `apps/api/prisma/migrations/20261017090000_add_safety_features/`, `apps/api/prisma/schema.prisma`
+- `apps/api/src/modules/{moderation,messages,stories,reports,admin,auth,users}/`
+- `apps/api/scripts/{download-moderation-model,safety-smoke}.cjs`
+- `apps/mobile/src/features/{auth,messages,stories,settings,profile,report}/`, `apps/mobile/src/navigation/`
+- `docs/moderation/MODERATION_PLAN.md`, `docs/api-contract.md`

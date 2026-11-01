@@ -1,0 +1,203 @@
+{
+ "id": "c3-xem-du-lieu-nhay-cam",
+ "title": "Xem danh tính thật và bản chụp hội thoại",
+ "lanes": [
+  {
+   "name": "Kiểm duyệt viên"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  },
+  {
+   "name": "Quản trị viên"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Mở báo cáo hội thoại ẩn danh"
+  },
+  {
+   "id": "mask",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Trả báo cáo, che danh tính"
+  },
+  {
+   "id": "btn",
+   "type": "io",
+   "lane": 0,
+   "row": 1,
+   "label": "Bấm Xem danh tính"
+  },
+  {
+   "id": "why",
+   "type": "io",
+   "lane": 0,
+   "row": 2,
+   "label": "Chọn lý do truy cập"
+  },
+  {
+   "id": "role",
+   "type": "decision",
+   "lane": 1,
+   "row": 3,
+   "label": "Vai trò được phép?"
+  },
+  {
+   "id": "deny",
+   "type": "process",
+   "lane": 1,
+   "col": 1,
+   "row": 3,
+   "label": "Từ chối 403, ghi nhật ký"
+  },
+  {
+   "id": "step",
+   "type": "decision",
+   "lane": 1,
+   "row": 4,
+   "label": "Nhập 2FA trong 15 phút?"
+  },
+  {
+   "id": "again",
+   "type": "process",
+   "lane": 1,
+   "col": 1,
+   "row": 4,
+   "label": "Yêu cầu nhập lại mã 2FA"
+  },
+  {
+   "id": "log",
+   "type": "data",
+   "lane": 1,
+   "row": 5,
+   "label": "Ghi nhật ký truy cập"
+  },
+  {
+   "id": "many",
+   "type": "decision",
+   "lane": 1,
+   "col": 1,
+   "row": 5,
+   "label": "Quá 20 lượt trong ngày?"
+  },
+  {
+   "id": "alert",
+   "type": "io",
+   "lane": 2,
+   "row": 5,
+   "label": "Cảnh báo, rà nhật ký"
+  },
+  {
+   "id": "fine",
+   "type": "end",
+   "lane": 1,
+   "col": 1,
+   "row": 6,
+   "label": "Không cảnh báo"
+  },
+  {
+   "id": "give",
+   "type": "process",
+   "lane": 1,
+   "row": 6,
+   "label": "Trả dữ liệu, hạn xem 15 phút"
+  },
+  {
+   "id": "revoke",
+   "type": "process",
+   "lane": 2,
+   "row": 6,
+   "label": "Thu hồi quyền nếu lạm dụng"
+  },
+  {
+   "id": "see",
+   "type": "io",
+   "lane": 0,
+   "row": 7,
+   "label": "Xem danh tính, bản chụp"
+  },
+  {
+   "id": "e",
+   "type": "end",
+   "lane": 0,
+   "row": 8,
+   "label": "Ra quyết định (C1-3)"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "mask"
+  },
+  {
+   "from": "mask",
+   "to": "btn"
+  },
+  {
+   "from": "btn",
+   "to": "why"
+  },
+  {
+   "from": "why",
+   "to": "role"
+  },
+  {
+   "from": "role",
+   "to": "deny",
+   "label": "Không"
+  },
+  {
+   "from": "role",
+   "to": "step",
+   "label": "Có"
+  },
+  {
+   "from": "step",
+   "to": "again",
+   "label": "Không"
+  },
+  {
+   "from": "step",
+   "to": "log",
+   "label": "Có"
+  },
+  {
+   "from": "log",
+   "to": "many",
+   "dashed": true
+  },
+  {
+   "from": "many",
+   "to": "alert",
+   "label": "Có"
+  },
+  {
+   "from": "many",
+   "to": "fine",
+   "label": "Không"
+  },
+  {
+   "from": "alert",
+   "to": "revoke"
+  },
+  {
+   "from": "log",
+   "to": "give"
+  },
+  {
+   "from": "give",
+   "to": "see"
+  },
+  {
+   "from": "see",
+   "to": "e"
+  }
+ ]
+}

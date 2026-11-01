@@ -10,6 +10,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 
 import { showToast } from '../../../components/common/toast';
+import { SHARE_LINKS_ENABLED } from '../../../config/links';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -51,8 +52,18 @@ export function SharePostModal({
     }
   };
 
+  // Without share links the system sheet shares the post text alone, so it is
+  // offered only for posts that have text.
+  const canSystemShare = SHARE_LINKS_ENABLED || Boolean(post.content);
+
   const handleSystemShare = async () => {
     try {
+      if (!SHARE_LINKS_ENABLED) {
+        await Share.share({ message: post.content });
+        onClose();
+        return;
+      }
+
       const shareMessage = post.content
         ? `${post.content}\n\n${postUrl}`
         : postUrl;
@@ -165,29 +176,31 @@ export function SharePostModal({
 
             {/* Share options */}
             <View style={styles.list}>
-              <Pressable
-                accessibilityLabel="Sao chép liên kết bài viết"
-                accessibilityRole="button"
-                onPress={handleCopyLink}
-                style={styles.optionRow}
-              >
-                <View style={[styles.iconWrap, copied && styles.iconWrapActive]}>
-                  <ClayIcon
-                    color={copied ? clayColors.primary : clayColors.text}
-                    name="LinkSimple"
-                    size={22}
-                    weight="regular"
-                  />
-                </View>
-                <View style={styles.optionContent}>
-                  <ClayText variant="body" style={styles.optionLabel}>
-                    Sao chép liên kết
-                  </ClayText>
-                  <ClayText variant="caption" style={styles.optionDescription}>
-                    {postUrl}
-                  </ClayText>
-                </View>
-              </Pressable>
+              {SHARE_LINKS_ENABLED ? (
+                <Pressable
+                  accessibilityLabel="Sao chép liên kết bài viết"
+                  accessibilityRole="button"
+                  onPress={handleCopyLink}
+                  style={styles.optionRow}
+                >
+                  <View style={[styles.iconWrap, copied && styles.iconWrapActive]}>
+                    <ClayIcon
+                      color={copied ? clayColors.primary : clayColors.text}
+                      name="LinkSimple"
+                      size={22}
+                      weight="regular"
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <ClayText variant="body" style={styles.optionLabel}>
+                      Sao chép liên kết
+                    </ClayText>
+                    <ClayText variant="caption" style={styles.optionDescription}>
+                      {postUrl}
+                    </ClayText>
+                  </View>
+                </Pressable>
+              ) : null}
 
               {canRepost ? (
                 <Pressable
@@ -219,29 +232,31 @@ export function SharePostModal({
                 </Pressable>
               ) : null}
 
-              <Pressable
-                accessibilityLabel="Mở chia sẻ ứng dụng khác của hệ thống"
-                accessibilityRole="button"
-                onPress={handleSystemShare}
-                style={styles.optionRow}
-              >
-                <View style={styles.iconWrap}>
-                  <ClayIcon
-                    color={clayColors.text}
-                    name="Export"
-                    size={22}
-                    weight="regular"
-                  />
-                </View>
-                <View style={styles.optionContent}>
-                  <ClayText variant="body" style={styles.optionLabel}>
-                    Tuỳ chọn chia sẻ khác...
-                  </ClayText>
-                  <ClayText variant="caption" style={styles.optionDescription}>
-                    Chia sẻ qua Zalo, Messenger, Facebook, hoặc AirDrop
-                  </ClayText>
-                </View>
-              </Pressable>
+              {canSystemShare ? (
+                <Pressable
+                  accessibilityLabel="Mở chia sẻ ứng dụng khác của hệ thống"
+                  accessibilityRole="button"
+                  onPress={handleSystemShare}
+                  style={styles.optionRow}
+                >
+                  <View style={styles.iconWrap}>
+                    <ClayIcon
+                      color={clayColors.text}
+                      name="Export"
+                      size={22}
+                      weight="regular"
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <ClayText variant="body" style={styles.optionLabel}>
+                      Tuỳ chọn chia sẻ khác...
+                    </ClayText>
+                    <ClayText variant="caption" style={styles.optionDescription}>
+                      Chia sẻ qua Zalo, Messenger, Facebook, hoặc AirDrop
+                    </ClayText>
+                  </View>
+                </Pressable>
+              ) : null}
             </View>
           </ClaySurface>
         </Pressable>

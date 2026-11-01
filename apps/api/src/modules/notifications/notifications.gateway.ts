@@ -106,7 +106,7 @@ export class NotificationsGateway
         for (const socket of sockets) {
             socket.emit(
                 event,
-                resolveMediaUrls(notification, socket.handshake.headers.host),
+                await resolveMediaUrls(notification, socket.handshake.headers.host),
             );
         }
     }

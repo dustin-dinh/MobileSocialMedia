@@ -1,0 +1,219 @@
+{
+ "id": "c3-dang-nhap-quan-tri",
+ "title": "Nhân viên đăng nhập trang quản trị (bắt buộc 2FA)",
+ "lanes": [
+  {
+   "name": "Nhân viên"
+  },
+  {
+   "name": "Trang quản trị"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Nhập email, mật khẩu"
+  },
+  {
+   "id": "send",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Gửi đăng nhập"
+  },
+  {
+   "id": "pw",
+   "type": "decision",
+   "lane": 2,
+   "row": 0,
+   "label": "Mật khẩu đúng?"
+  },
+  {
+   "id": "pwbad",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 0,
+   "label": "Báo sai, đếm lần sai (A4)"
+  },
+  {
+   "id": "staff",
+   "type": "decision",
+   "lane": 2,
+   "row": 1,
+   "label": "Là nhân viên?"
+  },
+  {
+   "id": "deny",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 1,
+   "label": "Từ chối 403, ghi nhật ký"
+  },
+  {
+   "id": "tfa",
+   "type": "decision",
+   "lane": 2,
+   "row": 2,
+   "label": "Đã bật 2FA?"
+  },
+  {
+   "id": "setup",
+   "type": "sub",
+   "lane": 2,
+   "col": 1,
+   "row": 2,
+   "label": "Bắt thiết lập 2FA (A1)"
+  },
+  {
+   "id": "code",
+   "type": "io",
+   "lane": 1,
+   "row": 3,
+   "label": "Màn nhập mã 6 số"
+  },
+  {
+   "id": "enter",
+   "type": "process",
+   "lane": 0,
+   "row": 4,
+   "label": "Nhập mã từ ứng dụng xác thực"
+  },
+  {
+   "id": "chk",
+   "type": "decision",
+   "lane": 2,
+   "row": 5,
+   "label": "Mã đúng?"
+  },
+  {
+   "id": "bad",
+   "type": "process",
+   "lane": 2,
+   "col": 1,
+   "row": 5,
+   "label": "Sai 5 lần: khóa 15 phút"
+  },
+  {
+   "id": "sess",
+   "type": "process",
+   "lane": 2,
+   "row": 6,
+   "label": "Cấp phiên quản trị 8 giờ"
+  },
+  {
+   "id": "log",
+   "type": "data",
+   "lane": 2,
+   "col": 1,
+   "row": 6,
+   "label": "Ghi AuditLog: đăng nhập"
+  },
+  {
+   "id": "menu",
+   "type": "io",
+   "lane": 1,
+   "row": 7,
+   "label": "Hiện menu theo vai trò"
+  },
+  {
+   "id": "e",
+   "type": "end",
+   "lane": 0,
+   "row": 8,
+   "label": "Bắt đầu làm việc"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "send"
+  },
+  {
+   "from": "send",
+   "to": "pw"
+  },
+  {
+   "from": "pw",
+   "to": "pwbad",
+   "label": "Không"
+  },
+  {
+   "from": "pw",
+   "to": "staff",
+   "label": "Có"
+  },
+  {
+   "from": "staff",
+   "to": "deny",
+   "label": "Không"
+  },
+  {
+   "from": "staff",
+   "to": "tfa",
+   "label": "Có"
+  },
+  {
+   "from": "tfa",
+   "to": "setup",
+   "label": "Không"
+  },
+  {
+   "from": "tfa",
+   "to": "code",
+   "label": "Có"
+  },
+  {
+   "from": "code",
+   "to": "enter"
+  },
+  {
+   "from": "enter",
+   "to": "chk"
+  },
+  {
+   "from": "chk",
+   "to": "bad",
+   "label": "Không"
+  },
+  {
+   "from": "chk",
+   "to": "sess",
+   "label": "Có"
+  },
+  {
+   "from": "bad",
+   "to": "code",
+   "label": "Thử lại",
+   "exit": "top",
+   "entry": "right",
+   "via": [
+    [
+     3,
+     3
+    ]
+   ]
+  },
+  {
+   "from": "sess",
+   "to": "log",
+   "dashed": true
+  },
+  {
+   "from": "sess",
+   "to": "menu"
+  },
+  {
+   "from": "menu",
+   "to": "e"
+  }
+ ]
+}

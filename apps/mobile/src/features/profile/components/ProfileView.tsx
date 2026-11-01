@@ -15,6 +15,7 @@ import { ListFooter } from '../../../components/common/ListFooter';
 import { LoadError } from '../../../components/common/LoadError';
 import { showToast } from '../../../components/common/toast';
 import { ClayText } from '../../../components/ui/ClayText';
+import { SHARE_LINKS_ENABLED } from '../../../config/links';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { ApiError } from '../../../services/apiError';
 import { followApi } from '../../../services/followApi';
@@ -26,6 +27,7 @@ import { feedSpacing } from '../../feed/feedTheme';
 import { usePostList } from '../../feed/hooks/usePostList';
 import { postKey } from '../../feed/services/postMapper';
 import type { Post } from '../../feed/types';
+import { anonymousErrorText } from '../../messages/anonymousErrors';
 import { messageService } from '../../messages/services/messageService';
 import { ReportModal } from '../../report/ReportModal';
 import type { ReportTarget } from '../../report/reportService';
@@ -211,6 +213,20 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
     }
   }, [navigation, userId]);
 
+  // Only followers of someone who accepts anonymous messages can write to them anonymously.
+  const handleMessageAnonymously = useCallback(async () => {
+    try {
+      const conversation = await messageService.openAnonymous(userId);
+
+      navigation.open('Chat', { conversationId: conversation.id, peer: conversation.peer });
+    } catch (error) {
+      showToast(
+        anonymousErrorText(error, 'Không mở được cuộc trò chuyện ẩn danh. Vui lòng thử lại.'),
+        'error',
+      );
+    }
+  }, [navigation, userId]);
+
   // ── Edit own profile ──────────────────────────────────────────────────
   const handleSaveProfile = useCallback(
     async (data: Pick<UpdateProfilePayload, 'avatar' | 'bio' | 'cover' | 'displayName'>) => {
@@ -358,16 +374,31 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
           <ActionSheet
             onClose={() => onCloseMenu?.()}
             options={[
-              {
-                icon: 'LinkSimple',
-                key: 'copy',
-                label: 'Sao chép liên kết trang cá nhân',
-                onPress: () => {
-                  void Clipboard.setStringAsync(`mobilesocial://u/${profile.id}`).then(() =>
-                    showToast('Đã sao chép liên kết.'),
-                  );
-                },
-              },
+              ...(SHARE_LINKS_ENABLED
+                ? [
+                    {
+                      icon: 'LinkSimple' as const,
+                      key: 'copy',
+                      label: 'Sao chép liên kết trang cá nhân',
+                      onPress: () => {
+                        void Clipboard.setStringAsync(`mobilesocial://u/${profile.id}`).then(() =>
+                          showToast('Đã sao chép liên kết.'),
+                        );
+                      },
+                    },
+                  ]
+                : []),
+              ...(profile.acceptsAnonymousMessages && profile.isFollowing && !profile.isBlocked
+                ? [
+                    {
+                      description: 'Người nhận không biết bạn là ai, trừ khi bạn tự tiết lộ',
+                      icon: 'Mask',
+                      key: 'anonymous',
+                      label: 'Nhắn ẩn danh',
+                      onPress: () => void handleMessageAnonymously(),
+                    },
+                  ]
+                : []),
               {
                 destructive: true,
                 icon: 'Flag',

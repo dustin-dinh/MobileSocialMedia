@@ -1,0 +1,130 @@
+<h3>D4. Gọi thoại và gọi video 1-1</h3>
+<p><i>Nhóm: Mở rộng · Giai đoạn: GĐ4 · Ước lượng: 28–32 ngày công (chưa tính thời gian chờ duyệt cửa hàng)</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Cho hai người đã nhắn tin với nhau gọi thoại hoặc gọi video ngay trong app, đổ chuông như cuộc gọi điện thoại kể cả khi app đang tắt. Đây là tính năng <b>khó và tốn kém nhất</b> trong nhóm này: phải viết phần native (mã riêng cho từng hệ điều hành), cần máy chủ chuyển tiếp TURN có chi phí theo dung lượng, cần thêm hai kênh push riêng (VoIP của Apple và FCM của Google), và không chạy được trong Expo Go.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chưa có gì cho cuộc gọi:</b> không có bảng, API hay màn hình nào; không có thư viện WebRTC (công nghệ truyền âm thanh/video trực tiếp giữa hai máy) trong <i>apps/mobile/package.json</i> hay <i>apps/api/package.json</i>.</li>
+<li><b>Kênh thời gian thực có sẵn:</b> Socket.IO namespace <i>/notifications</i> (<i>notifications.gateway.ts</i>) xác thực bằng JWT, mỗi người một phòng <i>user:&lt;id&gt;</i>. Hiện chỉ đẩy từ máy chủ xuống; chưa nhận sự kiện nào từ ứng dụng. Chỉ một máy chủ, chưa có Redis adapter.</li>
+<li><b>Push:</b> <i>NotificationsService.pushToUser</i> gửi qua dịch vụ push của Expo (<i>exp.host</i>), lưu token ở bảng <i>DeviceToken</i> (<i>token</i>, <i>userId</i>, <i>platform</i>), đăng ký qua <i>POST /notifications/devices</i>. Dịch vụ push của Expo không gửi được push VoIP của Apple, nên không dùng được để đánh thức cuộc gọi trên iPhone.</li>
+<li><b>Quyền thiết bị:</b> <i>app.json</i> chưa khai báo micro, camera, chế độ chạy nền nào.</li>
+<li><b>Cách chạy thử hiện nay:</b> nhóm đang chạy thử bằng Expo Go (có tệp <i>apps/mobile/Expo-Go-57.0.9.apk</i>; báo cáo tính năng ghi "Android (BlueStacks, Expo Go)"). <i>expo-dev-client</i> đã có trong <i>package.json</i>, nhưng cần kiểm tra đã từng build bản development (bản app riêng có mã native) cho cả hai nền tảng chưa.</li>
+<li><b>Có thể dùng lại:</b> quy tắc ai được nhắn cho ai trong <i>messages.service.ts</i> (chặn, tin nhắn chờ, ẩn danh, hội thoại đã đóng) và báo cáo hội thoại.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Các thành phần, nói đơn giản</b></p>
+<ul>
+<li><b>WebRTC:</b> âm thanh và hình ảnh đi thẳng giữa hai điện thoại, không qua máy chủ API.</li>
+<li><b>Báo hiệu (signalling):</b> trước khi nói chuyện, hai máy phải trao đổi "thư giới thiệu" (offer, answer) và danh sách đường mạng có thể dùng (ICE candidate). Phần này đi qua Socket.IO sẵn có.</li>
+<li><b>STUN:</b> máy chủ nhỏ giúp mỗi điện thoại biết địa chỉ mạng công khai của mình. Rẻ, có loại miễn phí.</li>
+<li><b>TURN:</b> khi hai máy không nối thẳng được (mạng 4G, mạng công ty, tường lửa), âm thanh/video đi vòng qua máy chủ TURN. Có chi phí theo dung lượng.</li>
+<li><b>CallKit (iOS) và ConnectionService (Android):</b> màn hình cuộc gọi của hệ điều hành, hiện cả khi khóa máy, giống cuộc gọi điện thoại thường.</li>
+<li><b>Push VoIP (iOS, PushKit) và FCM ưu tiên cao (Android):</b> đánh thức app khi đang tắt để đổ chuông.</li>
+</ul>
+<p><b>Luồng 1: Gọi đi</b></p>
+<ol>
+<li>Trong màn chat, người gọi bấm nút gọi thoại hoặc gọi video.</li>
+<li>Ứng dụng xin quyền micro (và camera nếu gọi video). Từ chối thì hiện hướng dẫn bật trong Cài đặt.</li>
+<li>Ứng dụng gọi API tạo cuộc gọi. Máy chủ kiểm tra người gọi có được gọi người này không (mục e), người nhận có đang trong cuộc gọi khác không, giới hạn số cuộc gọi.</li>
+<li>Máy chủ tạo bản ghi cuộc gọi trạng thái RINGING, gửi <i>call:incoming</i> qua socket tới mọi thiết bị đang mở của người nhận, đồng thời gửi push VoIP (iPhone) hoặc FCM ưu tiên cao (Android) tới thiết bị không mở app.</li>
+<li>Người gọi nghe tiếng chuông chờ, có nút hủy.</li>
+<li>Người nhận bắt máy trong 45 giây: cuộc gọi chuyển ACTIVE, hai bên bắt đầu kết nối (luồng 3). Từ chối hoặc hết 45 giây: ghi DECLINED hoặc MISSED, người gọi thấy "Không trả lời", trong chat có tin "Cuộc gọi nhỡ".</li>
+</ol>
+<p><b>Luồng 2: Nhận cuộc gọi khi app đang tắt</b></p>
+<ol>
+<li>iPhone: Apple gửi push VoIP; hệ điều hành đánh thức app; app <b>phải báo cho CallKit ngay lập tức</b> (luật của Apple từ iOS 13: không báo thì iOS tắt app và có thể ngừng gửi push VoIP cho app).</li>
+<li>Android: FCM gửi tin dữ liệu ưu tiên cao; app xử lý ở chế độ nền và mở màn hình cuộc gọi qua ConnectionService (kèm thông báo toàn màn hình khi khóa máy).</li>
+<li>Màn hình cuộc gọi của hệ thống hiện tên và ảnh người gọi, nút Bắt máy / Từ chối.</li>
+<li>Bắt máy: app mở, kết nối socket, gửi chấp nhận. Máy chủ kiểm tra cuộc gọi còn chờ (người gọi có thể vừa hủy). Các thiết bị khác của người nhận ngừng đổ chuông.</li>
+<li>Từ chối: gửi từ chối, máy chủ ghi lại và báo người gọi.</li>
+</ol>
+<p><b>Luồng 3: Kết nối âm thanh và video</b></p>
+<ol>
+<li>Ứng dụng lấy danh sách máy chủ STUN/TURN kèm mật khẩu tạm (hạn 1 giờ) từ API.</li>
+<li>Hai máy trao đổi offer, answer, ICE candidate qua socket. Máy chủ chỉ chuyển tiếp giữa đúng hai người của cuộc gọi.</li>
+<li>Nối thẳng được (phần lớn trường hợp): âm thanh/video đi trực tiếp. Không được: đi qua TURN.</li>
+<li>Trong cuộc gọi: tắt/bật micro, tắt/bật camera, đổi camera trước/sau, loa ngoài, thời lượng cuộc gọi. Đổi mạng (Wi-Fi sang 4G) thì thử kết nối lại (ICE restart) trong 15 giây trước khi báo mất kết nối.</li>
+<li>Kết thúc: một bên bấm tắt, máy chủ ghi <i>endedAt</i>, trong chat có tin "Cuộc gọi video · 3 phút".</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Gọi đi, kiểm tra quyền và đổ chuông:</p>
+<!--FLOW:d4-goi-di-->
+<p>Nhận cuộc gọi khi app đang tắt, rồi kết nối âm thanh/video (kể cả khi cần TURN):</p>
+<!--FLOW:d4-nhan-cuoc-goi-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Ai được gọi cho ai (đề xuất):</b> chỉ trong hội thoại 1-1 thường (DIRECT) đã ở trạng thái ACCEPTED, không bị đóng, không có quan hệ chặn hai chiều. <b>Không gọi được</b> từ tin nhắn chờ (người lạ không được làm điện thoại reo) và <b>không gọi được trong hội thoại ẩn danh</b> (giọng nói, khuôn mặt lộ danh tính). Người nhận có cài đặt "Ai được gọi cho bạn": người đã nhắn tin với bạn (mặc định), chỉ người bạn theo dõi, không ai.</li>
+<li><b>Chống quấy rối bằng cuộc gọi (đề xuất):</b> tối đa 20 cuộc gọi đi mỗi giờ; gọi một người 3 lần liên tiếp không ai nghe trong 15 phút thì bị khóa gọi người đó 1 giờ. Người nhận có nút "Chặn" và "Báo cáo" ngay trên màn hình cuộc gọi nhỡ. Liên quan B4.</li>
+<li><b>Không ghi âm, không ghi hình cuộc gọi</b> ở máy chủ. Báo cáo cuộc gọi chỉ có nhật ký cuộc gọi (ai gọi, lúc nào, bao lâu) trong bản chụp báo cáo hội thoại.</li>
+<li><b>Bận:</b> người nhận đang trong cuộc gọi khác thì người gọi thấy "Đang bận", người nhận có tin "Cuộc gọi nhỡ".</li>
+<li><b>Nhiều thiết bị:</b> đổ chuông tất cả; máy nào bắt trước thì các máy khác dừng.</li>
+<li><b>Chặn giữa cuộc gọi, tài khoản bị khóa:</b> máy chủ ngắt cuộc gọi ngay.</li>
+<li><b>Mất mạng:</b> người gọi hủy trước khi người nhận bắt máy thì màn hình cuộc gọi bên kia phải tắt (gửi thêm push hủy). Không kết nối lại được sau 15 giây thì kết thúc với lý do "Mất kết nối".</li>
+<li><b>Điện thoại Android tiết kiệm pin mạnh</b> (một số hãng phổ biến ở Việt Nam) có thể làm FCM đến chậm hoặc không đến khi app bị tắt. Đây là giới hạn thật; cần hướng dẫn người dùng tắt tối ưu pin cho app.</li>
+<li><b>Gọi nhóm:</b> không có trong tính năng này. Gọi nhóm cần máy chủ trung gian (SFU) và chi phí khác hẳn.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đề xuất, cần đưa vào <i>docs/api-contract.md</i> và ghi quyết định chọn cách làm (tự làm hay dùng dịch vụ) vào <i>docs/decisions.md</i>.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>Call</i> (mới)</td><td><i>id</i>, <i>conversationId</i>, <i>callerId</i>, <i>calleeId</i>, <i>type</i> (AUDIO | VIDEO), <i>status</i> (RINGING | ACTIVE | ENDED | MISSED | DECLINED | BUSY | CANCELED | FAILED), <i>createdAt</i>, <i>answeredAt</i>, <i>endedAt</i>, <i>endReason</i>, <i>relayed</i> (có qua TURN không, để theo dõi chi phí).</td></tr>
+<tr><td><i>DeviceToken</i> (thêm)</td><td><i>kind</i>: EXPO (như hiện nay) | APNS_VOIP | FCM.</td></tr>
+<tr><td><i>User</i> (thêm)</td><td><i>allowCallsFrom</i>: CONVERSATIONS | FOLLOWING | NOBODY.</td></tr>
+<tr><td><i>Message</i></td><td>Tin hệ thống cho nhật ký cuộc gọi (dùng trường <i>systemEvent</i> đề xuất ở D1, giá trị CALL kèm <i>callId</i>).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint / sự kiện</th><th>Việc</th></tr>
+<tr><td>GET <i>/calls/ice-servers</i></td><td>Danh sách STUN/TURN kèm tên đăng nhập và mật khẩu tạm hạn 1 giờ (sinh bằng khóa bí mật chung với máy TURN).</td></tr>
+<tr><td>POST <i>/calls</i> <i>{ conversationId, type }</i></td><td>Tạo cuộc gọi. Lỗi: CALL_NOT_ALLOWED, CALLEE_BUSY, CALL_RATE_LIMIT.</td></tr>
+<tr><td>POST <i>/calls/:id/accept</i> | <i>decline</i> | <i>cancel</i> | <i>end</i></td><td>Dùng REST để màn hình CallKit/ConnectionService gọi được ngay cả khi socket chưa kịp kết nối.</td></tr>
+<tr><td>GET <i>/calls</i></td><td>Lịch sử cuộc gọi.</td></tr>
+<tr><td>POST <i>/notifications/devices</i> (mở rộng)</td><td>Nhận thêm <i>kind</i> để lưu token VoIP và FCM.</td></tr>
+<tr><td>Socket <i>call:incoming</i>, <i>call:accepted</i>, <i>call:ended</i></td><td>Máy chủ báo trạng thái cho hai bên và các thiết bị khác.</td></tr>
+<tr><td>Socket <i>call:signal</i> (hai chiều)</td><td><i>{ callId, description | candidate }</i>; máy chủ chỉ chuyển nếu người gửi là một trong hai người của cuộc gọi đang ACTIVE hoặc RINGING.</td></tr>
+</table>
+<p>Backend cần gửi thẳng tới APNs (push VoIP, khóa <i>.p8</i>, chủ đề <i>com.mobilesocial.app.voip</i>) và FCM (tin dữ liệu ưu tiên cao). Đây là hai dịch vụ ngoài mới bên cạnh Expo push.</p>
+
+<h4>g) Android, iOS và web</h4>
+<p><b>Ba cách làm, cần chủ dự án chọn:</b></p>
+<table>
+<tr><th>Cách</th><th>Gồm</th><th>Ưu</th><th>Nhược</th></tr>
+<tr><td>1. Tự làm</td><td><i>react-native-webrtc</i> (kèm config plugin), thư viện CallKit/ConnectionService (ví dụ <i>react-native-callkeep</i>), thư viện PushKit cho iOS, FCM native cho Android, máy TURN tự chạy (coturn).</td><td>Không trả phí theo phút; dữ liệu không qua bên thứ ba.</td><td>Nhiều mã native nhất; các thư viện cộng đồng cần kiểm tra còn được bảo trì và chạy với React Native 0.86, Expo SDK 57, kiến trúc mới. Rủi ro tiến độ cao.</td></tr>
+<tr><td>2. Dịch vụ gọi có sẵn đổ chuông</td><td>SDK của một nhà cung cấp có sẵn phần đổ chuông kèm CallKit, push VoIP và config plugin cho Expo (ví dụ Stream Video; Agora, LiveKit cần tự làm thêm phần đổ chuông).</td><td>Ít mã native nhất; TURN có sẵn.</td><td>Phí theo phút người dùng; phụ thuộc nhà cung cấp; cần kiểm tra hỗ trợ SDK 57 và báo giá.</td></tr>
+<tr><td>3. Chỉ gọi khi app đang mở (bước đệm)</td><td>WebRTC + socket, không CallKit, không push VoIP.</td><td>Khoảng 12 ngày công.</td><td>Người nhận tắt app là không biết có cuộc gọi; trải nghiệm kém, không nên phát hành lâu dài.</td></tr>
+</table>
+<ul>
+<li><b>Bắt buộc dùng bản development, không dùng được Expo Go</b> cho cả ba cách (WebRTC là mã native). Cần build bằng EAS Build hoặc Xcode/Android Studio cho cả hai nền tảng; build iOS cần tài khoản Apple Developer (99 USD/năm) và máy Mac nếu build tại chỗ.</li>
+<li><b>iOS, khai báo trong <i>app.json</i>:</b> <i>NSMicrophoneUsageDescription</i> ("Ứng dụng cần micro để bạn gọi thoại và gọi video."), <i>NSCameraUsageDescription</i> ("Ứng dụng cần camera để bạn gọi video."), <i>UIBackgroundModes</i>: <i>audio</i>, <i>voip</i>, <i>remote-notification</i>; bật Push Notifications cho bundle <i>com.mobilesocial.app</i>. Apple yêu cầu push VoIP chỉ dùng cho cuộc gọi thật. CallKit không được phép ở cửa hàng Trung Quốc; nếu phát hành ở đó phải tắt CallKit cho khu vực này.</li>
+<li><b>Android, khai báo cùng thay đổi:</b> <i>RECORD_AUDIO</i>, <i>CAMERA</i>, <i>MODIFY_AUDIO_SETTINGS</i>, <i>BLUETOOTH_CONNECT</i> (tai nghe, Android 12+), <i>POST_NOTIFICATIONS</i> (Android 13+), <i>USE_FULL_SCREEN_INTENT</i>, <i>MANAGE_OWN_CALLS</i>, <i>FOREGROUND_SERVICE</i> cùng loại dịch vụ nền cho gọi điện, micro, camera (Android 14+). Google Play yêu cầu khai báo lý do dùng thông báo toàn màn hình và dịch vụ nền trong Play Console (thường kèm video minh họa).</li>
+<li><b>FCM native trên Android</b> cần tệp <i>google-services.json</i> và cấu hình Firebase cho <i>com.mobilesocial.app</i>. Phía iOS dùng APNs (push VoIP), không dùng FCM. Cả hai phía phải làm trong cùng đợt (RULE.md mục 10); phía nào chưa làm được thì ghi là việc còn mở.</li>
+<li><b>Kiểm thử cần máy thật:</b> trình giả lập iOS không nhận push VoIP và không có camera. Tối thiểu 2 iPhone và 2 điện thoại Android (trong đó có một máy hãng tiết kiệm pin mạnh).</li>
+<li><b>Chi phí TURN (tham khảo, cần kiểm tra lại giá lúc làm):</b> gọi thoại khoảng 35–50 MB/giờ, gọi video 720p khoảng 1,2–1,5 GB/giờ khi phải đi qua TURN. Thường khoảng 10–20% cuộc gọi cần TURN. Tự chạy coturn trên một VPS khoảng 10–20 USD/tháng cộng phí băng thông vượt mức. TURN dịch vụ: Cloudflare khoảng 0,05 USD/GB, Twilio khoảng 0,40 USD/GB. Ví dụ 1.000 giờ gọi video/tháng, 20% qua TURN ≈ 270 GB ≈ 14 USD (Cloudflare) hoặc ≈ 110 USD (Twilio).</li>
+<li><b>Máy chủ:</b> khi chạy nhiều máy chủ API, socket báo hiệu cần Redis adapter để hai người ở hai máy chủ khác nhau vẫn trao đổi được.</li>
+<li><b>Web:</b> không có. Web quản trị chỉ xem nhật ký cuộc gọi trong báo cáo.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Gọi thoại và gọi video giữa: Android–Android, iPhone–iPhone, Android–iPhone, trên Wi-Fi và 4G.</li>
+<li>Người nhận đã tắt hẳn app vẫn thấy màn hình cuộc gọi của hệ thống, kể cả khi khóa máy, trên cả iPhone và Android.</li>
+<li>Hai máy sau tường lửa chặn nối thẳng vẫn gọi được (qua TURN; trường <i>relayed</i> đúng).</li>
+<li>Không gọi được từ tin nhắn chờ, hội thoại ẩn danh, khi có chặn, khi người nhận chọn "Không ai"; app hiện câu tiếng Việt rõ ràng.</li>
+<li>Gọi 3 lần không ai nghe thì bị khóa gọi 1 giờ; cuộc gọi nhỡ có nút chặn và báo cáo.</li>
+<li>Người gọi hủy khi đang đổ chuông thì màn hình bên kia tắt; bận; hết 45 giây; đổi mạng giữa cuộc gọi.</li>
+<li>Nhật ký cuộc gọi hiện trong chat và trong bản chụp báo cáo của quản trị viên app.</li>
+<li>Bản development và bản phát hành build được cho cả hai nền tảng; quyền khai báo đủ; Play Console đã khai báo dịch vụ nền. Ghi rõ máy đã chạy trong <i>docs/change.md</i>.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Cách 1 (tự làm): backend 8 ngày (bảng, API, quy tắc quyền: 2; báo hiệu socket: 2; push APNs VoIP và FCM: 3; TURN và mật khẩu tạm: 1). Mobile 16 ngày (WebRTC và màn hình cuộc gọi: 5; CallKit/ConnectionService: 5; push VoIP và FCM nền: 4; quyền, build, cấu hình hai nền tảng: 2). Kiểm thử 6 ngày trên máy thật. Cộng khoảng 30 ngày công, chưa tính thời gian Google Play và App Store duyệt quyền.</li>
+<li>Cách 2 (dịch vụ có sẵn): khoảng 15–18 ngày công cộng phí dịch vụ hằng tháng (cần báo giá).</li>
+<li>Phụ thuộc: B1 (quy tắc ai được liên hệ), B4 (giới hạn khi bị quấy rối), D8 (hạ tầng push, token theo loại), D1 hoặc D2 (tin hệ thống trong chat cho nhật ký cuộc gọi), A2 (phiên đăng nhập: thu hồi phiên thì xóa token VoIP).</li>
+<li>Rủi ro: thư viện native cộng đồng không theo kịp phiên bản React Native; iOS ngừng gửi push VoIP nếu app không báo CallKit kịp; FCM bị hãng điện thoại chặn khi tiết kiệm pin; chi phí TURN tăng theo số giờ gọi video. Đề xuất làm một bản thử nhỏ (2–3 ngày) gọi thoại Android–iPhone qua bản development trước khi cam kết tiến độ.</li>
+</ul>

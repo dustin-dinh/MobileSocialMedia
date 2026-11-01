@@ -1,0 +1,31 @@
+{"id":"d9-goi-y-nhac-ten","title":"Gợi ý tên khi gõ @ trong bài viết, bình luận",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng","cols":2},{"name":"Máy chủ"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Gõ @ và vài chữ"},
+ {"id":"det","type":"process","lane":1,"row":0,"label":"Nhận ra cụm @từ, chờ 250 ms"},
+ {"id":"cache","type":"decision","lane":1,"row":1,"label":"Có sẵn trong bộ đệm?"},
+ {"id":"req","type":"process","lane":1,"col":1,"row":1,"label":"Gọi GET /users/mention-suggest"},
+ {"id":"srv","type":"process","lane":2,"row":1,"label":"Tìm theo tên, ưu tiên người quen"},
+ {"id":"db","type":"data","lane":2,"row":2,"label":"Đọc User, Follow, Block"},
+ {"id":"filt","type":"process","lane":2,"row":3,"label":"Loại chặn, bị khóa, tắt nhắc tên"},
+ {"id":"ret","type":"process","lane":2,"row":4,"label":"Trả tối đa 8 người"},
+ {"id":"list","type":"process","lane":1,"row":5,"label":"Danh sách gợi ý dưới ô nhập"},
+ {"id":"pick","type":"decision","lane":0,"row":6,"label":"Chọn một người?"},
+ {"id":"keep","type":"end","lane":0,"row":7,"label":"Gõ tiếp hoặc bỏ qua"},
+ {"id":"ins","type":"process","lane":1,"row":7,"label":"Chèn @tên vào ô nhập"},
+ {"id":"post","type":"process","lane":1,"row":8,"label":"Đăng bài hoặc bình luận"},
+ {"id":"noti","type":"end","lane":2,"row":8,"label":"Báo người được nhắc tên"}
+],
+"edges":[
+ {"from":"s","to":"det"},{"from":"det","to":"cache"},
+ {"from":"cache","to":"req","label":"Không"},
+ {"from":"cache","to":"list","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"req","to":"srv"},
+ {"from":"srv","to":"db"},{"from":"db","to":"filt"},{"from":"filt","to":"ret"},
+ {"from":"ret","to":"list","exit":"bottom","entry":"right"},
+ {"from":"list","to":"pick","exit":"left","entry":"top"},
+ {"from":"pick","to":"keep","label":"Không","exit":"bottom","entry":"top"},
+ {"from":"pick","to":"ins","label":"Có","exit":"right","entry":"top"},
+ {"from":"ins","to":"post"},
+ {"from":"post","to":"noti"}
+]}

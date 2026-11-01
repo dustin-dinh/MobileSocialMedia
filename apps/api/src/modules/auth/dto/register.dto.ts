@@ -1,5 +1,6 @@
 import {
     IsEmail,
+    IsISO8601,
     IsString,
     Matches,
     MaxLength,
@@ -24,4 +25,9 @@ export class RegisterDto {
     @MinLength(8)
     @MaxLength(72)
     password!: string;
+
+    // "YYYY-MM-DD". Phải đủ 18 tuổi (kiểm tra trong AuthService).
+    @IsISO8601({ strict: true })
+    @MaxLength(10)
+    birthDate!: string;
 }

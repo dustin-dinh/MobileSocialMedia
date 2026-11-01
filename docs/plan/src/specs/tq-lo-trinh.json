@@ -1,0 +1,282 @@
+{
+ "id": "tq-lo-trinh",
+ "title": "Lộ trình bốn giai đoạn và điểm kiểm tra giữa các giai đoạn",
+ "lanes": [
+  {
+   "name": "Phát triển"
+  },
+  {
+   "name": "Kiểm tra trước khi đi tiếp"
+  },
+  {
+   "name": "Người dùng thấy gì"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Bắt đầu kế hoạch"
+  },
+  {
+   "id": "p1",
+   "type": "process",
+   "lane": 0,
+   "row": 1,
+   "label": "GĐ1: Sẵn sàng phát hành"
+  },
+  {
+   "id": "g1",
+   "type": "decision",
+   "lane": 1,
+   "row": 1,
+   "label": "Đạt tiêu chí GĐ1 trên Android và iPhone?"
+  },
+  {
+   "id": "r1",
+   "type": "io",
+   "lane": 2,
+   "row": 1,
+   "label": "Thử nghiệm kín (TestFlight, Internal testing)"
+  },
+  {
+   "id": "p2",
+   "type": "process",
+   "lane": 0,
+   "row": 2,
+   "label": "GĐ2: Bảo mật và an toàn"
+  },
+  {
+   "id": "g2",
+   "type": "decision",
+   "lane": 1,
+   "row": 2,
+   "label": "Đạt tiêu chí GĐ2?"
+  },
+  {
+   "id": "r2",
+   "type": "io",
+   "lane": 2,
+   "row": 2,
+   "label": "Lên App Store, Google Play"
+  },
+  {
+   "id": "p3",
+   "type": "process",
+   "lane": 0,
+   "row": 3,
+   "label": "GĐ3: Mạng xã hội đầy đủ"
+  },
+  {
+   "id": "g3",
+   "type": "decision",
+   "lane": 1,
+   "row": 3,
+   "label": "Đạt tiêu chí GĐ3?"
+  },
+  {
+   "id": "r3",
+   "type": "io",
+   "lane": 2,
+   "row": 3,
+   "label": "Bản cập nhật lớn trên store"
+  },
+  {
+   "id": "p4",
+   "type": "process",
+   "lane": 0,
+   "row": 4,
+   "label": "GĐ4: Mở rộng"
+  },
+  {
+   "id": "g4",
+   "type": "decision",
+   "lane": 1,
+   "row": 4,
+   "label": "Đạt tiêu chí GĐ4?"
+  },
+  {
+   "id": "r4",
+   "type": "end",
+   "lane": 2,
+   "row": 4,
+   "label": "Bản cập nhật trên store"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "p1"
+  },
+  {
+   "from": "p1",
+   "to": "g1"
+  },
+  {
+   "from": "g1",
+   "to": "r1",
+   "label": "Có"
+  },
+  {
+   "from": "r1",
+   "to": "p2",
+   "exit": "bottom",
+   "entry": "top",
+   "via": [
+    [
+     2,
+     1.55
+    ],
+    [
+     0,
+     1.55
+    ]
+   ]
+  },
+  {
+   "from": "p2",
+   "to": "g2"
+  },
+  {
+   "from": "g2",
+   "to": "r2",
+   "label": "Có"
+  },
+  {
+   "from": "r2",
+   "to": "p3",
+   "exit": "bottom",
+   "entry": "top",
+   "via": [
+    [
+     2,
+     2.55
+    ],
+    [
+     0,
+     2.55
+    ]
+   ]
+  },
+  {
+   "from": "p3",
+   "to": "g3"
+  },
+  {
+   "from": "g3",
+   "to": "r3",
+   "label": "Có"
+  },
+  {
+   "from": "r3",
+   "to": "p4",
+   "exit": "bottom",
+   "entry": "top",
+   "via": [
+    [
+     2,
+     3.55
+    ],
+    [
+     0,
+     3.55
+    ]
+   ]
+  },
+  {
+   "from": "p4",
+   "to": "g4"
+  },
+  {
+   "from": "g4",
+   "to": "r4",
+   "label": "Có"
+  },
+  {
+   "from": "g1",
+   "to": "p1",
+   "label": "Không",
+   "exit": "bottom",
+   "entry": "left",
+   "via": [
+    [
+     1,
+     1.4
+    ],
+    [
+     -0.43,
+     1.4
+    ],
+    [
+     -0.43,
+     1
+    ]
+   ]
+  },
+  {
+   "from": "g2",
+   "to": "p2",
+   "label": "Không",
+   "exit": "bottom",
+   "entry": "left",
+   "via": [
+    [
+     1,
+     2.4
+    ],
+    [
+     -0.43,
+     2.4
+    ],
+    [
+     -0.43,
+     2
+    ]
+   ]
+  },
+  {
+   "from": "g3",
+   "to": "p3",
+   "label": "Không",
+   "exit": "bottom",
+   "entry": "left",
+   "via": [
+    [
+     1,
+     3.4
+    ],
+    [
+     -0.43,
+     3.4
+    ],
+    [
+     -0.43,
+     3
+    ]
+   ]
+  },
+  {
+   "from": "g4",
+   "to": "p4",
+   "label": "Không",
+   "exit": "bottom",
+   "entry": "left",
+   "via": [
+    [
+     1,
+     4.4
+    ],
+    [
+     -0.43,
+     4.4
+    ],
+    [
+     -0.43,
+     4
+    ]
+   ]
+  }
+ ]
+}

@@ -18,6 +18,7 @@ import { ReelsModule } from "./modules/reels/reels.module";
 import { MessagesModule } from "./modules/messages/messages.module";
 import { StoriesModule } from "./modules/stories/stories.module";
 import { AdminModule } from "./modules/admin/admin.module";
+import { ModerationModule } from "./modules/moderation/moderation.module";
 import { MediaUrlInterceptor } from "./modules/storage/media-url.interceptor";
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MediaUrlInterceptor } from "./modules/storage/media-url.interceptor";
       envFilePath: ".env",
     }),
     PrismaModule,
+    ModerationModule,
     // SearchModule must register before UsersModule: both serve `users/...`,
     // and `GET users/search` would otherwise be captured by `GET users/:id`.
     SearchModule,

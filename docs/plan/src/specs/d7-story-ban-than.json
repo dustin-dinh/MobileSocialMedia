@@ -1,0 +1,32 @@
+{"id":"d7-story-ban-than","title":"Đăng và xem story chỉ dành cho Bạn thân",
+"lanes":[{"name":"Người đăng"},{"name":"Máy chủ","cols":2},{"name":"Người xem"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Chọn người vào Bạn thân"},
+ {"id":"add","type":"data","lane":1,"row":0,"label":"Ghi CloseFriend (không báo ai)"},
+ {"id":"post","type":"process","lane":0,"row":1,"label":"Đăng story, chọn Bạn thân"},
+ {"id":"cs","type":"data","lane":1,"row":1,"label":"Story audience = CLOSE_FRIENDS"},
+ {"id":"v","type":"start","lane":2,"row":2,"label":"Mở khay story"},
+ {"id":"q","type":"process","lane":1,"col":1,"row":2,"label":"Lấy story còn hạn người mình theo dõi"},
+ {"id":"dec","type":"decision","lane":1,"col":1,"row":3,"label":"Ngoài danh sách Bạn thân?"},
+ {"id":"hide","type":"end","lane":1,"row":3,"label":"Bỏ story khỏi kết quả"},
+ {"id":"tray","type":"io","lane":2,"row":4,"label":"Vòng xanh lá nếu là Bạn thân"},
+ {"id":"rep","type":"process","lane":2,"row":5,"label":"Trả lời hoặc thả cảm xúc"},
+ {"id":"chk","type":"decision","lane":1,"col":1,"row":5,"label":"Vẫn có tên, story còn hạn?"},
+ {"id":"err","type":"end","lane":1,"row":5,"label":"Báo story không còn"},
+ {"id":"msg","type":"data","lane":1,"col":1,"row":6,"label":"Ghi tin trả lời, nhãn Bạn thân"},
+ {"id":"own","type":"end","lane":0,"row":7,"label":"Chủ story nhận tin trả lời"}
+],
+"edges":[
+ {"from":"s","to":"add"},
+ {"from":"s","to":"post","exit":"bottom","entry":"top"},
+ {"from":"post","to":"cs"},
+ {"from":"v","to":"q"},
+ {"from":"q","to":"dec"},
+ {"from":"dec","to":"hide","label":"Có"},
+ {"from":"dec","to":"tray","label":"Không","exit":"right","entry":"top"},
+ {"from":"tray","to":"rep"},
+ {"from":"rep","to":"chk"},
+ {"from":"chk","to":"err","label":"Không"},
+ {"from":"chk","to":"msg","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"msg","to":"own","exit":"bottom","entry":"right"}
+]}

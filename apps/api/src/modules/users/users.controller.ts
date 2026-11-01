@@ -14,6 +14,7 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { IsISO8601, MaxLength } from "class-validator";
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedRequest } from "../auth/types/authenticated-request.type";
@@ -21,6 +22,13 @@ import { toMe, UsersService } from "./users.service";
 import { FeedQueryDto } from "../posts/dto/feed-query.dto";
 import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+
+class BirthDateDto {
+    // "YYYY-MM-DD"
+    @IsISO8601({ strict: true })
+    @MaxLength(10)
+    birthDate!: string;
+}
 
 // Các route tĩnh (`me`, `suggestions`) phải khai báo trước `:id`.
 @Controller("users")
@@ -54,6 +62,14 @@ export class UsersController {
         @Body() dto: UpdateProfileDto,
     ) {
         return this.usersService.updateProfile(request.user.userId, dto);
+    }
+
+    @Patch("me/birth-date")
+    async setBirthDate(
+        @Request() request: AuthenticatedRequest,
+        @Body() dto: BirthDateDto,
+    ) {
+        return this.usersService.setBirthDate(request.user.userId, dto.birthDate);
     }
 
     @Delete("me")

@@ -1,0 +1,33 @@
+{"id":"a1-ho-tro-khoi-phuc","title":"Mất cả ứng dụng xác thực, mã dự phòng và email: khôi phục qua hỗ trợ",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ"},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Mất mọi cách xác minh"},
+ {"id":"form","type":"io","lane":1,"row":1,"label":"Form: email tài khoản, mô tả, liên hệ"},
+ {"id":"fill","type":"process","lane":0,"row":2,"label":"Điền form, bấm Gửi"},
+ {"id":"save","type":"data","lane":2,"row":2,"label":"Lưu yêu cầu khôi phục"},
+ {"id":"warn","type":"process","lane":2,"row":3,"label":"Email + push: có yêu cầu gỡ 2FA"},
+ {"id":"look","type":"process","lane":3,"row":4,"label":"Xem yêu cầu, đối chiếu thông tin"},
+ {"id":"ver","type":"decision","lane":3,"row":5,"label":"Xác minh được chủ?"},
+ {"id":"rej","type":"end","lane":2,"row":5,"label":"Từ chối, gửi email lý do"},
+ {"id":"wait","type":"process","lane":3,"row":6,"label":"Duyệt, bắt đầu chờ 7 ngày"},
+ {"id":"cancel","type":"decision","lane":2,"row":7,"label":"Chủ tài khoản bấm Hủy?"},
+ {"id":"keep","type":"end","lane":1,"row":7,"label":"Giữ nguyên 2FA, đóng yêu cầu"},
+ {"id":"rm","type":"data","lane":2,"row":8,"label":"Gỡ 2FA, xóa mã, thu hồi phiên"},
+ {"id":"log","type":"data","lane":3,"row":8,"label":"Ghi nhật ký quản trị (C3)"},
+ {"id":"done","type":"end","lane":0,"row":9,"label":"Đăng nhập bằng mật khẩu, bật lại 2FA"}
+],
+"edges":[
+ {"from":"s","to":"form"},
+ {"from":"form","to":"fill","exit":"left","entry":"top","via":[[0,1]]},
+ {"from":"fill","to":"save"},
+ {"from":"save","to":"warn"},
+ {"from":"warn","to":"look"},
+ {"from":"look","to":"ver"},
+ {"from":"ver","to":"rej","label":"Không"},
+ {"from":"ver","to":"wait","label":"Có"},
+ {"from":"wait","to":"cancel"},
+ {"from":"cancel","to":"keep","label":"Có"},
+ {"from":"cancel","to":"rm","label":"Không, hết 7 ngày"},
+ {"from":"rm","to":"log","dashed":true},
+ {"from":"rm","to":"done"}
+]}

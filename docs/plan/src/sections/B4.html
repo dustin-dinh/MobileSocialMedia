@@ -1,0 +1,108 @@
+<h3>B4. Giới hạn tạm thời khi bị quấy rối hàng loạt</h3>
+<p><i>Nhóm: An toàn tương tác · Giai đoạn: GĐ2 · Ước lượng: 9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Khi một người bất ngờ bị nhiều người lạ kéo vào bình luận hoặc nhắn tin (bài viết lan truyền, bị "ném đá", bị một nhóm nhắm vào), họ cần một nút bật nhanh để tạm thời không thấy những tương tác đó, mà không phải chặn từng người hay khóa tài khoản. Giống tính năng "Limits" của Instagram: máy chủ tự phát hiện đột biến và gợi ý; người dùng bật trong vài ngày; người bị giới hạn không biết mình bị ẩn.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chưa có gì</b> cho tính năng này trong code.</li>
+<li>Các mảnh dùng lại được: <i>Follow.createdAt</i> (biết ai mới theo dõi), <i>blockedUserIds</i>, thư mục tin nhắn chờ (<i>messages.service.ts</i>), thông báo đẩy qua <i>notifications.service.ts</i>, chặn và báo cáo có sẵn.</li>
+<li>Bình luận (<i>comments.service.ts</i>, hàm <i>create</i>): ai xem được bài là bình luận được, mỗi bình luận tạo thông báo <i>COMMENT</i> cho chủ bài; không có cờ ẩn trên <i>Comment</i>; chỉ có giới hạn chung 300 request/phút theo IP.</li>
+<li>Không có việc chạy định kỳ (không có <i>@nestjs/schedule</i> hay hàng đợi) trong <i>apps/api/package.json</i>.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Định nghĩa "người lạ" (nhóm bị giới hạn):</b> người mà chủ tài khoản <b>không theo dõi</b>, và hoặc không theo dõi chủ tài khoản, hoặc mới theo dõi trong 7 ngày qua (người dùng chọn có tính nhóm "mới theo dõi" hay không). Người chủ tài khoản đang theo dõi và người theo dõi lâu năm không bao giờ bị ảnh hưởng.</p>
+<p><b>Luồng 1: Phát hiện đột biến và gợi ý</b> (sơ đồ 1)</p>
+<ol>
+<li>Mỗi khi có bình luận mới trên bài của chủ tài khoản, hoặc tin nhắn chờ / tin ẩn danh mới tới họ, máy chủ (chạy sau khi lưu, không làm chậm việc đăng) kiểm tra người gửi có phải người lạ không.</li>
+<li>Nếu phải: đếm người lạ đã bình luận hoặc nhắn tới chủ tài khoản trong 60 phút qua (truy vấn đếm trên <i>Comment</i> và <i>Conversation</i>, không cần bảng mới).</li>
+<li>Vượt ngưỡng đột biến (mục e) và chủ tài khoản chưa bật Giới hạn, chưa được gợi ý trong 7 ngày → ghi thời điểm gợi ý, gửi thông báo đẩy "Bạn đang nhận nhiều bình luận và tin nhắn từ người lạ. Bật Giới hạn để tạm ẩn chúng?".</li>
+<li>App hiện thẻ gợi ý ở đầu màn Thông báo và trong màn Tin nhắn. Người dùng bỏ qua thì thẻ đóng, không gợi ý lại trong 7 ngày.</li>
+<li>Người dùng bấm "Bật": chọn <b>ai</b> (người không theo dõi bạn; thêm người mới theo dõi trong 7 ngày), <b>cái gì</b> (bình luận, tin nhắn — mặc định cả hai), <b>bao lâu</b> (1, 3, 7, 14 hoặc 28 ngày; mặc định 7).</li>
+<li>Máy chủ lưu, áp dụng ngay cho tương tác mới, và ẩn luôn bình luận của người lạ trong 24 giờ qua (đề xuất, để dọn đợt vừa rồi).</li>
+<li>Người dùng cũng bật được bằng tay bất cứ lúc nào: Cài đặt → Quyền riêng tư → "Giới hạn".</li>
+<li>Hết hạn: tự tắt (máy chủ so giờ khi có tương tác, không cần việc chạy nền). Một ngày trước khi hết hạn, app hiện nhắc "Giới hạn sẽ tắt vào ngày mai. Gia hạn?" khi người dùng mở app; thông báo đẩy nhắc thì cần việc chạy định kỳ (xem phụ thuộc).</li>
+</ol>
+<p><b>Luồng 2: Khi Giới hạn đang bật</b> (sơ đồ 2)</p>
+<ol>
+<li><b>Bình luận</b> của người lạ: vẫn lưu, gắn cờ ẩn <i>LIMITS</i>. Chỉ người viết thấy bình luận của mình (họ không biết bị ẩn); người khác và chủ bài không thấy trong danh sách; không tạo thông báo; không tính vào số bình luận hiển thị.</li>
+<li>Chủ bài có mục "Bình luận bị ẩn" dưới mỗi bài: xem từng bình luận, chọn <b>Hiện</b> (bỏ cờ, hiện công khai), <b>Xóa</b> hoặc để nguyên.</li>
+<li><b>Tin nhắn</b> từ người lạ (tin chờ, trả lời story): vào thư mục "Đã lọc" (B1) với lý do <i>LIMITS</i>, không thông báo đẩy. Chủ tài khoản tự xem khi muốn.</li>
+<li><b>Tin ẩn danh</b>: tạm dừng nhận ẩn danh trong thời gian Giới hạn (dùng cơ chế tạm dừng của B2), người gửi thấy "Người này đang tạm dừng nhận tin ẩn danh".</li>
+<li><b>Nhắc tên (@)</b> trong bình luận của người lạ: không tạo thông báo.</li>
+<li>Hội thoại đã chấp nhận, bình luận của người được miễn: không đổi gì.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: phát hiện đột biến, gợi ý và bật Giới hạn.</p>
+<!--FLOW:b4-goi-y-gioi-han-->
+<p>Sơ đồ 2: điều gì xảy ra với bình luận và tin nhắn của người lạ khi Giới hạn đang bật.</p>
+<!--FLOW:b4-ap-dung-gioi-han-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<table>
+<tr><th>Quy tắc</th><th>Giá trị đề xuất</th></tr>
+<tr><td>Ngưỡng đột biến (một trong các điều kiện, trong 60 phút)</td><td>Từ 20 bình luận của từ 10 người lạ khác nhau; hoặc từ 10 tin chờ / tin ẩn danh mới từ 10 người lạ khác nhau; hoặc từ 3 báo cáo của chủ tài khoản về bình luận / tin nhắn</td></tr>
+<tr><td>Tần suất kiểm tra</td><td>Tối đa 1 lần mỗi phút cho mỗi chủ tài khoản</td></tr>
+<tr><td>Gợi ý lại</td><td>Không sớm hơn 7 ngày sau lần gợi ý trước</td></tr>
+<tr><td>Thời gian bật</td><td>1, 3, 7, 14, 28 ngày; gia hạn hoặc tắt sớm bất cứ lúc nào</td></tr>
+<tr><td>Ẩn ngược thời gian khi bật</td><td>Bình luận của người lạ trong 24 giờ trước đó</td></tr>
+<tr><td>"Mới theo dõi"</td><td>Theo dõi dưới 7 ngày</td></tr>
+</table>
+<ul>
+<li><b>Tắt Giới hạn:</b> bình luận đã ẩn <b>vẫn ẩn</b> (người dùng tự hiện từng cái trong mục "Bình luận bị ẩn"); tin trong "Đã lọc" vẫn ở đó. Tránh việc tắt xong cả đợt quấy rối hiện lại một lúc.</li>
+<li><b>Người bị giới hạn không được báo</b>, không có mã lỗi riêng; với họ mọi thứ như bình thường (trừ tin ẩn danh, vốn đã có thông báo tạm dừng ở B2).</li>
+<li><b>Người viết xóa tài khoản / bị khóa:</b> bình luận ẩn đi theo quy tắc hiện có.</li>
+<li><b>Bài viết của người khác</b>: Giới hạn chỉ bảo vệ bài và hộp thư của chính chủ tài khoản; trả lời bình luận của chủ tài khoản trên bài người khác không bị ảnh hưởng (đề xuất, giống cách làm phổ biến; có thể mở rộng sau).</li>
+<li><b>Nhiều bản API chạy song song:</b> mốc "1 lần mỗi phút" nếu để trong bộ nhớ sẽ sai; đặt trong cơ sở dữ liệu (cột <i>limitsCheckedAt</i>) hoặc Redis — cùng hạn chế đã ghi ở MODERATION_PLAN mục 12.</li>
+<li><b>Lạm dụng ngược</b> (dùng Giới hạn để im lặng mọi phản biện): đây là quyền của chủ tài khoản trên bài của mình, không cần ngăn.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><i>Đây là đề xuất. Phải ghi vào docs/api-contract.md và docs/decisions.md trước khi code.</i></p>
+<table>
+<tr><th>Thay đổi</th><th>Chi tiết</th></tr>
+<tr><td>Bảng mới <i>UserLimit</i></td><td><i>id, userId, comments</i> (Boolean), <i>messages</i> (Boolean), <i>includeRecentFollowers</i> (Boolean), <i>source</i> (<i>SUGGESTED | MANUAL</i>), <i>startsAt, endsAt, endedAt?</i>; chỉ mục <i>(userId, endsAt)</i>. Đang bật = <i>endedAt</i> trống và <i>endsAt</i> chưa qua.</td></tr>
+<tr><td><i>User.limitsSuggestedAt</i>, <i>User.limitsCheckedAt</i></td><td>DateTime?</td></tr>
+<tr><td><i>Comment.filteredAt</i>, <i>Comment.filterReason</i></td><td>Hai trường do B8 tạo (lý do <i>RESTRICTED</i>), B7 thêm <i>OFFENSIVE</i>, <i>HIDDEN_WORD</i>; B4 chỉ thêm giá trị <i>LIMITS</i>, không tạo trường mới</td></tr>
+<tr><td><i>Conversation.filterReason</i></td><td>Thêm giá trị <i>LIMITS</i> (trường đề xuất ở B1)</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Ghi chú</th></tr>
+<tr><td><i>GET /users/me/limits</i></td><td><i>{ active: null | { comments, messages, includeRecentFollowers, endsAt }, suggested: boolean }</i>; app dùng để hiện thẻ gợi ý và nhắc sắp hết hạn (không cần thêm loại thông báo vào bảng <i>Notification</i>, vốn bắt buộc có người gây ra)</td></tr>
+<tr><td><i>PUT /users/me/limits</i></td><td><i>{ comments, messages, includeRecentFollowers, days }</i>, <i>days</i> thuộc 1, 3, 7, 14, 28</td></tr>
+<tr><td><i>DELETE /users/me/limits</i></td><td>Tắt sớm</td></tr>
+<tr><td><i>GET /posts/:id/comments/filtered</i>, <i>POST /comments/:id/approve</i></td><td>Dùng lại API của B8 (chủ bài xem và hiện bình luận bị ẩn); trả thêm lý do <i>LIMITS</i></td></tr>
+<tr><td>Danh sách bình luận, số bình luận</td><td>Bỏ bình luận có <i>filterReason</i>, trừ khi người xem là người viết</td></tr>
+</table>
+<p>Code cần sửa: <i>comments.service.ts</i> (gắn cờ khi tạo, lọc khi liệt kê, đếm), <i>notifications.service.ts</i> (không gửi thông báo từ người bị giới hạn), <i>messages.service.ts</i> (thư mục "Đã lọc" lý do <i>LIMITS</i>, tạm dừng ẩn danh), màn Cài đặt "Giới hạn", thẻ gợi ý, mục "Bình luận bị ẩn" ở màn bình luận.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị, không cần thư viện mới trên app. Các màn mới (cài đặt Giới hạn, thẻ gợi ý, bình luận bị ẩn) dùng thành phần sẵn có, chạy như nhau trên Android và iOS; kiểm tra vùng an toàn và bàn phím trên cả hai.</li>
+<li>Thông báo đẩy gợi ý qua Expo → APNs và FCM (thuộc D8). Nếu người dùng tắt thông báo, thẻ gợi ý trong app vẫn hiện.</li>
+<li>Nhắc "sắp hết hạn" bằng thông báo đẩy cần một việc chạy định kỳ phía máy chủ: thư viện <i>@nestjs/schedule</i> (thêm phụ thuộc backend) hoặc dùng chung bộ lập lịch của D8 nếu D8 thêm trước. Không có thì chỉ nhắc khi người dùng mở app.</li>
+<li>Không có chi phí dịch vụ ngoài. App Store và Google Play không có yêu cầu riêng; tính năng hỗ trợ phần chống quấy rối của chính sách nội dung do người dùng tạo.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Script giả lập 25 bình luận từ 12 tài khoản lạ trong 10 phút: chủ bài nhận đúng 1 thông báo gợi ý; chạy lại trong 7 ngày không nhận thêm.</li>
+<li>Bật Giới hạn 7 ngày: bình luận mới của người lạ chỉ người viết thấy, không thông báo, không tính vào số bình luận; bình luận của người theo dõi lâu năm vẫn hiện.</li>
+<li>Chủ bài hiện lại được một bình luận ẩn; xóa được bình luận ẩn.</li>
+<li>Tin chờ từ người lạ vào "Đã lọc", không thông báo; tin ẩn danh bị từ chối với thông báo tạm dừng.</li>
+<li>Hết hạn (chỉnh giờ trong test): tương tác mới không còn bị ẩn; bình luận đã ẩn vẫn ẩn.</li>
+<li>Người bị giới hạn không thấy bất kỳ dấu hiệu nào (so sánh dữ liệu API trước và sau khi bật).</li>
+<li>Test tự động cho hàm "người này có thuộc nhóm bị giới hạn không" và hàm phát hiện đột biến.</li>
+<li>Chạy tay trên Android <b>và</b> iPhone; ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (bảng, phát hiện, ẩn bình luận, lọc tin, API), mobile 3 ngày (màn cài đặt, thẻ gợi ý, mục bình luận bị ẩn, nhắc hết hạn), kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B1 (thư mục "Đã lọc", <i>filterReason</i>), B2 (tạm dừng ẩn danh), B8 (tạo cờ ẩn bình luận <i>Comment.filteredAt / filterReason</i>, cách "chỉ người viết thấy" và API xem bình luận bị ẩn — phải làm trước), B7 (mục "Bình luận bị ẩn" dùng chung), D8 (thông báo đẩy, bộ lập lịch).</li>
+<li>Rủi ro: ngưỡng đột biến không hợp với tài khoản rất lớn (hàng chục nghìn người theo dõi luôn có nhiều bình luận lạ). Đề xuất sau 4 tuần chuyển sang ngưỡng tương đối (gấp 5 lần trung bình 30 ngày của chính tài khoản đó).</li>
+<li>Rủi ro hiệu năng: truy vấn đếm chạy sau mỗi bình luận; giới hạn 1 lần mỗi phút cho mỗi chủ tài khoản và chỉ mục sẵn có <i>Comment(postId, createdAt)</i> giữ chi phí thấp — cần kiểm tra bằng dữ liệu thật trước khi phát hành.</li>
+</ul>

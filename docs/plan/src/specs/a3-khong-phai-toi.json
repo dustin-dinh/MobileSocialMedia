@@ -1,0 +1,30 @@
+{"id":"a3-khong-phai-toi","title":"Bấm “Không phải tôi” từ email hoặc trong app",
+"lanes":[{"name":"Chủ tài khoản"},{"name":"Ứng dụng / trang web"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Không phải tôi"},
+ {"id":"conf","type":"io","lane":1,"row":1,"label":"Trang xác nhận, chưa làm gì"},
+ {"id":"yes","type":"process","lane":0,"row":2,"label":"Bấm Xác nhận"},
+ {"id":"ok","type":"decision","lane":2,"row":2,"label":"Yêu cầu hợp lệ?"},
+ {"id":"no","type":"end","lane":2,"col":1,"row":2,"label":"Báo không làm được"},
+ {"id":"src","type":"decision","lane":2,"row":3,"label":"Bấm từ link email?"},
+ {"id":"all","type":"data","lane":2,"col":1,"row":3,"label":"Thu hồi mọi phiên, buộc đặt lại mật khẩu"},
+ {"id":"one","type":"data","lane":2,"row":4,"label":"Thu hồi phiên lạ"},
+ {"id":"otp","type":"process","lane":2,"col":1,"row":4,"label":"Gửi mã đặt lại mật khẩu"},
+ {"id":"guide","type":"io","lane":1,"row":5,"label":"Hướng dẫn đổi mật khẩu, bật 2FA"},
+ {"id":"ev","type":"data","lane":2,"row":6,"label":"Ghi sự kiện; nhiều ca cùng IP thì báo QTV"},
+ {"id":"done","type":"end","lane":0,"row":6,"label":"Đặt mật khẩu mới, bật 2FA"}
+],
+"edges":[
+ {"from":"s","to":"conf"},
+ {"from":"conf","to":"yes","exit":"left","entry":"top","via":[[0,1]]},
+ {"from":"yes","to":"ok"},
+ {"from":"ok","to":"no","label":"Không"},
+ {"from":"ok","to":"src","label":"Có"},
+ {"from":"src","to":"all","label":"Có"},
+ {"from":"src","to":"one","label":"Không, trong app"},
+ {"from":"all","to":"otp"},
+ {"from":"one","to":"guide"},
+ {"from":"otp","to":"guide","exit":"bottom","entry":"right","via":[[3,5]]},
+ {"from":"guide","to":"ev","dashed":true},
+ {"from":"guide","to":"done","exit":"left","entry":"top","via":[[0,5]]}
+]}

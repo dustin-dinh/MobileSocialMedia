@@ -1,0 +1,22 @@
+[
+ {"id": "D5", "name": "Xếp hạng bảng tin và Reels theo tương tác", "phase": 3, "be_days": 6, "mb_days": 3, "qa_days": 2,
+  "depends": ["B5", "C1", "B8"], "flows": ["d5-trang-bang-tin", "d5-ghi-tuong-tac"],
+  "new_services": [],
+  "risks": ["Ít dữ liệu tương tác khi còn ít người dùng, trọng số phải chỉnh sau khi có số liệu thật", "Đổi phân trang page sang cursor phải giữ tương thích app cũ", "Bật bài gợi ý ngoài người theo dõi là thay đổi quyết định DEC-023, cần chủ dự án duyệt"]},
+ {"id": "D6", "name": "Bài viết nâng cao: trích dẫn, bình chọn, gắn thẻ, lịch sử chỉnh sửa, ghim bài", "phase": 3, "be_days": 8, "mb_days": 8, "qa_days": 3,
+  "depends": ["D8", "D9", "B8", "C1"], "flows": ["d6-binh-chon", "d6-gan-the", "d6-sua-bai"],
+  "new_services": [],
+  "risks": ["Chưa có bộ chạy tác vụ định kỳ: đóng bình chọn dùng setInterval + khóa PostgreSQL", "Thêm trường vào Post có thể làm hỏng postMapper của app cũ nếu không để tùy chọn", "Gắn thẻ có thể bị dùng để quấy rối nếu thiếu giới hạn và bước duyệt"]},
+ {"id": "D7", "name": "Bạn thân và tin nổi bật (story)", "phase": 3, "be_days": 3, "mb_days": 5, "qa_days": 2,
+  "depends": ["C1", "B5", "E2", "E1"], "flows": ["d7-story-ban-than", "d7-luu-tru-noi-bat"],
+  "new_services": [],
+  "risks": ["Quên áp điều kiện Bạn thân ở một API là lộ story; phải gom về một hàm kiểm tra quyền", "Dung lượng kho tăng vì story được lưu trữ"]},
+ {"id": "D8", "name": "Thông báo đẩy hoàn chỉnh và cài đặt thông báo theo loại, giờ yên lặng", "phase": 1, "be_days": 4, "mb_days": 4, "qa_days": 4,
+  "depends": ["A2", "A3", "B8", "D6"], "flows": ["d8-dang-ky-thiet-bi", "d8-gui-thong-bao", "d8-bam-thong-bao"],
+  "new_services": ["Expo EAS (projectId, EAS Build, credentials)", "Firebase Cloud Messaging (google-services.json, khóa FCM V1)", "Apple Push Notification service (khóa APNs .p8, Apple Developer 99 USD/năm)", "Expo push access token"],
+  "risks": ["Push chưa từng chạy thử; thiết lập chứng chỉ thường mất thời gian hơn code", "iOS chỉ thử được trên máy thật với development build", "Gộp và giới hạn trong bộ nhớ một tiến trình sẽ sai khi chạy nhiều bản API"]},
+ {"id": "D9", "name": "Tìm kiếm nâng cao: lịch sử tìm kiếm, gợi ý khi gõ @, tìm trong tin nhắn", "phase": 3, "be_days": 4, "mb_days": 5, "qa_days": 2,
+  "depends": ["D6", "D2", "D1"], "flows": ["d9-goi-y-nhac-ten", "d9-tim-tin-nhan"],
+  "new_services": [],
+  "risks": ["Tìm chuỗi con trong bảng tin nhắn chậm nếu thiếu chỉ mục pg_trgm", "Ô nhập có gợi ý @ dễ lỗi với bộ gõ tiếng Việt Telex", "Nếu sau này mã hóa đầu cuối thì tìm tin nhắn phải chuyển xuống máy"]}
+]

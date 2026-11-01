@@ -1,0 +1,33 @@
+{"id":"d9-tim-tin-nhan","title":"Tìm kiếm trong tin nhắn",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Gõ từ khóa ở tab Tin nhắn"},
+ {"id":"send","type":"process","lane":1,"row":0,"label":"Chờ 350 ms, gửi GET /messages/search"},
+ {"id":"len","type":"decision","lane":2,"row":0,"label":"Từ khóa từ 2 ký tự?"},
+ {"id":"e400","type":"end","lane":2,"col":1,"row":0,"label":"Trả lỗi 400"},
+ {"id":"scope","type":"process","lane":2,"row":1,"label":"Chỉ hội thoại mình là thành viên"},
+ {"id":"excl","type":"process","lane":2,"row":2,"label":"Bỏ tin đã thu hồi, hội thoại đã xóa"},
+ {"id":"q","type":"data","lane":2,"row":3,"label":"Tìm Message (chỉ mục trigram)"},
+ {"id":"anon","type":"decision","lane":2,"row":4,"label":"Ẩn danh chưa tiết lộ?"},
+ {"id":"mask","type":"process","lane":2,"col":1,"row":4,"label":"Hiện Người ẩn danh"},
+ {"id":"page","type":"process","lane":2,"row":5,"label":"Trả 20 kết quả, con trỏ sau"},
+ {"id":"list","type":"io","lane":1,"row":6,"label":"Kết quả, từ khóa tô đậm"},
+ {"id":"tap","type":"process","lane":0,"row":7,"label":"Bấm một kết quả"},
+ {"id":"jump","type":"process","lane":1,"row":8,"label":"Mở hội thoại tại tin đó"},
+ {"id":"around","type":"data","lane":2,"row":8,"label":"Lấy 20 tin trước và sau"},
+ {"id":"hl","type":"io","lane":1,"row":9,"label":"Cuộn tới tin, tô sáng"}
+],
+"edges":[
+ {"from":"s","to":"send"},{"from":"send","to":"len"},
+ {"from":"len","to":"e400","label":"Không"},
+ {"from":"len","to":"scope","label":"Có","exit":"bottom","entry":"top"},
+ {"from":"scope","to":"excl"},{"from":"excl","to":"q"},{"from":"q","to":"anon"},
+ {"from":"anon","to":"mask","label":"Có"},
+ {"from":"anon","to":"page","label":"Không","exit":"bottom","entry":"top"},
+ {"from":"mask","to":"page","exit":"bottom","entry":"right"},
+ {"from":"page","to":"list","exit":"bottom","entry":"top"},
+ {"from":"list","to":"tap","exit":"bottom","entry":"top"},
+ {"from":"tap","to":"jump","exit":"bottom","entry":"left"},
+ {"from":"jump","to":"around"},
+ {"from":"around","to":"hl","exit":"bottom","entry":"top"}
+]}

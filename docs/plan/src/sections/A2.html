@@ -1,0 +1,127 @@
+<h3>A2. Phiên đăng nhập và thiết bị</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ1 · Ước lượng: 9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện nay một lần đăng nhập cho một "vé" dùng được 30 ngày và máy chủ không có cách nào thu hồi vé đó: bấm Đăng xuất chỉ xóa vé trên điện thoại, đổi mật khẩu cũng không đá được kẻ gian đang dùng tài khoản. Tính năng này cho người dùng xem danh sách thiết bị đang đăng nhập, đăng xuất từ xa từng máy hoặc tất cả, và tự đăng xuất các máy khác khi đổi mật khẩu. Đây cũng là nền cho 2FA (A1) và cảnh báo đăng nhập lạ (A3).</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><i>apps/api/src/modules/auth/auth.module.ts</i>: JWT ký bằng <i>JWT_SECRET</i>, hạn <b>30 ngày</b>; có ghi chú "shortcut: chưa có refresh token… làm refresh token xoay vòng khi cần thu hồi phiên". Nội dung token chỉ có sub (mã người dùng) — xem <i>types/jwt-payload.type.ts</i>.</li>
+<li><i>auth.controller.ts</i>: POST /auth/logout trả 204 và <b>không làm gì</b> ở máy chủ. <i>docs/api-contract.md</i> cũng ghi rõ chưa có refresh token và chưa thu hồi token phía máy chủ.</li>
+<li><i>strategies/jwt.strategy.ts</i>: mỗi yêu cầu chỉ kiểm tra chữ ký, hạn, và hai danh sách trong bộ nhớ <i>bannedUserIds</i>, <i>ageLockedUserIds</i> (<i>ban-list.ts</i>, có ghi chú chỉ đúng khi chạy một tiến trình API).</li>
+<li><i>auth.service.ts</i>: changePassword và resetPassword chỉ đổi passwordHash; không thu hồi phiên nào, không gửi email báo đổi mật khẩu.</li>
+<li><i>notifications.gateway.ts</i> (Socket.IO): chỉ kiểm tra JWT lúc kết nối, sau đó giữ kết nối; không có cách ngắt kết nối của một phiên cụ thể.</li>
+<li>Bảng <i>DeviceToken</i> (token push, userId, platform) không gắn với phiên. Khi đăng xuất, app gọi DELETE /notifications/devices trước (<i>pushService.unregister</i>), nhưng đăng xuất từ xa sẽ không có bước này.</li>
+<li>Mobile: <i>services/authTokenStorage.ts</i> lưu đúng một access token trong expo-secure-store. <i>services/httpClient.ts</i> gặp 401 là gọi handler để xóa phiên và đưa về màn Đăng nhập; không có bước làm mới token. <i>authSession.tsx</i> khôi phục phiên lúc mở app bằng cách gọi /users/me.</li>
+<li>Cài đặt: <i>SettingsScreen.tsx</i> có nhóm "Phiên đăng nhập" gồm Đăng xuất và Xóa tài khoản; chưa có danh sách thiết bị. <i>ChangePasswordScreen.tsx</i> đổi mật khẩu (hoặc đặt mật khẩu đầu tiên cho tài khoản chỉ có Google).</li>
+<li>Quyết định DEC-008 trong <i>docs/decisions.md</i> ghi: muốn có refresh token hoặc thu hồi phía máy chủ thì phải cập nhật quyết định này. Vì vậy A2 cần một mục mới trong <i>docs/decisions.md</i>.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p>Ý tưởng: mỗi lần đăng nhập tạo một <b>phiên</b> (session) lưu trong cơ sở dữ liệu. App nhận hai thứ: <b>access token</b> (vé ngắn hạn 15 phút, gửi kèm mọi yêu cầu như hiện nay) và <b>refresh token</b> (vé dài hạn chỉ dùng để xin access token mới). Mỗi lần dùng, refresh token bị đổi sang cái mới (<b>xoay vòng</b>). Thu hồi phiên = máy đó không xin được vé mới nữa và mọi yêu cầu sau bị từ chối.</p>
+<p><b>Luồng 1. Đăng nhập tạo phiên</b></p>
+<ol>
+<li>App gửi thông tin đăng nhập như hiện nay, kèm thông tin máy: mã thiết bị (chuỗi ngẫu nhiên app tự tạo lần đầu và lưu trong SecureStore), tên máy (ví dụ "iPhone 15", "Samsung Galaxy S23"), nền tảng (ios/android), phiên bản app.</li>
+<li>Máy chủ tạo bản ghi Session (thiết bị, IP, thành phố/quốc gia suy từ IP, thời điểm), tạo refresh token ngẫu nhiên 32 byte và chỉ lưu bản băm SHA-256.</li>
+<li>Máy chủ trả access token (có thêm mã phiên sid) + refresh token. App lưu cả hai trong SecureStore.</li>
+</ol>
+<p><b>Luồng 2. Làm mới phiên (refresh token xoay vòng)</b></p>
+<ol>
+<li>App gọi API, máy chủ trả 401 vì access token hết hạn.</li>
+<li>App gửi refresh token tới /auth/refresh. Nếu nhiều yêu cầu cùng gặp 401 một lúc, app chỉ gửi <b>một</b> lượt làm mới, các yêu cầu khác chờ kết quả.</li>
+<li>Máy chủ tìm token theo bản băm, kiểm tra phiên chưa bị thu hồi, chưa hết hạn, tài khoản không bị khóa. Không đạt: trả 401, app xóa token và về màn Đăng nhập.</li>
+<li>Máy chủ kiểm tra token này đã từng được dùng chưa. Nếu đã dùng (tức có người khác đang giữ bản sao token) thì đây là dấu hiệu bị đánh cắp: <b>thu hồi cả phiên</b>, gửi email + thông báo đẩy cảnh báo (A3), trả 401. Ngoại lệ: dùng lại trong vòng 30 giây và token mới chưa từng được dùng — thường là app gửi lại do rớt mạng — thì coi là hợp lệ.</li>
+<li>Hợp lệ: máy chủ đánh dấu token cũ đã dùng, lưu token mới, cập nhật lần dùng cuối và IP của phiên, trả access token 15 phút + refresh token mới.</li>
+<li>App lưu token mới rồi gửi lại các yêu cầu đang chờ. Người dùng không thấy gì.</li>
+</ol>
+<p><b>Luồng 3. Xem thiết bị và đăng xuất từ xa</b></p>
+<ol>
+<li>Người dùng vào Cài đặt, mục mới <b>Thiết bị đăng nhập</b> (trong nhóm Phiên đăng nhập).</li>
+<li>App hiện danh sách phiên đang hoạt động: tên máy, nền tảng, thành phố/quốc gia, lần dùng cuối; phiên hiện tại ghi "Thiết bị này" và đứng đầu.</li>
+<li>Người dùng bấm một máy, chọn <b>Đăng xuất</b>. Máy chủ kiểm tra phiên đó thuộc người này, ghi thời điểm và lý do thu hồi, ngắt kết nối socket của phiên đó, xóa token push của phiên đó.</li>
+<li>Hoặc bấm <b>Đăng xuất tất cả thiết bị khác</b>: app hỏi lại mật khẩu (hoặc mã 2FA nếu tài khoản không có mật khẩu mà đã bật 2FA). Máy chủ thu hồi mọi phiên trừ phiên hiện tại.</li>
+<li>Máy bị đăng xuất: yêu cầu kế tiếp nhận 401, app về màn Đăng nhập với thông báo "Bạn đã bị đăng xuất khỏi thiết bị này".</li>
+</ol>
+<p><b>Luồng 4. Đổi hoặc đặt lại mật khẩu</b></p>
+<ol>
+<li>Đổi mật khẩu trong app (ChangePasswordScreen): sau khi lưu mật khẩu mới, máy chủ thu hồi mọi phiên <b>khác</b>, giữ phiên đang dùng. App báo "Đã đăng xuất N thiết bị khác".</li>
+<li>Đặt lại mật khẩu qua "Quên mật khẩu": máy chủ thu hồi <b>tất cả</b> phiên (kể cả máy đang dùng), người dùng đăng nhập lại bằng mật khẩu mới.</li>
+<li>Cả hai trường hợp đều gửi email "Mật khẩu của bạn vừa được đổi" kèm nút "Không phải tôi" (A3).</li>
+</ol>
+<p><b>Các trường hợp khác cũng thu hồi phiên</b>: quản trị viên khóa tài khoản (thu hồi tất cả), người dùng xóa tài khoản, gỡ 2FA qua hỗ trợ (A1), bấm "Không phải tôi" (A3), phát hiện refresh token bị dùng lại.</p>
+
+<h4>d) Flowchart</h4>
+<p>Làm mới phiên và phát hiện token bị dùng lại:</p>
+<!--FLOW:a2-lam-moi-phien-->
+<p>Danh sách thiết bị và đăng xuất từ xa:</p>
+<!--FLOW:a2-thiet-bi-dang-xuat-->
+<p>Đổi hoặc đặt lại mật khẩu:</p>
+<!--FLOW:a2-doi-mat-khau-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Thời hạn</b> (đề xuất): access token 15 phút; phiên hết hạn nếu 60 ngày không mở app (mỗi lần làm mới lùi hạn thêm 60 ngày); tối đa 1 năm phải đăng nhập lại.</li>
+<li><b>Số phiên</b>: tối đa 20 phiên đang hoạt động mỗi tài khoản; vượt thì phiên lâu không dùng nhất bị thu hồi.</li>
+<li><b>Ân hạn 30 giây</b> cho refresh token bị gửi lại do rớt mạng (xem luồng 2). Ngoài 30 giây hoặc token mới đã được dùng thì coi là bị đánh cắp.</li>
+<li><b>Kiểm tra thu hồi ngay lập tức</b>: JwtStrategy đọc Session theo sid (một truy vấn theo khóa chính) ở mỗi yêu cầu, để đăng xuất từ xa có hiệu lực ngay chứ không đợi 15 phút. Khi tải cao thì thêm bộ nhớ đệm hoặc Redis. Cách này cũng thay được danh sách khóa trong bộ nhớ (ban-list.ts) vốn chỉ đúng với một tiến trình API.</li>
+<li><b>Socket</b>: lưu sid vào client.data khi kết nối; thu hồi phiên thì ngắt các socket của sid đó. Socket chỉ kiểm tra token lúc kết nối nên phải làm bước này.</li>
+<li><b>Chống kẻ gian vừa vào đá chủ thật</b>: phiên mới tạo dưới 24 giờ không được đăng xuất phiên cũ hơn nó, trừ khi nhập lại mật khẩu (đề xuất, chủ dự án quyết).</li>
+<li><b>Lỗi mạng khi làm mới</b>: nếu không gửi được (mất mạng) thì giữ nguyên token, không đăng xuất; chỉ đăng xuất khi máy chủ trả 401 rõ ràng.</li>
+<li><b>Chuyển đổi từ token 30 ngày</b>: token cũ không có sid. Đề xuất: vẫn chấp nhận token cũ đến khi hết hạn tự nhiên (tối đa 30 ngày), nhưng nếu người dùng đổi mật khẩu hoặc "đăng xuất tất cả" thì token cũ có thời điểm phát hành trước mốc đó bị từ chối (trường sessionsValidAfter). Bản app cũ không biết làm mới token, nên máy chủ chỉ cấp access token 15 phút cho app có gửi thông tin thiết bị (bản mới); app cũ tiếp tục nhận token 30 ngày cho tới khi buộc cập nhật.</li>
+<li><b>Tài khoản bị khóa</b>: không làm mới được, mọi phiên bị thu hồi lý do BANNED; mở khóa không tự khôi phục phiên.</li>
+<li><b>Dọn dẹp</b>: định kỳ (mỗi ngày) xóa refresh token đã dùng quá 30 ngày và phiên đã thu hồi quá 90 ngày.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ là <b>đề xuất</b>, cần ghi vào <i>docs/api-contract.md</i> và cập nhật DEC-008 trong <i>docs/decisions.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>Bảng mới Session</td><td>id, userId, deviceId?, deviceName?, platform, appVersion?, ip?, city?, country?, createdAt, lastUsedAt, expiresAt, revokedAt?, revokeReason? (LOGOUT, REMOTE, PASSWORD_CHANGED, PASSWORD_RESET, REUSE_DETECTED, NOT_ME, BANNED, ACCOUNT_DELETED, TWO_FACTOR_RESET). Chỉ mục (userId, revokedAt).</td></tr>
+<tr><td>Bảng mới RefreshToken</td><td>id, sessionId, tokenHash (unique, SHA-256), createdAt, usedAt? (lúc bị đổi sang token mới). Xóa theo Session.</td></tr>
+<tr><td>DeviceToken: thêm trường</td><td>sessionId? — để xóa đúng token push của phiên bị thu hồi.</td></tr>
+<tr><td>User: thêm trường</td><td>sessionsValidAfter (DateTime?) — từ chối token cũ không có sid phát hành trước mốc này.</td></tr>
+<tr><td>Nội dung JWT</td><td>{ sub, sid }, hạn 15 phút.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint (đề xuất)</th><th>Việc làm</th></tr>
+<tr><td>POST /auth/login, /auth/google, /auth/apple, /auth/2fa/verify</td><td>Nhận thêm device { deviceId, deviceName, platform, appVersion }; trả thêm refreshToken, accessTokenExpiresIn.</td></tr>
+<tr><td>POST /auth/refresh { refreshToken }</td><td>Trả { accessToken, refreshToken }. Lỗi 401 { code: "SESSION_EXPIRED" | "SESSION_REVOKED" | "REFRESH_REUSED" }.</td></tr>
+<tr><td>POST /auth/logout</td><td>Thu hồi phiên hiện tại (lý do LOGOUT) — thay cho hành vi "không làm gì" hiện nay.</td></tr>
+<tr><td>GET /auth/sessions</td><td>Danh sách { id, deviceName, platform, city, country, lastUsedAt, createdAt, current }.</td></tr>
+<tr><td>DELETE /auth/sessions/:id</td><td>Thu hồi một phiên của chính mình.</td></tr>
+<tr><td>POST /auth/sessions/revoke-others { currentPassword?, code? }</td><td>Thu hồi mọi phiên trừ phiên hiện tại; trả số phiên đã thu hồi.</td></tr>
+<tr><td>PATCH /auth/password</td><td>Giữ nguyên đầu vào; trả thêm revokedSessions (số).</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Lưu token</b>: expo-secure-store đã có (Keychain trên iOS, Keystore trên Android). Lưu ý: trên iOS dữ liệu Keychain có thể còn sau khi gỡ app; app nên xóa token cũ ở lần mở đầu tiên sau khi cài lại (đánh dấu bằng một cờ trong bộ nhớ thường).</li>
+<li><b>Mã thiết bị</b>: chuỗi ngẫu nhiên lưu SecureStore. Tạo bằng expo-crypto (randomUUID) — gói Expo chính thức, cần kiểm tra bản cho SDK 57 và cài bằng expo install; gói này cũng dùng cho A6.</li>
+<li><b>Tên máy</b>: expo-device (modelName) cho tên dễ đọc trên cả hai nền tảng — thư viện mới, cài bằng expo install. Nếu không muốn thêm, dùng Platform.OS + Platform.Version (hiện "iOS 18", "Android 14") — kém thân thiện hơn.</li>
+<li><b>Làm mới token trong httpClient</b>: viết bằng fetch có sẵn, không cần thư viện. Socket.IO phải kết nối lại bằng access token mới sau mỗi lần làm mới (hoặc gửi token mới qua handshake khi kết nối lại).</li>
+<li><b>Thông báo đẩy</b>: máy chủ đang gửi qua dịch vụ Expo Push (exp.host), dịch vụ này đi qua APNs cho iOS và FCM cho Android; cần cả hai bộ thông tin (cần kiểm tra đã cấu hình trên EAS cho cả hai).</li>
+<li><b>Vị trí theo IP</b>: dùng cơ sở dữ liệu IP offline (ví dụ GeoLite2 của MaxMind, miễn phí, phải đăng ký tài khoản và cập nhật định kỳ) và một thư viện đọc ở backend — là phụ thuộc mới, cần chủ dự án đồng ý. Không đòi quyền vị trí trên điện thoại.</li>
+<li><b>Proxy</b>: <i>main.ts</i> đặt trust proxy = 1, nghĩa là IP thật lấy đúng khi có đúng một lớp proxy phía trước. Cần kiểm tra lại khi triển khai thật (ví dụ có Cloudflare + load balancer là hai lớp).</li>
+<li><b>Web</b>: chưa có web client. Nếu sau này có, refresh token trên web nên nằm trong cookie HttpOnly, không trong localStorage.</li>
+<li><b>Chi phí</b>: không phát sinh dịch vụ trả phí; thêm một truy vấn nhỏ cho mỗi yêu cầu API.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Đăng nhập trên hai máy (một Android, một iPhone), cả hai hiện trong danh sách thiết bị với đúng tên máy và nền tảng.</li>
+<li>Đăng xuất máy kia từ xa: máy kia về màn Đăng nhập ở yêu cầu kế tiếp, socket bị ngắt, không nhận push nữa.</li>
+<li>Đổi mật khẩu: mọi máy khác bị đăng xuất, máy đang dùng vẫn dùng tiếp, email báo đổi mật khẩu được gửi.</li>
+<li>Để app chạy qua 15 phút: token được làm mới tự động, người dùng không bị đăng xuất; nhiều yêu cầu cùng lúc chỉ tạo một lượt làm mới.</li>
+<li>Gửi lại một refresh token cũ sau 30 giây: cả phiên bị thu hồi, có email cảnh báo.</li>
+<li>Bật chế độ máy bay giữa lúc làm mới: không bị đăng xuất oan.</li>
+<li>Bản app cũ (token 30 ngày) vẫn dùng được trong thời gian chuyển đổi.</li>
+<li>Test tự động ở backend: xoay vòng, phát hiện dùng lại, ân hạn 30 giây, thu hồi khi đổi mật khẩu, JwtStrategy từ chối phiên đã thu hồi.</li>
+<li>Báo cáo ghi rõ đã chạy trên Android và iPhone hay chưa.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (2 bảng mới, phát hành/xoay vòng token, JwtStrategy, socket, push token, thu hồi khi đổi/đặt lại mật khẩu và khi khóa tài khoản, email, dọn dẹp, chuyển đổi token cũ). Mobile 3 ngày (lưu 2 token, làm mới trong httpClient, gửi thông tin thiết bị, màn Thiết bị đăng nhập, thông báo bị đăng xuất). Kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: không phụ thuộc mã nào; là nền cho A1, A3, A6 và E2 (xóa tài khoản thu hồi phiên).</li>
+<li>Rủi ro: lỗi ở bước làm mới làm hàng loạt người dùng bị đăng xuất — cần kiểm thử kỹ và phát hành dần; chuyển đổi bản app cũ; cần cập nhật quyết định DEC-008.</li>
+</ul>

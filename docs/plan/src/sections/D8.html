@@ -1,0 +1,134 @@
+<h3>D8. Thông báo đẩy hoàn chỉnh và cài đặt thông báo theo loại, giờ yên lặng</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ1 · Ước lượng: 12–14 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Thông báo đẩy (push, tức thông báo hiện trên màn hình khóa khi app đang tắt) là cách chính để người dùng quay lại app: có tin nhắn, có bình luận, có người theo dõi. Hiện code gửi push đã có nhưng <b>chưa từng chạy thử</b>. Tính năng này làm cho push chạy thật trên Android và iPhone, cho người dùng tắt từng loại thông báo và đặt giờ yên lặng, gộp thông báo trùng để không bị làm phiền, bấm vào thông báo mở đúng màn hình, hiện số chưa đọc trên biểu tượng app (badge), và tự dọn các thiết bị không còn dùng. Phần che tên người gửi ẩn danh phải giữ nguyên trong mọi trường hợp.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Máy chủ</b> (<i>apps/api/src/modules/notifications/notifications.service.ts</i>): mọi thông báo đi qua <i>notify()</i>: bỏ nếu tự gửi cho mình hoặc hai bên chặn nhau, lưu bảng <i>Notification</i>, đẩy qua Socket.IO (<i>notifications.gateway.ts</i>, phòng <i>user:&lt;id&gt;</i>), rồi gửi push. Tám loại có lưu: <i>LIKE</i>, <i>COMMENT</i>, <i>REPLY</i>, <i>FOLLOW</i>, <i>REPOST</i>, <i>MENTION</i>, <i>FOLLOW_REQUEST</i>, <i>FOLLOW_ACCEPT</i>.</li>
+<li><b>Push</b> (<i>pushToUser</i>): gọi thẳng <i>https://exp.host/--/api/v2/push/send</i> (dịch vụ push của Expo, chuyển tiếp sang FCM của Google cho Android và APNs của Apple cho iOS), gửi mọi thiết bị của người nhận trong một lần, không có mã truy cập Expo, không đọc kết quả. Tiêu đề cố định "MobileSocialMedia". Lỗi bị nuốt để không làm hỏng thao tác chính.</li>
+<li><b>Push không lưu thông báo</b>: tin nhắn mới (<i>messages.service.ts</i>) và cảm xúc story (<i>stories.service.ts</i>) gọi <i>pushToUser</i> trực tiếp. Tin nhắn ẩn danh đã che tên ("Người ẩn danh"), tin chờ có tiền tố "[Tin nhắn chờ]", ảnh không bao giờ hiện trong push. Cảm xúc story được gộp tối đa một push mỗi 15 phút mỗi story, không nêu tên (bộ nhớ một tiến trình).</li>
+<li><b>Thiết bị</b>: bảng <i>DeviceToken</i> (<i>token</i>, <i>userId</i>, <i>platform</i>, <i>updatedAt</i>); <i>POST /notifications/devices</i> ghi hoặc chuyển token sang tài khoản đang đăng nhập; <i>DELETE /notifications/devices?token=</i> khi đăng xuất. <b>Không dọn</b> token hỏng (ghi chú <i>shortcut</i> trong code và DEC-020).</li>
+<li><b>App</b> (<i>apps/mobile/src/features/notifications/services/pushService.ts</i>): <i>expo-notifications ~57.0.22</i> đã cài. Sau khi đăng nhập, app xin quyền ngay (không có màn giải thích trước), lấy token Expo, gửi lên máy chủ; bỏ qua trong Expo Go và chế độ dữ liệu giả. Bấm thông báo: <i>FOLLOW</i> mở trang cá nhân, có <i>postId</i> thì mở chi tiết bài; <b>tin nhắn, yêu cầu theo dõi, cảm xúc story không mở gì</b>. Không xử lý trường hợp bấm thông báo khi app đang tắt hẳn (không đọc thông báo đã bấm lúc khởi động). Không đặt badge (<i>shouldSetBadge: false</i>). Không tạo kênh thông báo Android.</li>
+<li><b>Cấu hình còn thiếu</b> (<i>apps/mobile/app.json</i>): chưa có plugin <i>expo-notifications</i>, chưa có <i>extra.eas.projectId</i> (mã dự án EAS), chưa có <i>eas.json</i>, chưa có <i>google-services.json</i> (Firebase cho Android), chưa có khóa APNs. <i>getExpoPushTokenAsync()</i> được gọi không truyền <i>projectId</i>.</li>
+<li><b>Danh sách thông báo</b> trong app: có đánh dấu đã đọc từng cái và tất cả, số chưa đọc ở biểu tượng chuông; chưa tải thêm khi cuộn (báo cáo tính năng, mục V).</li>
+<li><b>Chưa có</b>: cài đặt theo loại, giờ yên lặng, gộp thông báo (trừ cảm xúc story), badge, dọn token, chia lô 100 thông báo mỗi yêu cầu (giới hạn của Expo).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 0: Chuẩn bị một lần (dev, không phải code)</b></p>
+<ol>
+<li>Tạo dự án EAS (<i>eas init</i>), ghi <i>projectId</i> vào <i>app.json</i>; thêm plugin <i>expo-notifications</i> (biểu tượng, màu thông báo Android).</li>
+<li>Android: tạo dự án Firebase, tải <i>google-services.json</i>, khai báo <i>android.googleServicesFile</i>; tải khóa tài khoản dịch vụ FCM V1 lên EAS (<i>eas credentials</i>).</li>
+<li>iOS: tài khoản Apple Developer, tạo khóa APNs (.p8) và tải lên EAS; quyền push (aps-environment) được plugin tự thêm.</li>
+<li>Build bản phát triển (development build) cho cả hai: <i>eas build --profile development</i>. Expo Go không nhận được push thật.</li>
+<li>Máy chủ: thêm biến môi trường <i>EXPO_ACCESS_TOKEN</i> và bật "push an toàn" trong tài khoản Expo, để chỉ máy chủ của mình gửi được push tới các token.</li>
+</ol>
+<p><b>Luồng 1: Đăng ký thiết bị</b></p>
+<ol>
+<li>Sau khi đăng nhập hoặc mở app, nếu bản build hỗ trợ push và người dùng chưa từng được hỏi, app hiện màn giải thích ngắn ("Nhận thông báo khi có tin nhắn, bình luận...") với nút "Bật thông báo" và "Để sau".</li>
+<li>Bấm "Bật": app tạo kênh thông báo Android (bắt buộc từ Android 8; Android 13 chỉ hiện hộp xin quyền sau khi có kênh), rồi gọi hộp xin quyền của hệ điều hành. "Để sau" thì nhắc lại sau 7 ngày, và luôn bật được trong Cài đặt.</li>
+<li>Được phép: app lấy token Expo (truyền <i>projectId</i>), gửi <i>POST /notifications/devices</i> kèm nền tảng.</li>
+<li>Máy chủ: nếu token đang gắn với tài khoản khác (đổi tài khoản trên cùng máy) thì chuyển sang tài khoản mới, để người cũ không nhận push trên máy này. Ghi <i>lastSeenAt</i>.</li>
+<li>Mỗi lần mở app, app gửi lại token (token có thể đổi) và đặt badge theo số chưa đọc.</li>
+<li>Đăng xuất: xóa token trên máy chủ, xóa badge, gỡ bộ nghe. Phiên bị đăng xuất từ xa (A2) thì máy chủ xóa token của phiên đó.</li>
+</ol>
+<p><b>Luồng 2: Gửi một thông báo qua mọi bước kiểm tra</b></p>
+<ol>
+<li>Một sự kiện xảy ra (thích, bình luận, tin nhắn, gắn thẻ...). Mọi loại, kể cả tin nhắn và cảm xúc story, đi qua <b>một</b> hàm gửi, thay vì gọi <i>pushToUser</i> rải rác.</li>
+<li>Bỏ nếu tự gửi cho mình, hai bên chặn nhau, người gửi đang bị người nhận tắt tiếng (B8), hoặc người nhận không còn xem được nội dung (ví dụ bị nhắc tên trong bài <i>FRIENDS</i> không xem được).</li>
+<li>Lưu <i>Notification</i> (trừ tin nhắn, vốn đã có số chưa đọc riêng) và gửi socket nếu app đang mở.</li>
+<li>Người nhận tắt push loại này, hoặc đang "Tạm dừng tất cả": chỉ giữ trong danh sách, không push.</li>
+<li>Đang trong giờ yên lặng: vẫn gửi nhưng không âm thanh, không rung (iOS: mức ngắt "passive"; Android: kênh "Yên lặng" mức thấp). Thông báo bảo mật (đăng nhập lạ A3, đổi mật khẩu) luôn có âm thanh.</li>
+<li>Gộp: cùng loại, cùng bài, đã có push trong 15 phút qua thì không gửi thêm; lần kế tiếp sau 15 phút gửi một push gộp "Lan và 3 người khác đã thích bài viết của bạn". Tin nhắn không gộp theo thời gian, nhưng cùng hội thoại dùng chung khóa nhóm để hệ điều hành xếp chồng.</li>
+<li>Che thông tin: người gửi ẩn danh luôn là "Người ẩn danh"; tin chờ và tin ẩn danh <b>không</b> hiện nội dung trên màn hình khóa ("Bạn có một tin nhắn chờ mới"); người dùng tắt "Hiện nội dung tin nhắn" thì mọi tin chỉ hiện "Tin nhắn mới".</li>
+<li>Tính badge = số thông báo chưa đọc + số hội thoại chưa đọc; gắn dữ liệu mở màn hình (<i>type</i>, <i>postId</i>, <i>commentId</i>, <i>conversationId</i>, <i>storyId</i>, <i>actorId</i>, <i>recipientId</i>).</li>
+<li>Gửi tới Expo theo lô ≤ 100, lưu mã biên nhận (ticket). Expo chuyển sang FCM hoặc APNs.</li>
+<li>Khoảng 15 phút sau, tác vụ đọc biên nhận (<i>getReceipts</i>). Lỗi <i>DeviceNotRegistered</i> (app đã gỡ hoặc token hết hạn) thì xóa token đó. Token không được gửi lại quá 60 ngày cũng bị xóa.</li>
+</ol>
+<p><b>Luồng 3: Bấm vào thông báo</b></p>
+<ol>
+<li>App đọc dữ liệu của thông báo đã bấm, cả khi app đang chạy nền và khi app vừa được mở từ trạng thái tắt hẳn (đọc thông báo đã bấm lúc khởi động, chờ đăng nhập xong rồi mới chuyển màn).</li>
+<li><i>recipientId</i> khác tài khoản đang đăng nhập: mở danh sách Thông báo, không mở nội dung (tránh lộ nội dung của tài khoản khác trên cùng máy).</li>
+<li>Tin nhắn mở đúng hội thoại; bài, bình luận mở chi tiết bài và cuộn tới bình luận; theo dõi, yêu cầu theo dõi mở trang cá nhân hoặc màn Yêu cầu theo dõi; cảm xúc story mở danh sách cảm xúc; gắn thẻ mở màn duyệt thẻ (D6).</li>
+<li>Màn đích tải dữ liệu như bình thường; nội dung đã xóa hoặc mất quyền xem thì hiện "Nội dung không còn".</li>
+<li>Máy chủ đánh dấu thông báo đó đã đọc, app đặt lại badge.</li>
+</ol>
+<p><b>Luồng 4: Cài đặt thông báo</b></p>
+<ol>
+<li>Cài đặt → Thông báo: công tắc theo nhóm: Thích và cảm xúc; Bình luận và trả lời; Nhắc tên và gắn thẻ; Người theo dõi mới và yêu cầu; Tin nhắn; Tin nhắn chờ; Story; Bình chọn. Nhóm Bảo mật luôn bật, không tắt được.</li>
+<li>"Hiện nội dung tin nhắn" (mặc định bật); "Tạm dừng tất cả" 1 giờ, 8 giờ, 24 giờ; "Giờ yên lặng" có giờ bắt đầu, kết thúc (mặc định tắt; gợi ý 22:00–07:00), dùng múi giờ của máy.</li>
+<li>Hệ điều hành đang tắt quyền thông báo thì màn hiện dòng "Thông báo đang tắt trong cài đặt máy" và nút mở cài đặt máy.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: đăng ký thiết bị và hủy khi đăng xuất.</p>
+<!--FLOW:d8-dang-ky-thiet-bi-->
+<p>Sơ đồ 2: gửi một thông báo qua mọi bước kiểm tra, tới khi dọn token hỏng.</p>
+<!--FLOW:d8-gui-thong-bao-->
+<p>Sơ đồ 3: bấm vào thông báo và mở đúng màn hình.</p>
+<!--FLOW:d8-bam-thong-bao-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: gộp trong 15 phút; tối đa 30 push mỗi người nhận mỗi giờ (trừ tin nhắn và bảo mật), vượt thì chỉ lưu vào danh sách; lô gửi ≤ 100 (giới hạn Expo); đọc biên nhận sau 15 phút; xóa token không dùng sau 60 ngày; nhắc bật thông báo lại sau 7 ngày, tối đa 3 lần.</li>
+<li><b>Lỗi mạng tới Expo</b>: thử lại 3 lần, cách 1, 5, 30 giây; vẫn lỗi thì bỏ push (thông báo vẫn có trong danh sách). Không bao giờ làm hỏng thao tác chính (giữ nguyên nguyên tắc hiện có).</li>
+<li><b>Expo trả lỗi giới hạn tốc độ</b> (429): chờ và gửi lại phần còn lại; ghi log để dev biết.</li>
+<li><b>Nhiều máy chủ API cùng chạy</b>: bộ đếm gộp và giới hạn hiện nằm trong bộ nhớ một tiến trình (như cảm xúc story). Đề xuất lưu khóa gộp vào bảng <i>PushThrottle</i> trong PostgreSQL để nhiều tiến trình dùng chung; không thêm Redis chỉ vì việc này.</li>
+<li><b>Người bị chặn, bị khóa</b>: không gửi. Tài khoản người nhận bị khóa (admin hoặc dưới 18 tuổi) thì không gửi push nào, và xóa token khi khóa.</li>
+<li><b>Ẩn danh</b>: tên người gửi chỉ lấy từ hàm che tên chung của hội thoại (<i>ANONYMOUS_PEER</i>); test tự động bắt buộc: không push nào chứa tên, ảnh đại diện hay id của người gửi ẩn danh.</li>
+<li><b>Đổi tài khoản trên cùng máy</b>: token chỉ thuộc một tài khoản tại một thời điểm (đã có); thông báo cũ của tài khoản trước vẫn nằm trong khay hệ thống, nên bước kiểm tra <i>recipientId</i> khi bấm là bắt buộc.</li>
+<li><b>Badge</b>: Android chỉ hiện chấm hoặc số tùy trình khởi chạy của hãng máy; không hứa con số chính xác trên Android.</li>
+<li><b>Quyền bị thu hồi</b> trong cài đặt máy: token vẫn còn nhưng thông báo không hiện; app kiểm tra quyền khi mở và hiện nhắc ở màn Cài đặt thông báo.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và được Dev B duyệt trước khi code. Migration mới, chỉ thêm.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>DeviceToken</i></td><td>Thêm <i>lastSeenAt</i>, <i>sessionId</i> (có thể trống, nối với phiên của A2), <i>createdAt</i>.</td></tr>
+<tr><td><i>NotificationSettings</i> (mới, một dòng mỗi người)</td><td><i>userId</i> (khóa chính), <i>mutedTypes</i> (mảng chuỗi), <i>showMessagePreview</i> (mặc định true), <i>quietStart</i>, <i>quietEnd</i> (phút trong ngày, có thể trống), <i>timeZone</i>, <i>pausedUntil</i>, <i>pushPromptedAt</i>.</td></tr>
+<tr><td><i>PushTicket</i> (mới)</td><td><i>id</i> (mã biên nhận Expo), <i>token</i>, <i>createdAt</i>; xóa sau khi đọc biên nhận.</td></tr>
+<tr><td><i>PushThrottle</i> (mới)</td><td><i>key</i> (người nhận + loại + bài), <i>lastSentAt</i>, <i>pendingCount</i>.</td></tr>
+<tr><td><i>Notification.type</i></td><td>Thêm các loại mới của D6 (<i>QUOTE</i>, <i>TAG</i>, <i>TAG_REQUEST</i>, <i>POLL_ENDED</i>) và <i>STORY_REACTION</i> nếu muốn hiện trong danh sách.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mục đích</th></tr>
+<tr><td><i>GET /notifications/settings</i>; <i>PATCH /notifications/settings</i></td><td>Đọc, sửa cài đặt.</td></tr>
+<tr><td><i>GET /notifications/badge</i></td><td><i>{ notifications, messages, total }</i> để app đặt badge khi mở.</td></tr>
+<tr><td><i>POST /notifications/devices</i></td><td>Giữ nguyên hình dạng; máy chủ cập nhật <i>lastSeenAt</i>.</td></tr>
+<tr><td><i>GET /notifications?cursor=</i></td><td>Thêm phân trang con trỏ để app tải thêm khi cuộn.</td></tr>
+</table>
+<p>Dữ liệu trong mỗi push (cố định, app dựa vào để mở màn): <i>{ type, recipientId, postId?, commentId?, conversationId?, storyId?, actorId? }</i>. Với người gửi ẩn danh, <i>actorId</i> luôn là <i>"anonymous"</i>.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Cần cả hai phía</b>: FCM (Android) và APNs (iOS), cùng đi qua dịch vụ Expo. Nếu tạm thời chỉ thiết lập được một phía, phía còn lại ghi là việc chưa xong, không bỏ qua.</li>
+<li><b>Quyền</b>: Android 13+ cần quyền <i>POST_NOTIFICATIONS</i> (plugin <i>expo-notifications</i> tự khai báo); iOS không cần chuỗi mô tả trong <i>Info.plist</i> cho thông báo nhưng cần quyền push (aps-environment), plugin tự thêm. Cả hai đều phải thêm plugin vào <i>app.json</i> trong cùng thay đổi.</li>
+<li><b>Kênh Android</b>: "Mặc định" (có âm thanh), "Tin nhắn" (có âm thanh, mức cao), "Yên lặng" (mức thấp). iOS không có kênh; dùng <i>sound</i> và mức ngắt (<i>interruptionLevel</i>) trong push. Khả năng xếp chồng theo hội thoại trên iOS (<i>threadId</i>/category qua Expo) cần kiểm tra.</li>
+<li><b>Badge</b>: iOS hiện số chính xác; Android tùy hãng máy.</li>
+<li><b>Thư viện</b>: dùng <i>expo-notifications</i> đã cài (đúng Expo SDK 57); không cần thêm. Máy chủ gọi API Expo bằng <i>fetch</i> như hiện nay, không bắt buộc thêm <i>expo-server-sdk</i>.</li>
+<li><b>Web quản trị</b>: không gửi push từ trang quản trị trong phạm vi này; có thể thêm sau ô "Gửi thông báo thử tới tài khoản" để dev kiểm tra.</li>
+<li><b>Chi phí</b>: Expo push, FCM miễn phí. APNs cần tài khoản Apple Developer (99 USD/năm, vốn cần để lên App Store). EAS Build gói miễn phí giới hạn số lượt build mỗi tháng (con số cụ thể cần kiểm tra trên trang Expo).</li>
+<li><b>Yêu cầu cửa hàng</b>: Apple không cho bắt buộc bật thông báo để dùng app, và không dùng push để quảng cáo nếu người dùng chưa đồng ý; màn giải thích phải có nút "Để sau".</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Trên máy Android thật và iPhone thật (bản development build): nhận push cho từng loại (thích, bình luận, trả lời, nhắc tên, theo dõi, yêu cầu theo dõi, chấp nhận, đăng lại, tin nhắn, tin chờ, tin ẩn danh, cảm xúc story) khi app chạy nền và khi app tắt hẳn.</li>
+<li>Bấm từng loại mở đúng màn hình, cả khi app tắt hẳn; thông báo của tài khoản khác không mở nội dung.</li>
+<li>Tắt một loại thì không nhận push loại đó nhưng vẫn thấy trong danh sách; giờ yên lặng làm push im lặng; tạm dừng hoạt động đúng thời gian.</li>
+<li>10 lượt thích trong 15 phút cho ra tối đa 2 push.</li>
+<li>Push tin ẩn danh và tin chờ không chứa tên hay nội dung (test tự động trên nội dung gửi tới Expo).</li>
+<li>Gỡ app trên một máy: sau khi đọc biên nhận, token của máy đó bị xóa.</li>
+<li>Badge đúng số chưa đọc trên iPhone; đọc hết thì về 0.</li>
+<li>Báo cáo ghi rõ đã chạy trên Android, trên iPhone, và phiên bản hệ điều hành.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (gom về một hàm gửi, cài đặt, giờ yên lặng, gộp, che, badge, chia lô, biên nhận và dọn token), mobile 4 ngày (cấu hình <i>app.json</i>/EAS, kênh Android, màn giải thích, mở màn khi bấm kể cả khởi động lạnh, badge, màn cài đặt), kiểm thử 3 ngày, cộng 1 ngày thiết lập tài khoản Firebase, Apple, EAS.</li>
+<li>Phụ thuộc: A2 (phiên và thiết bị, để xóa token khi đăng xuất từ xa), A3 (thông báo bảo mật), B8 (tắt tiếng), D6 (các loại thông báo mới). Cần tài khoản Apple Developer và quyền truy cập dự án Firebase.</li>
+<li>Rủi ro: thiết lập chứng chỉ thường mất thời gian hơn code; push trên iOS chỉ thử được trên máy thật. Việc giờ yên lặng phụ thuộc múi giờ máy gửi lên, sai múi giờ thì im lặng sai giờ.</li>
+</ul>

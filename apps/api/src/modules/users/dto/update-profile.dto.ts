@@ -40,4 +40,9 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsBoolean()
     isPrivate?: boolean;
+
+    // App chỉ gửi true sau khi người dùng đã đọc và xác nhận màn cảnh báo rủi ro.
+    @IsOptional()
+    @IsBoolean()
+    allowAnonymousMessages?: boolean;
 }

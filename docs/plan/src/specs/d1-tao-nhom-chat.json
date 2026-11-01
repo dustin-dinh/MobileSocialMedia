@@ -1,0 +1,28 @@
+{"id":"d1-tao-nhom-chat","title":"Tạo nhóm chat và thêm thành viên",
+"lanes":[{"name":"Người tạo nhóm"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Tạo nhóm trong Tin nhắn"},
+ {"id":"pick","type":"io","lane":1,"row":0,"label":"Chọn 2–49 người, đặt tên"},
+ {"id":"req","type":"process","lane":1,"row":1,"label":"Gửi tên, ảnh, danh sách người"},
+ {"id":"lim","type":"decision","lane":2,"row":1,"label":"Từ 2 đến 49 người?"},
+ {"id":"e1","type":"end","lane":2,"col":1,"row":1,"label":"Lỗi GROUP_SIZE"},
+ {"id":"day","type":"decision","lane":2,"row":2,"label":"Quá 10 nhóm trong 24 giờ?"},
+ {"id":"e2","type":"end","lane":2,"col":1,"row":2,"label":"Lỗi GROUP_DAILY_LIMIT"},
+ {"id":"blk","type":"process","lane":2,"row":3,"label":"Bỏ người có chặn với người tạo"},
+ {"id":"fol","type":"decision","lane":2,"row":4,"label":"Người đó theo dõi người tạo?"},
+ {"id":"inv","type":"process","lane":2,"col":1,"row":4,"label":"Tạo lời mời trong Tin nhắn chờ"},
+ {"id":"add","type":"process","lane":2,"row":5,"label":"Thêm thẳng làm thành viên"},
+ {"id":"db","type":"data","lane":2,"row":6,"label":"Ghi Conversation GROUP và ConversationMember"},
+ {"id":"emit","type":"process","lane":2,"row":7,"label":"Socket conversation:new, push lời mời"},
+ {"id":"show","type":"io","lane":1,"row":8,"label":"Mở nhóm, hiện tin hệ thống"},
+ {"id":"end","type":"end","lane":0,"row":8,"label":"Nhóm đã tạo"}
+],
+"edges":[
+ {"from":"s","to":"pick"},{"from":"pick","to":"req"},{"from":"req","to":"lim"},
+ {"from":"lim","to":"e1","label":"Không"},{"from":"lim","to":"day","label":"Có"},
+ {"from":"day","to":"e2","label":"Có"},{"from":"day","to":"blk","label":"Không"},
+ {"from":"blk","to":"fol"},
+ {"from":"fol","to":"add","label":"Có"},{"from":"fol","to":"inv","label":"Không"},
+ {"from":"add","to":"db"},{"from":"inv","to":"db","exit":"bottom","entry":"right"},
+ {"from":"db","to":"emit"},{"from":"emit","to":"show"},{"from":"show","to":"end"}
+]}

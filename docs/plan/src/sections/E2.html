@@ -1,0 +1,147 @@
+<h3>E2. Xóa tài khoản có thời gian chờ 30 ngày và trang web yêu cầu xóa</h3>
+<p><i>Nhóm: Quyền dữ liệu cá nhân · Giai đoạn: GĐ1 · Ước lượng: 11–12 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hôm nay bấm xóa là mất ngay mọi thứ, không cứu được nếu bấm nhầm hoặc bị người khác chiếm tài khoản rồi xóa. Thời gian chờ 30 ngày cho người dùng cơ hội đổi ý (chỉ cần đăng nhập lại). Google Play bắt buộc có một <b>trang web</b> để yêu cầu xóa tài khoản mà không cần cài app; thiếu trang này app có thể bị từ chối khi đăng lên cửa hàng. Tính năng cũng làm rõ dữ liệu nào bị xóa, dữ liệu nào phải giữ lại vì lý do pháp lý (báo cáo vi phạm, nhật ký).</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Xóa ngay, trong app:</b> <i>DELETE /users/me</i> (<i>apps/api/src/modules/users/users.controller.ts</i> → <i>UsersService.deleteAccount</i>). Tài khoản có mật khẩu phải nhập mật khẩu (so bằng bcrypt); tài khoản chỉ có Google gõ lại username. Sai trả 400.</li>
+<li><b>Thứ tự xóa hiện tại:</b> (1) gom đường dẫn tệp: ảnh, video và ảnh thu nhỏ của mọi bài viết (kể cả bài đã xóa mềm), tệp story, ảnh trong <b>mọi</b> hội thoại của người này (cả ảnh do người kia gửi), ảnh bìa, ảnh đại diện; (2) <i>prisma.user.delete</i>, các bảng liên quan bị xóa theo nhờ <i>onDelete: Cascade</i>; (3) <i>StorageService.removeByUrls</i> xóa tệp ở cả bucket công khai và riêng tư, bỏ qua URL ngoài kho (ảnh Google, ảnh cũ Supabase), <b>nuốt mọi lỗi</b> (Promise.allSettled), không thử lại, nên tệp có thể còn sót lại mà không ai biết.</li>
+<li><b>Hệ quả của Cascade</b> (<i>apps/api/prisma/schema.prisma</i>):
+  <ul>
+  <li>Bài viết, bình luận, cảm xúc, bài đăng lại, lưu, theo dõi, chặn, story, thông báo, token thiết bị, lịch sử xem Reels bị xóa.</li>
+  <li>Bình luận người khác viết dưới bài của người này, và câu trả lời của người khác dưới bình luận của người này, cũng mất (Cascade theo Post và Comment cha).</li>
+  <li><b>Hội thoại</b> (Conversation.userA/userB Cascade): người kia mất <b>toàn bộ</b> cuộc trò chuyện, kể cả tin họ gửi.</li>
+  <li><b>Báo cáo người này đã gửi</b> (Report.reporter Cascade) bị xóa, kể cả báo cáo đang mở.</li>
+  <li><b>Báo cáo về người này</b> còn lại (targetId là chuỗi, không có khóa ngoại) nhưng trỏ tới tài khoản không còn. Báo cáo hội thoại giữ bản chụp tin nhắn (<i>Report.snapshot</i>) nhưng ảnh trong bản chụp là khóa <i>s3p:</i> đã bị xóa khỏi kho ở bước (3), nên quản trị viên mất bằng chứng ảnh. Trang quản trị hiển thị báo cáo có đối tượng đã mất thế nào: cần kiểm tra.</li>
+  </ul></li>
+<li><b>Phiên đăng nhập:</b> JWT sống 30 ngày (<i>auth.module.ts</i>), không có danh sách phiên. <i>JwtStrategy</i> chỉ chặn token theo danh sách trong bộ nhớ (<i>ban-list.ts</i>: bị khóa, dưới 18 tuổi); không có trạng thái "chờ xóa".</li>
+<li><b>Ẩn nội dung:</b> chưa có cơ chế ẩn nội dung của một tài khoản. Tài khoản bị khóa (bannedAt) vẫn hiện bài viết; quy tắc xem bài chung nằm ở <i>visiblePostWhere</i> (<i>apps/api/src/modules/posts/post-view.ts</i>).</li>
+<li><b>App:</b> <i>DeleteAccountScreen.tsx</i> ghi "Không thể khôi phục", hộp xác nhận "Toàn bộ dữ liệu của bạn sẽ bị xoá ngay". <i>LegalScreen.tsx</i> ghi "việc xoá có hiệu lực ngay". Cả hai phải sửa khi đổi sang chờ 30 ngày.</li>
+<li><b>Trang web:</b> chưa có (báo cáo tính năng đã ghi là còn thiếu). Dự án chưa có tên miền web (<i>docs/decisions.md</i>). API đã có mẫu phục vụ một trang HTML tĩnh: <i>AdminPageController</i> trả <i>admin.html</i> ở <i>GET /admin</i>; trang xóa tài khoản làm cùng cách được.</li>
+<li><b>Nhật ký thao tác:</b> chưa có bảng nhật ký (thuộc C3).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Yêu cầu xóa trong app</b></p>
+<ol>
+<li>Người dùng vào <i>Cài đặt &gt; Xóa tài khoản</i>. App hiện: tài khoản sẽ bị ẩn ngay và xóa vĩnh viễn sau 30 ngày; trong 30 ngày đăng nhập lại là hủy; những gì bị xóa, những gì được giữ lại; nút <i>Tải dữ liệu trước</i> (E1).</li>
+<li>Người dùng nhập mật khẩu (hoặc gõ username với tài khoản chỉ có Google, như hiện nay; khi có 2FA thì thêm mã 6 số), bấm <i>Xóa tài khoản</i>, xác nhận lần nữa trong hộp thoại.</li>
+<li>Máy chủ kiểm tra xác nhận. Đúng thì ghi <i>deletionRequestedAt</i> = bây giờ, <i>deletionScheduledAt</i> = bây giờ + 30 ngày, nguồn APP.</li>
+<li>Máy chủ ẩn tài khoản: hồ sơ trả 404 với người khác, bài viết, bình luận, story không hiện, không xuất hiện trong tìm kiếm và gợi ý. Thu hồi mọi phiên (thêm vào danh sách chặn token như <i>bannedUserIds</i>, hoặc xóa phiên khi đã có A2), xóa token thiết bị để không nhận push. Hủy yêu cầu xuất dữ liệu đang chờ.</li>
+<li>Máy chủ gửi email: ngày sẽ xóa, cách hủy (đăng nhập lại), link "Không phải tôi" dẫn tới đổi mật khẩu.</li>
+<li>App đăng xuất và hiện màn "Tài khoản sẽ bị xóa vào ngày …".</li>
+</ol>
+<p><b>Luồng 2: Hủy bằng cách đăng nhập lại</b></p>
+<ol>
+<li>Trong 30 ngày, người dùng đăng nhập (mật khẩu, Google, hoặc đặt lại mật khẩu nếu quên).</li>
+<li>Máy chủ thấy tài khoản đang chờ xóa: không cấp phiên ngay, trả mã <i>ACCOUNT_PENDING_DELETION</i> kèm ngày xóa và một mã khôi phục dùng một lần (sống 10 phút).</li>
+<li>App hỏi: "Tài khoản đang chờ xóa vào ngày …. Hủy xóa và tiếp tục dùng?"</li>
+<li>Chọn <i>Hủy xóa</i>: app gửi mã khôi phục; máy chủ xóa hai mốc ngày, hiện lại nội dung, cấp phiên, gửi email "Đã hủy yêu cầu xóa". Chọn <i>Không</i>: giữ lịch xóa, quay về màn đăng nhập.</li>
+</ol>
+<p><b>Luồng 3: Yêu cầu xóa qua trang web (không cần app)</b></p>
+<ol>
+<li>Người dùng mở trang <i>https://&lt;tên miền&gt;/xoa-tai-khoan</i> (link này khai trong Google Play Console và trong Chính sách quyền riêng tư). Trang nói rõ dữ liệu bị xóa, dữ liệu giữ lại và thời gian giữ.</li>
+<li>Nhập email đăng ký, bấm <i>Gửi</i>. Máy chủ giới hạn 3 lần/giờ mỗi IP và mỗi email.</li>
+<li>Máy chủ <b>luôn trả cùng một câu</b> "Nếu email này có tài khoản, chúng tôi đã gửi link xác nhận" để không lộ email nào có tài khoản. Chỉ khi email có tài khoản mới tạo mã (lưu dạng băm, sống 30 phút, dùng một lần) và gửi email có link.</li>
+<li>Người dùng bấm link trong email. Trang kiểm tra mã: hết hạn hoặc đã dùng thì báo và cho gửi lại.</li>
+<li>Mã hợp lệ: trang hiện hậu quả và nút <i>Xác nhận xóa</i>. Bấm thì máy chủ làm giống bước 3–5 của luồng 1 (nguồn WEB), email có thêm link <i>Hủy yêu cầu</i> (sống tới ngày xóa) cho người không còn app.</li>
+</ol>
+<p><b>Luồng 4: Xóa vĩnh viễn sau 30 ngày</b></p>
+<ol>
+<li>Việc nền chạy mỗi ngày (đề xuất 02:00), lấy từng tài khoản có <i>deletionScheduledAt</i> đã qua.</li>
+<li>Tài khoản đang bị giữ (<i>legalHoldAt</i>: đang điều tra, cơ quan chức năng yêu cầu) thì hoãn, ghi lý do, hiện trong danh sách của quản trị viên.</li>
+<li>Gom đường dẫn mọi tệp của người này (như code hiện tại, thêm tệp xuất dữ liệu E1, giấy tờ xác minh E4).</li>
+<li>Giữ lại báo cáo liên quan (xem quy tắc ở mục e): chép ảnh bằng chứng trong bản chụp báo cáo sang thư mục <i>evidence/</i> của bucket riêng tư trước khi xóa tệp.</li>
+<li>Xử lý tin nhắn theo phương án chủ dự án chọn (mục e).</li>
+<li>Xóa dữ liệu của người dùng trong một giao dịch, rồi biến dòng User thành "bia mộ": username <i>deleted_&lt;id&gt;</i>, email <i>&lt;id&gt;@deleted.invalid</i>, xóa mật khẩu, Google id, tên, tiểu sử, ngày sinh, ảnh; đặt <i>deletedAt</i>. Giữ dòng để khóa ngoại của báo cáo và tin nhắn còn hợp lệ.</li>
+<li>Xóa tệp trong kho. Tệp xóa lỗi được ghi vào hàng đợi xóa lại (thử lại mỗi ngày, tối đa 7 lần, sau đó báo quản trị viên), thay vì nuốt lỗi như hiện nay.</li>
+<li>Ghi nhật ký "tài khoản &lt;id&gt; đã xóa lúc …, nguồn APP/WEB" (không lưu email, tên). Gửi email cuối "Tài khoản của bạn đã bị xóa" tới email đã đọc ra trước bước 6.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: yêu cầu xóa trong app, ẩn tài khoản, và hủy bằng cách đăng nhập lại.</p>
+<!--FLOW:e2-yeu-cau-xoa-trong-app-->
+<p>Sơ đồ 2: trang web yêu cầu xóa, xác minh bằng email, không lộ email nào có tài khoản.</p>
+<!--FLOW:e2-trang-web-yeu-cau-xoa-->
+<p>Sơ đồ 3: việc nền xóa vĩnh viễn sau 30 ngày, có nhánh giữ để điều tra và xóa tệp lỗi.</p>
+<!--FLOW:e2-xoa-vinh-vien-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<table>
+<tr><th>Dữ liệu</th><th>Đề xuất khi xóa vĩnh viễn</th></tr>
+<tr><td>Hồ sơ, ảnh đại diện, ảnh bìa, ngày sinh</td><td>Xóa. Dòng User thành bia mộ, không còn thông tin nhận dạng.</td></tr>
+<tr><td>Bài viết, ảnh, video, story, cảm xúc, lưu, đăng lại, theo dõi, chặn</td><td>Xóa (như hiện nay).</td></tr>
+<tr><td>Bình luận của người này</td><td>Xóa. Câu trả lời của người khác dưới bình luận đó cũng mất (như hiện nay); muốn giữ thì phải đổi Cascade, chủ dự án quyết.</td></tr>
+<tr><td>Tin nhắn</td><td><b>Chủ dự án chọn:</b> (A) giữ hội thoại cho người kia, người gửi hiện "Tài khoản đã xóa", nội dung giữ nguyên (giống Messenger, Instagram); (B) giữ hội thoại, xóa nội dung và ảnh của người đã xóa, giữ tin của người kia; (C) xóa cả hội thoại với cả hai bên (hiện nay). Đề xuất (B): tôn trọng quyền xóa mà người kia không mất phần của mình.</td></tr>
+<tr><td>Hội thoại ẩn danh</td><td>Như tin nhắn; người kia vẫn chỉ thấy "Người ẩn danh".</td></tr>
+<tr><td>Báo cáo người này đã gửi</td><td>Giữ (người báo cáo là bia mộ) để quản trị viên xử lý tiếp. Hiện nay bị xóa theo Cascade.</td></tr>
+<tr><td>Báo cáo về người này, bản chụp hội thoại, ảnh bằng chứng</td><td>Giữ tới khi xử lý xong + 12 tháng (đề xuất), rồi xóa. Luật sư xác nhận thời gian.</td></tr>
+<tr><td>Nhật ký thao tác quản trị (C3), nhật ký xóa</td><td>Giữ, không chứa email, tên. Thời gian giữ theo luật sư.</td></tr>
+<tr><td>Bản sao lưu cơ sở dữ liệu</td><td>Dữ liệu còn trong bản sao lưu tới khi bản đó hết hạn (Supabase giữ theo gói). Phải nói rõ trong chính sách.</td></tr>
+</table>
+<ul>
+<li><b>Vì sao giữ một phần:</b> Nghị định 147/2024/NĐ-CP đặt nghĩa vụ cho mạng xã hội về lưu thông tin và cung cấp cho cơ quan chức năng khi có yêu cầu; Luật Bảo vệ dữ liệu cá nhân cho phép không xóa trong một số trường hợp luật định. <b>Danh sách dữ liệu được giữ và thời hạn phải do luật sư xác nhận</b>; bảng trên là đề xuất kỹ thuật.</li>
+<li><b>Né lệnh khóa:</b> tài khoản đang bị khóa (bannedAt) vẫn được yêu cầu xóa (Google Play yêu cầu). Đề xuất giữ bản băm email trong danh sách cấm đăng ký lại trong 12 tháng để không lách lệnh khóa; cần luật sư xác nhận.</li>
+<li><b>Username:</b> giữ trong 30 ngày chờ (vẫn thuộc người dùng). Sau khi xóa, username được giải phóng; nếu là tài khoản có dấu tick (E4), khóa username đó thêm 90 ngày để chống mạo danh (đề xuất).</li>
+<li><b>Quản trị viên:</b> không cho tài khoản ADMIN cuối cùng tự xóa.</li>
+<li><b>Thời gian chờ:</b> 30 ngày (đề xuất, giống Instagram, Facebook). Quản trị viên có thể xóa ngay theo yêu cầu đặc biệt, ghi nhật ký.</li>
+<li><b>Trang web, chống lạm dụng:</b> 3 yêu cầu/giờ mỗi IP và mỗi email; luôn trả cùng một câu; mã trong link lưu dạng băm, sống 30 phút, dùng một lần; có thể thêm captcha (Cloudflare Turnstile, miễn phí) nếu bị spam.</li>
+<li><b>Email bị chiếm:</b> kẻ chiếm email có thể yêu cầu xóa qua web. Giảm rủi ro bằng 30 ngày chờ và email báo mỗi bước; chủ tài khoản đăng nhập lại là hủy.</li>
+<li><b>Lỗi mạng khi bấm xóa trong app:</b> máy chủ xử lý một lần (gọi lại khi đã chờ xóa thì trả kết quả cũ), app hiện lỗi và cho thử lại.</li>
+<li><b>Đang có yêu cầu xuất dữ liệu (E1):</b> hủy, xóa tệp đã tạo.</li>
+<li><b>Đăng nhập bằng Apple (A6):</b> khi xóa vĩnh viễn phải gọi API thu hồi token của Apple (App Store yêu cầu).</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất, cần đưa vào <i>docs/api-contract.md</i> và ghi quyết định (bia mộ thay vì Cascade, phương án tin nhắn, thời hạn giữ) vào <i>docs/decisions.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Ý nghĩa</th></tr>
+<tr><td>User.deletionRequestedAt, deletionScheduledAt DateTime?</td><td>Đang chờ xóa và ngày xóa. Chỉ mục trên deletionScheduledAt.</td></tr>
+<tr><td>User.deletionSource String? (APP | WEB | ADMIN)</td><td>Nguồn yêu cầu.</td></tr>
+<tr><td>User.legalHoldAt DateTime?, legalHoldReason String?</td><td>Hoãn xóa vì điều tra.</td></tr>
+<tr><td>User.deletedAt DateTime?</td><td>Đã thành bia mộ.</td></tr>
+<tr><td>AuthTokenPurpose thêm ACCOUNT_DELETION, ACCOUNT_RESTORE</td><td>Mã trong link web và mã khôi phục khi đăng nhập; dùng lại bảng AuthToken (đã có băm, hạn, đếm lần thử).</td></tr>
+<tr><td>Report.reporter: đổi Cascade</td><td>Không cần nếu dùng bia mộ (dòng User không bị xóa).</td></tr>
+<tr><td>StorageDeletionQueue (key, bucket, attempts, lastError)</td><td>Tệp xóa lỗi để thử lại.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td>DELETE /users/me (giữ đường dẫn, đổi nghĩa)</td><td>Lên lịch xóa, trả <i>{ scheduledAt }</i>. App cũ vẫn gọi được.</td></tr>
+<tr><td>POST /auth/login, /auth/google (thêm lỗi)</td><td>401 code <i>ACCOUNT_PENDING_DELETION</i> kèm <i>scheduledAt</i>, <i>restoreToken</i>.</td></tr>
+<tr><td>POST /auth/restore-account { restoreToken }</td><td>Hủy xóa, trả accessToken như đăng nhập.</td></tr>
+<tr><td>GET /account-deletion (HTML công khai)</td><td>Trang web, phục vụ như <i>admin.html</i>.</td></tr>
+<tr><td>POST /account-deletion/request { email, captcha? }</td><td>Công khai, luôn trả 202 cùng một câu; 429 khi vượt giới hạn.</td></tr>
+<tr><td>GET /account-deletion/confirm?token=, POST /account-deletion/confirm { token }</td><td>Trang xác nhận và lên lịch xóa.</td></tr>
+<tr><td>POST /account-deletion/cancel { token }</td><td>Hủy từ link trong email.</td></tr>
+<tr><td>GET /admin/deletions, POST /admin/users/:id/legal-hold</td><td>Quản trị viên xem tài khoản chờ xóa, đặt hoặc gỡ giữ.</td></tr>
+</table>
+<p>Các chỗ phải lọc tài khoản đang chờ xóa (dev tìm theo <i>authorSelect</i> và <i>visiblePostWhere</i>): bảng tin, trang cá nhân, bình luận, tìm kiếm, gợi ý, story, danh sách theo dõi, Reels, hộp thư (người kia thấy "Tài khoản không khả dụng"). Việc nền dùng <i>@nestjs/schedule</i> chung với E1.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>App:</b> sửa chữ trong <i>DeleteAccountScreen</i> và <i>LegalScreen</i>; màn đăng nhập (mật khẩu và Google) xử lý mã <i>ACCOUNT_PENDING_DELETION</i> bằng hộp thoại hỏi hủy xóa, giống cách đang xử lý <i>EMAIL_NOT_VERIFIED</i>. Không thư viện mới, không quyền thiết bị mới. Chạy được như nhau trên Android và iOS.</li>
+<li><b>App Store:</b> Apple yêu cầu xóa tài khoản ngay trong app (đã có). Có thời gian chờ được chấp nhận nếu nói rõ cho người dùng biết bao lâu. Khi có Đăng nhập bằng Apple (A6) phải thu hồi token Apple lúc xóa.</li>
+<li><b>Google Play:</b> yêu cầu đường dẫn xóa trong app <b>và</b> một trang web yêu cầu xóa, khai trong mục An toàn dữ liệu (Data safety) của Play Console, kèm mô tả dữ liệu bị xóa, dữ liệu giữ lại và thời gian giữ.</li>
+<li><b>Trang web:</b> HTML tĩnh do API trả về, không cần dự án web riêng. Cần <b>tên miền HTTPS</b> công khai (dự án chưa có): chi phí tên miền khoảng vài trăm nghìn đồng mỗi năm (ước tính) cộng chứng chỉ HTTPS (miễn phí với Let's Encrypt hoặc Cloudflare). Trang phải dùng được trên điện thoại (chữ to, một cột).</li>
+<li><b>Email:</b> SMTP hiện có đủ cho thử nghiệm; khi phát hành nên dùng dịch vụ email giao dịch để email không vào thư rác (có phí theo số email).</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Xóa trong app: tài khoản bị ẩn ngay với người khác (hồ sơ 404, bài và bình luận không hiện, không tìm thấy), mọi phiên bị đăng xuất, nhận email có ngày xóa.</li>
+<li>Đăng nhập lại trong 30 ngày (mật khẩu, Google, sau khi đặt lại mật khẩu) hiện hộp hủy xóa; hủy thì mọi thứ hiện lại đúng như cũ.</li>
+<li>Trang web: email có tài khoản và không có tài khoản nhận cùng một câu trả lời; link hết hạn sau 30 phút, dùng một lần; vượt 3 lần/giờ bị chặn.</li>
+<li>Việc nền: tài khoản quá hạn bị xóa, tài khoản bị giữ được bỏ qua; báo cáo liên quan và ảnh bằng chứng còn xem được trong trang quản trị; tệp xóa lỗi được thử lại; chạy hai lần không lỗi.</li>
+<li>Test tự động cho: lọc nội dung tài khoản chờ xóa ở mọi endpoint liệt kê, khôi phục, xóa vĩnh viễn, không lộ email trên trang web.</li>
+<li>Chạy luồng app trên Android và trên iPhone; trang web thử trên Chrome Android và Safari iPhone. Báo cáo ghi rõ nền tảng đã chạy.</li>
+<li>Link trang web đã khai trong Google Play Console; Chính sách quyền riêng tư cập nhật (luật sư duyệt).</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 7 ngày (trường mới, lên lịch, lọc ở nhiều endpoint, khôi phục khi đăng nhập, trang web và email, việc nền xóa kiểu bia mộ, hàng đợi xóa tệp, giữ bằng chứng); mobile 2 ngày; kiểm thử 2,5 ngày.</li>
+<li>Phụ thuộc: nên làm sau hoặc cùng A2 (thu hồi phiên thật thay vì danh sách trong bộ nhớ); A6 (thu hồi token Apple) nếu có Apple; C3 (nhật ký thao tác) để ghi việc giữ và xóa; E1 để gợi ý tải dữ liệu trước khi xóa. Cần tên miền cho trang web.</li>
+<li>Rủi ro: bỏ sót một chỗ hiển thị khiến tài khoản "đã xóa" vẫn lộ ra; đổi từ Cascade sang bia mộ chạm nhiều bảng; quy định giữ dữ liệu chưa được luật sư chốt.</li>
+</ul>

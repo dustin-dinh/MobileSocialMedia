@@ -1,0 +1,28 @@
+{"id":"b4-ap-dung-gioi-han","title":"Khi Giới hạn đang bật: người lạ bình luận hoặc nhắn tin",
+"lanes":[{"name":"Người lạ"},{"name":"Máy chủ","cols":2},{"name":"Chủ tài khoản"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bình luận hoặc nhắn tin"},
+ {"id":"on","type":"decision","lane":1,"row":0,"label":"Chủ đang bật Giới hạn?"},
+ {"id":"n1","type":"end","lane":1,"col":1,"row":0,"label":"Xử lý bình thường"},
+ {"id":"grp","type":"decision","lane":1,"row":1,"label":"Thuộc nhóm bị giới hạn?"},
+ {"id":"n2","type":"end","lane":1,"col":1,"row":1,"label":"Xử lý bình thường"},
+ {"id":"kind","type":"decision","lane":1,"row":2,"label":"Loại nội dung?"},
+ {"id":"anon","type":"end","lane":0,"row":2,"label":"Báo tạm dừng nhận"},
+ {"id":"cm","type":"data","lane":1,"col":1,"row":2,"label":"Lưu bình luận, cờ LIMITS"},
+ {"id":"vis","type":"process","lane":1,"col":1,"row":3,"label":"Chỉ người viết thấy, không báo"},
+ {"id":"msg","type":"data","lane":1,"row":3,"label":"Tin vào Đã lọc, không đẩy"},
+ {"id":"emsg","type":"end","lane":1,"row":4,"label":"Chủ tự xem khi muốn"},
+ {"id":"rv","type":"io","lane":2,"row":4,"label":"Mục Bình luận bị ẩn"},
+ {"id":"d","type":"decision","lane":2,"row":5,"label":"Chủ chọn?"},
+ {"id":"show","type":"data","lane":1,"col":1,"row":5,"label":"Bỏ cờ, hiện công khai"},
+ {"id":"del","type":"end","lane":2,"row":6,"label":"Xóa hoặc để ẩn"}
+],
+"edges":[
+ {"from":"s","to":"on"},
+ {"from":"on","to":"n1","label":"Không"},{"from":"on","to":"grp","label":"Có"},
+ {"from":"grp","to":"n2","label":"Không"},{"from":"grp","to":"kind","label":"Có"},
+ {"from":"kind","to":"cm","label":"Bình luận"},{"from":"kind","to":"anon","label":"Ẩn danh"},
+ {"from":"kind","to":"msg","label":"Tin nhắn"},{"from":"msg","to":"emsg"},
+ {"from":"cm","to":"vis"},{"from":"vis","to":"rv","exit":"right","entry":"top"},{"from":"rv","to":"d"},
+ {"from":"d","to":"show","label":"Hiện"},{"from":"d","to":"del","label":"Khác"}
+]}

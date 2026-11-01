@@ -1,0 +1,53 @@
+[
+  {
+    "id": "C1",
+    "name": "Hàng đợi kiểm duyệt (tự động quét + người duyệt)",
+    "phase": 1,
+    "be_days": 10,
+    "mb_days": 3,
+    "qa_days": 2,
+    "depends": ["B5", "B7", "B3", "D8", "C3"],
+    "flows": ["c1-quet-tu-dong", "c1-bao-cao-nguoi-dung", "c1-nguoi-duyet-xu-ly"],
+    "new_services": [],
+    "risks": [
+      "Ẩn nhầm do nhiều người hùa nhau báo cáo (giảm bằng điều kiện tài khoản báo cáo)",
+      "Mô hình ảnh chặt tay làm hàng đợi P2 đông",
+      "Cần người trực để giữ SLA P0 1 giờ ngoài giờ hành chính",
+      "Tiến trình quét chạy trong một tiến trình API; nhiều bản API cần khóa hàng hoặc Redis (quyết định kiến trúc)",
+      "Quy trình xử lý nội dung xâm hại trẻ em và thời hạn gỡ theo Nghị định 147/2024 cần luật sư xác nhận"
+    ]
+  },
+  {
+    "id": "C2",
+    "name": "Cảnh cáo, xử phạt theo bậc và kháng nghị",
+    "phase": 2,
+    "be_days": 6,
+    "mb_days": 4,
+    "qa_days": 2,
+    "depends": ["C1", "C3", "A2", "D8"],
+    "flows": ["c2-cong-canh-cao", "c2-khang-nghi"],
+    "new_services": [],
+    "risks": [
+      "Danh sách điều khoản và số điểm là quyết định chính sách của chủ dự án",
+      "Đội nhỏ khó bảo đảm người duyệt kháng nghị khác người ra quyết định",
+      "Danh sách khóa trong bộ nhớ một tiến trình phải thêm ngày hết hạn; nhiều bản API cần Redis hoặc kiểm tra database",
+      "Thời hạn lưu lịch sử vi phạm cần luật sư xác nhận"
+    ]
+  },
+  {
+    "id": "C3",
+    "name": "Phân quyền quản trị (admin / kiểm duyệt viên) và nhật ký thao tác",
+    "phase": 3,
+    "be_days": 7,
+    "mb_days": 0,
+    "qa_days": 1.5,
+    "depends": ["A1", "A2", "A4"],
+    "flows": ["c3-dang-nhap-quan-tri", "c3-xem-du-lieu-nhay-cam", "c3-quan-ly-nhan-vien"],
+    "new_services": [],
+    "risks": [
+      "C3 ở GĐ3 nhưng C1 ở GĐ1 đã mở rộng việc xem danh tính thật; đề xuất làm sớm nhật ký và bước xem kèm lý do",
+      "Bỏ quyền UPDATE/DELETE trên bảng nhật ký là thay đổi cấu hình database Supabase, phải phối hợp backend",
+      "Thời hạn lưu nhật ký cần luật sư xác nhận"
+    ]
+  }
+]

@@ -1,0 +1,31 @@
+{"id":"d1-roi-nhom","title":"Rời nhóm, xóa thành viên và chuyển quyền quản trị",
+"lanes":[{"name":"Thành viên / quản trị"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Chọn Rời nhóm hoặc Xóa thành viên"},
+ {"id":"cf","type":"io","lane":1,"row":0,"label":"Pop-up xác nhận"},
+ {"id":"e403","type":"end","lane":2,"col":1,"row":0,"label":"Lỗi 403 NOT_GROUP_ADMIN"},
+ {"id":"send","type":"process","lane":1,"row":1,"label":"Gửi yêu cầu"},
+ {"id":"self","type":"decision","lane":2,"row":1,"label":"Tự rời nhóm?"},
+ {"id":"adm","type":"decision","lane":2,"col":1,"row":1,"label":"Người làm là quản trị?"},
+ {"id":"last","type":"decision","lane":2,"row":2,"label":"Là quản trị viên duy nhất?"},
+ {"id":"rm","type":"process","lane":2,"col":1,"row":2,"label":"Đánh dấu người bị xóa đã rời"},
+ {"id":"tr","type":"process","lane":2,"row":3,"label":"Chuyển quyền cho thành viên lâu nhất"},
+ {"id":"db","type":"data","lane":2,"row":4,"label":"Ghi leftAt, tin hệ thống"},
+ {"id":"left","type":"decision","lane":2,"row":5,"label":"Còn thành viên?"},
+ {"id":"del","type":"end","lane":2,"col":1,"row":5,"label":"Xóa nhóm và tệp trong kho"},
+ {"id":"emit","type":"process","lane":2,"row":6,"label":"Socket conversation:updated cho cả nhóm"},
+ {"id":"show","type":"io","lane":1,"row":7,"label":"Nhóm biến khỏi hộp thư người rời"},
+ {"id":"end","type":"end","lane":0,"row":7,"label":"Xong"}
+],
+"edges":[
+ {"from":"s","to":"cf"},{"from":"cf","to":"send"},{"from":"send","to":"self"},
+ {"from":"self","to":"adm","label":"Không"},{"from":"self","to":"last","label":"Có"},
+ {"from":"adm","to":"e403","label":"Không","exit":"top","entry":"bottom"},
+ {"from":"adm","to":"rm","label":"Có"},
+ {"from":"last","to":"tr","label":"Có"},
+ {"from":"last","to":"db","label":"Không","exit":"left","entry":"left","via":[[1,2],[1,4]]},
+ {"from":"tr","to":"db"},{"from":"rm","to":"db","exit":"bottom","entry":"right"},
+ {"from":"db","to":"left"},
+ {"from":"left","to":"del","label":"Không"},{"from":"left","to":"emit","label":"Có"},
+ {"from":"emit","to":"show"},{"from":"show","to":"end"}
+]}

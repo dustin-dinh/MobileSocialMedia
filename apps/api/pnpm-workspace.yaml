@@ -1,4 +1,5 @@
 allowBuilds:
   '@prisma/engines': false
   bcrypt: false
+  onnxruntime-node: false
   prisma: false

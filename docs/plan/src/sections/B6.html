@@ -1,0 +1,149 @@
+<h3>B6. Bảo vệ 18+ và xác minh tuổi</h3>
+<p><i>Nhóm: An toàn và kiểm duyệt · Giai đoạn: GĐ2 · Ước lượng: 11–12 ngày công (chưa tính tích hợp dịch vụ xác minh bên ngoài)</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Ứng dụng chỉ dành cho người từ 18 tuổi. Hiện nay tuổi do người dùng tự khai, nên người dưới 18 khai sai vẫn vào được. Tính năng này cho cộng đồng báo cáo "người này có thể chưa đủ 18 tuổi", cho quản trị viên xem xét, yêu cầu xác minh hoặc khóa, và cho người bị khóa oan một đường kháng nghị có bằng chứng. Người được lợi: người dưới 18 (được đưa ra khỏi môi trường không dành cho họ), người dùng trưởng thành (ít nguy cơ tiếp xúc với trẻ vị thành niên), và người vận hành (có quy trình rõ ràng khi cơ quan chức năng hỏi).</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Ngày sinh khi đăng ký bằng email</b>: bắt buộc, dạng <i>YYYY-MM-DD</i>. Dưới 18 thì máy chủ trả 403 <i>AGE_RESTRICTED</i> (<i>auth/auth.service.ts</i>, <i>moderation/age.ts</i>). Tuổi tính theo ngày giờ Việt Nam; ngày không có thật, trước năm 1900 hoặc trong tương lai bị từ chối.</li>
+<li><b>Tài khoản cũ và đăng ký bằng Google</b>: <i>birthDate</i> để trống. Ứng dụng chặn ở <i>BirthDateScreen</i> trước mọi màn khác (<i>apps/mobile/src/navigation/RootNavigator.tsx</i>). Ngày sinh khai một lần qua <i>PATCH /users/me/birth-date</i>; khai lần hai trả 409 (<i>users/users.service.ts</i> hàm <i>setBirthDate</i>).</li>
+<li><b>Khóa vì tuổi</b>: khai dưới 18 thì đặt <i>User.ageLockedAt</i> và thêm vào danh sách trong bộ nhớ <i>ageLockedUserIds</i> (<i>auth/ban-list.ts</i>). Đăng nhập (email và Google) và mọi request có token trả 401 <i>AGE_RESTRICTED</i> (<i>auth/strategies/jwt.strategy.ts</i>). Dữ liệu không bị xóa.</li>
+<li><b>Màn khóa trên điện thoại</b>: chỉ hiện ngay sau khi khai ngày sinh dưới 18 ("Chưa đủ 18 tuổi … Nếu bạn khai nhầm ngày sinh, hãy liên hệ bộ phận hỗ trợ"). Trong app không có kênh liên hệ hỗ trợ: cần kiểm tra. Khi tài khoản đã khóa đăng nhập lại, <i>LoginScreen</i> chỉ xử lý riêng lỗi <i>EMAIL_NOT_VERIFIED</i>, nên lỗi tuổi hiện dưới dạng thông báo lỗi chung lấy từ máy chủ (câu tiếng Anh): cần kiểm tra trên máy.</li>
+<li><b>Quản trị</b>: "Mở khóa tuổi" (<i>DELETE /admin/users/:id/age-lock</i>) xóa cả <i>ageLockedAt</i> và <i>birthDate</i> để người dùng khai lại (<i>admin/admin.service.ts</i> hàm <i>unlockAge</i>). Không có bước kiểm tra bằng chứng.</li>
+<li><b>Báo cáo</b>: lý do hiện có là SPAM, HARASSMENT, SENSITIVE, MISINFORMATION, SCAM, OTHER. Chưa có lý do "chưa đủ 18 tuổi".</li>
+<li><b>Nội dung của tài khoản bị khóa</b>: <i>visiblePostWhere</i> (<i>posts/post-view.ts</i>) không lọc theo <i>bannedAt</i> hay <i>ageLockedAt</i>, nên theo code đọc được, bài của tài khoản bị khóa vẫn hiện với người khác: cần kiểm tra.</li>
+<li><b>Hạn chế đã ghi trong <i>MODERATION_PLAN.md</i> mục 6</b>: tuổi tự khai, không phải xác minh thật; máy chủ chỉ chặn tài khoản chưa có ngày sinh ở phía ứng dụng, không chặn ở mọi API. Danh sách khóa nằm trong bộ nhớ một tiến trình.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+
+<p><b>Luồng 1: Báo cáo "Có thể chưa đủ 18 tuổi"</b></p>
+<ol>
+<li>Người dùng mở menu Báo cáo trên trang cá nhân, bài viết, bình luận hoặc cuộc trò chuyện, chọn lý do mới "Người này có thể chưa đủ 18 tuổi", có thể ghi chú (tối đa 500 ký tự như hiện nay).</li>
+<li>Báo cáo luôn gắn vào <b>tài khoản</b> (báo cáo từ bài viết hay bình luận được đổi sang tác giả). Báo cáo lại cùng người chỉ cập nhật lý do, như hiện nay.</li>
+<li>Ứng dụng hiện "Đã gửi báo cáo. Cảm ơn bạn." Người báo cáo không được biết kết quả cụ thể (để bảo vệ người bị báo cáo), chỉ nhận "Chúng tôi đã xem xét báo cáo của bạn".</li>
+<li>Máy chủ đếm số người báo cáo khác nhau trong 30 ngày. Chỉ tính người có tài khoản từ 7 ngày tuổi và đã xác thực email (giống luật nhắn ẩn danh hiện có).</li>
+<li>Dưới 3 người (đề xuất): báo cáo vào hàng đợi C1, mức ưu tiên thường.</li>
+<li>Từ 3 người: tài khoản vào <b>chế độ hạn chế tạm</b> (nên làm bằng cơ chế "hạn chế tính năng" của C2, cùng cách B3 tạm hạn chế tài khoản bị báo lừa đảo, để không có ba cơ chế giống nhau) và báo cáo được đẩy lên đầu hàng đợi. Chế độ hạn chế tạm (đề xuất): không hiện trong tìm kiếm và gợi ý theo dõi; không mở được cuộc trò chuyện mới với người không theo dõi mình; không gửi được tin ẩn danh. Người đó thấy một dòng trung tính "Một số tính năng đang tạm giới hạn trong khi chúng tôi xem xét tài khoản", không nêu ai báo cáo.</li>
+</ol>
+
+<p><b>Luồng 2: Quản trị viên xem xét</b></p>
+<ol>
+<li>Người duyệt mở mục báo cáo trong hàng đợi. Màn duyệt hiện: ngày sinh đã khai, ngày tạo tài khoản, ảnh đại diện, tiểu sử, bài viết và bình luận gần đây, số người báo cáo và ghi chú của họ. Tin nhắn riêng không hiện (chỉ hiện khi có báo cáo cuộc trò chuyện, như hiện nay).</li>
+<li>Người duyệt chọn một trong ba kết luận:
+  <ul>
+  <li><b>Không có dấu hiệu</b>: đóng mọi báo cáo tuổi của người đó, gỡ hạn chế tạm.</li>
+  <li><b>Nghi ngờ</b>: yêu cầu xác minh tuổi (luồng 3).</li>
+  <li><b>Rõ ràng dưới 18</b> (ví dụ tự ghi tuổi trong tiểu sử, ảnh giấy tờ học sinh): khóa vì tuổi ngay (luồng 4).</li>
+  </ul></li>
+<li>Mọi quyết định được ghi lại: ai duyệt, lúc nào, kết luận gì (nhật ký thao tác do C3 định nghĩa).</li>
+</ol>
+
+<p><b>Luồng 3: Yêu cầu xác minh tuổi</b></p>
+<ol>
+<li>Máy chủ ghi hạn xác minh là 14 ngày (đề xuất). Người dùng nhận thông báo đẩy và email "Cần xác minh tuổi".</li>
+<li>Mỗi lần mở app, trước mọi màn khác, ứng dụng hiện màn "Xác minh tuổi" (giống cách <i>BirthDateScreen</i> đang chặn), với nút "Xác minh ngay" và "Để sau". Chọn "Để sau" thì vẫn dùng app ở chế độ hạn chế tạm.</li>
+<li>Nhắc lại vào ngày thứ 7 và ngày thứ 12 (đề xuất).</li>
+<li>Người dùng chọn một cách xác minh (mục e) và gửi bằng chứng. Kết quả đạt: gỡ hạn chế, ghi "đã xác minh" và ngày sinh đã xác minh. Không đạt hoặc hết hạn: khóa vì tuổi.</li>
+</ol>
+
+<p><b>Luồng 4: Khóa vì tuổi</b></p>
+<ol>
+<li>Máy chủ đặt <i>ageLockedAt</i> và lý do khóa (tự khai / bị báo cáo / hết hạn xác minh / xác minh không đạt), thêm vào danh sách khóa. Mọi phiên đang mở bị từ chối từ request tiếp theo (như hiện nay).</li>
+<li>Bài viết, bình luận, story và trang cá nhân của tài khoản bị khóa không còn hiện với người khác (đề xuất; dùng chung bộ lọc với khóa thường của C2).</li>
+<li>Người dùng nhận email "Tài khoản của bạn đã bị khóa vì chưa đủ 18 tuổi", kèm cách kháng nghị.</li>
+</ol>
+
+<p><b>Luồng 5: Kháng nghị</b></p>
+<ol>
+<li>Người dùng đăng nhập. Máy chủ vẫn trả 401 <i>AGE_RESTRICTED</i>, nhưng kèm một <b>mã kháng nghị</b> (<i>appealToken</i>, cùng cơ chế C2 đề xuất cho tài khoản bị khóa: sống 15 phút) chỉ gọi được các API kháng nghị, cùng số lượt kháng nghị còn lại.</li>
+<li>Ứng dụng hiện màn "Tài khoản bị khóa vì tuổi" (thay cho thông báo lỗi chung), có nút "Kháng nghị" nếu còn lượt, và nút "Đăng xuất".</li>
+<li>Người dùng chọn cách xác minh, gửi bằng chứng (ảnh giấy tờ chọn từ thư viện hoặc chụp, hoặc đi qua trang của dịch vụ xác minh).</li>
+<li>Máy chủ lưu kháng nghị. Ảnh giấy tờ nằm trong kho riêng (<i>S3_PRIVATE_BUCKET</i>, đang dùng cho ảnh tin nhắn), chỉ người duyệt xem được qua link có chữ ký hết hạn.</li>
+<li>Người duyệt (hoặc kết quả từ dịch vụ xác minh) quyết định trong 72 giờ (đề xuất):
+  <ul>
+  <li><b>Đủ 18 tuổi</b>: mở khóa, ghi ngày sinh theo giấy tờ, ghi "đã xác minh". Gửi email và thông báo.</li>
+  <li><b>Không đủ</b> hoặc giấy tờ không hợp lệ: giữ khóa, ghi lý do, gửi email.</li>
+  </ul></li>
+<li>Ảnh giấy tờ bị xóa khỏi kho 30 ngày sau quyết định (đề xuất), dù kết quả thế nào. Chỉ giữ lại: cách xác minh, kết quả, ngày sinh, thời điểm.</li>
+<li>Tài khoản bị khóa vì tuổi quá 90 ngày mà không kháng nghị thành công thì bị xóa theo luồng xóa tài khoản (E2). Con số này cần luật sư xác nhận.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: từ báo cáo tới hạn chế tạm, xem xét và yêu cầu xác minh.</p>
+<!--FLOW:b6-bao-cao-duoi-18-->
+<p>Sơ đồ 2: tài khoản đã bị khóa vì tuổi gửi kháng nghị.</p>
+<!--FLOW:b6-khang-nghi-tuoi-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Các cách xác minh tuổi (chủ dự án chọn; tài liệu này không chọn nhà cung cấp)</b></p>
+<table>
+<tr><th>Cách</th><th>Người dùng làm gì</th><th>Dữ liệu thu</th><th>Quyền riêng tư</th><th>Chi phí, độ tin cậy</th></tr>
+<tr><td>1. Ảnh giấy tờ, người duyệt xem tay</td><td>Chụp CCCD, hộ chiếu hoặc giấy phép lái xe; được che số giấy tờ, chỉ cần lộ ngày sinh, họ tên, ảnh</td><td>Ảnh giấy tờ</td><td>Rủi ro cao nếu lộ. Phải có đồng ý rõ ràng, lưu kho riêng, xóa sau 30 ngày, chỉ người duyệt xem</td><td>Không tốn phí dịch vụ; tốn thời gian người duyệt. Tin cậy trung bình (giấy tờ mượn, sửa ảnh)</td></tr>
+<tr><td>2. Giấy tờ + ảnh chân dung qua nhà cung cấp eKYC</td><td>Chụp giấy tờ và quay mặt trong luồng của nhà cung cấp</td><td>Ảnh giấy tờ, ảnh khuôn mặt (dữ liệu sinh trắc, thuộc loại nhạy cảm)</td><td>Dữ liệu đi qua bên thứ ba; nếu máy chủ của họ ở nước ngoài thì phải đánh giá tác động chuyển dữ liệu ra nước ngoài. Cần hợp đồng xử lý dữ liệu</td><td>Tính phí mỗi lượt (cần báo giá). Tin cậy cao</td></tr>
+<tr><td>3. Ước lượng tuổi từ khuôn mặt</td><td>Quay mặt vài giây, không cần giấy tờ</td><td>Ảnh khuôn mặt, nhà cung cấp xóa ngay sau khi trả kết quả (phải ghi trong hợp đồng)</td><td>Không lộ giấy tờ; vẫn là xử lý sinh trắc</td><td>Tính phí mỗi lượt. Sai số vài tuổi, nên chỉ cho qua khi ước lượng rõ ràng trên 18 (ví dụ từ 21 trở lên), còn lại chuyển sang cách 1 hoặc 2</td></tr>
+<tr><td>4. Định danh điện tử quốc gia (VNeID) hoặc dịch vụ xác thực điện tử được cấp phép</td><td>Xác nhận qua ứng dụng định danh</td><td>Kết quả xác thực, ngày sinh</td><td>Ít dữ liệu nhất cho ứng dụng</td><td>Điều kiện kết nối cho doanh nghiệp tư nhân: cần kiểm tra. Có thể trùng với nghĩa vụ xác thực tài khoản theo Nghị định 147/2024 (xem A5)</td></tr>
+<tr><td>5. Tín hiệu tuổi từ kho ứng dụng</td><td>Không làm gì; Apple / Google cho biết khoảng tuổi của tài khoản trên máy</td><td>Khoảng tuổi</td><td>Ít dữ liệu</td><td>Apple (Declared Age Range) và Google Play (Age Signals) có API loại này nhưng phạm vi quốc gia và cách gọi từ Expo cần kiểm tra. Chỉ nên dùng làm tín hiệu thêm, không thay được cách 1–3</td></tr>
+</table>
+<ul>
+<li><b>Lượt kháng nghị</b> (đề xuất): mỗi lần khóa được 2 lượt; mỗi lúc chỉ một kháng nghị đang chờ; kháng nghị bị từ chối thì 30 ngày sau mới gửi lại được.</li>
+<li><b>Báo cáo sai có chủ đích</b>: người có từ 3 báo cáo tuổi bị kết luận "Không có dấu hiệu" trong 30 ngày thì báo cáo tuổi của họ không còn được tính vào ngưỡng tự hạn chế (đề xuất). Ngưỡng tự hạn chế không bao giờ tự khóa tài khoản; khóa luôn cần người duyệt hoặc hết hạn xác minh.</li>
+<li><b>Người bị báo cáo đã xác minh trước đó</b>: báo cáo tuổi mới vào hàng đợi thường, không kích hoạt hạn chế tạm.</li>
+<li><b>Khai nhầm ngày sinh</b> (người lớn khai nhầm thành dưới 18): đi luồng kháng nghị. Nút "Mở khóa tuổi" hiện có của quản trị viên giữ lại cho trường hợp đặc biệt, nhưng nên bắt buộc ghi lý do.</li>
+<li><b>Đăng nhập Google tạo tài khoản mới</b> sau khi tài khoản cũ bị khóa: phát hiện tài khoản phụ nằm ở <i>MODERATION_PLAN.md</i> mục 8.8, ngoài phạm vi B6; ghi là rủi ro.</li>
+<li><b>Tin nhắn với tài khoản bị khóa</b>: cuộc trò chuyện còn nguyên với người kia nhưng không gửi thêm được (tài khoản khóa không gọi được API).</li>
+<li><b>Lỗi mạng khi gửi bằng chứng</b>: ứng dụng giữ ảnh đã chọn và cho gửi lại; mã kháng nghị hết hạn sau 15 phút thì đăng nhập lại để lấy mã mới.</li>
+<li><b>Danh sách khóa trong bộ nhớ</b>: chạy nhiều bản API thì phải chuyển sang Redis hoặc kiểm tra cơ sở dữ liệu (đã ghi trong <i>ban-list.ts</i>).</li>
+<li><b>Pháp lý</b>: Nghị định 13/2023 và Luật Bảo vệ dữ liệu cá nhân (hiệu lực từ 01/01/2026) áp dụng cho ảnh giấy tờ và dữ liệu sinh trắc. Thời hạn giữ dữ liệu, thời hạn xóa tài khoản người dưới 18 và văn bản đồng ý cần luật sư xem.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Tất cả là đề xuất, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng</th><th>Trường mới</th><th>Ý nghĩa</th></tr>
+<tr><td>User</td><td>ageLockReason String? (SELF_DECLARED / REPORTED / VERIFY_EXPIRED / VERIFY_FAILED), ageReviewAt DateTime?, ageVerifyDueAt DateTime?, ageVerifiedAt DateTime?, ageVerifyMethod String?</td><td>Lý do khóa; đang hạn chế tạm; hạn xác minh; đã xác minh lúc nào, bằng cách nào</td></tr>
+<tr><td>AgeAppeal (mới)</td><td>id, userId, kind (VERIFY_REQUEST / APPEAL), method, evidenceKey String? (khóa trong kho riêng), status (PENDING / APPROVED / REJECTED), reviewerId, decidedAt, verifiedBirthDate, note, evidenceDeletedAt, createdAt</td><td>Một lần xác minh hoặc kháng nghị</td></tr>
+<tr><td>Report</td><td>Thêm giá trị lý do <i>UNDERAGE</i></td><td>Không đổi cấu trúc bảng. C1 cũng thêm lý do mới (<i>CHILD_SAFETY</i>, <i>NUDITY</i>…); gộp thành một danh sách</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Mô tả</th></tr>
+<tr><td>POST /reports</td><td>Nhận thêm <i>reason: UNDERAGE</i>; với POST / COMMENT thì máy chủ đổi sang USER là tác giả</td></tr>
+<tr><td>POST /auth/login, /auth/google</td><td>Khi khóa vì tuổi: vẫn 401 <i>AGE_RESTRICTED</i>, thêm <i>appealToken</i> (như C2), <i>appealsLeft</i></td></tr>
+<tr><td>GET /users/me</td><td>Thêm <i>ageReview</i>: null hoặc <i>{ verifyDueAt }</i></td></tr>
+<tr><td>POST /age-verification</td><td>Gửi bằng chứng (multipart ảnh hoặc mã kết quả từ dịch vụ). Dùng token thường (luồng 3) hoặc <i>appealToken</i> (luồng 5)</td></tr>
+<tr><td>GET /age-verification/status</td><td>Trạng thái kháng nghị gần nhất</td></tr>
+<tr><td>GET /admin/age-reviews, POST /admin/age-reviews/:id/decide</td><td>Hàng đợi và quyết định (DISMISS / REQUEST_VERIFY / LOCK / APPROVE / REJECT); xem ảnh qua link có chữ ký</td></tr>
+</table>
+<p>Một tác vụ chạy định kỳ (mỗi giờ, trong tiến trình API) khóa tài khoản quá hạn xác minh và xóa ảnh giấy tờ quá 30 ngày.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Chọn ảnh giấy tờ</b>: dùng <i>expo-image-picker</i> đã cài, chạy cả Android và iOS. Quyền thư viện ảnh đã khai báo trong <i>app.json</i>. Nếu cho <b>chụp trực tiếp</b> thì phải khai thêm trong cùng thay đổi: <i>cameraPermission</i> của plugin <i>expo-image-picker</i> (iOS cần câu mô tả quyền máy ảnh, thiếu là app bị đóng khi mở máy ảnh) và quyền CAMERA phía Android.</li>
+<li><b>Dịch vụ xác minh bên ngoài</b>: ưu tiên luồng web của nhà cung cấp mở trong trình duyệt trong app, chạy giống nhau trên hai nền tảng và không cần mã gốc. Nếu nhà cung cấp chỉ có SDK gốc, SDK đó phải có bản Android và iOS, hỗ trợ Expo SDK 57 qua config plugin; nếu không thì không dùng. Thư viện mở trình duyệt (ví dụ <i>expo-web-browser</i>) chưa có trong dự án, cài bằng <i>expo install</i> nếu cần.</li>
+<li><b>Màn khóa và màn xác minh</b>: dùng safe-area và <i>KeyboardAvoidingView</i> như <i>BirthDateScreen</i> hiện có.</li>
+<li><b>App Store / Google Play</b>: khai báo độ tuổi 18+ ở cả hai cửa hàng. Chính sách quyền riêng tư (<i>LegalScreen</i>, đang là bản nháp) phải thêm: thu ảnh giấy tờ / sinh trắc để xác minh tuổi, ai xem, giữ bao lâu. Nhãn quyền riêng tư của App Store và mục An toàn dữ liệu của Google Play phải khai thêm loại dữ liệu này.</li>
+<li><b>Web</b>: trang quản trị thêm mục "Xác minh tuổi" (danh sách, xem ảnh qua link có chữ ký, nút quyết định).</li>
+<li><b>Chi phí</b>: cách 1 không tốn phí dịch vụ; cách 2, 3 tính phí mỗi lượt (cần báo giá); thời gian người duyệt.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Báo cáo "Có thể chưa đủ 18 tuổi" từ trang cá nhân, bài viết, bình luận, cuộc trò chuyện; báo cáo luôn gắn vào tài khoản.</li>
+<li>3 tài khoản hợp lệ báo cáo cùng một người: người đó vào hạn chế tạm (không hiện trong tìm kiếm, không nhắn được người lạ, không gửi ẩn danh), thấy dòng thông báo trung tính. Tài khoản dưới 7 ngày tuổi báo cáo thì không tính.</li>
+<li>Quản trị viên: bỏ qua, yêu cầu xác minh, khóa; mỗi thao tác có nhật ký.</li>
+<li>Yêu cầu xác minh: màn xác minh hiện khi mở app; hết 14 ngày không xác minh thì tài khoản bị khóa tự động.</li>
+<li>Tài khoản bị khóa đăng nhập: thấy màn khóa tiếng Việt và nút kháng nghị (không còn lỗi chung tiếng Anh); gửi được ảnh giấy tờ; mã kháng nghị không gọi được API khác (thử gọi <i>/posts/feed</i> phải bị từ chối).</li>
+<li>Kháng nghị được chấp nhận: đăng nhập lại bình thường, ngày sinh đã cập nhật. Bị từ chối: vẫn khóa, lượt còn lại giảm.</li>
+<li>Ảnh giấy tờ: không mở được bằng link công khai; bị xóa sau 30 ngày (kiểm tra bằng cách chỉnh thời gian trong test).</li>
+<li>Bài viết của tài khoản bị khóa vì tuổi không hiện với người khác.</li>
+<li>Chạy trên Android và trên iPhone, ghi rõ trong <i>docs/change.md</i> máy nào đã chạy.</li>
+<li>Test tự động trong <i>safety-smoke.cjs</i>: ngưỡng báo cáo, hạn chế tạm, phạm vi của mã kháng nghị, khóa khi hết hạn.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 5 ngày (lý do báo cáo và ngưỡng 1; hạn chế tạm 1; mã kháng nghị và API xác minh 1,5; quản trị và tác vụ định kỳ 1,5). Mobile 4 ngày (lý do báo cáo 0,5; màn xác minh và nhắc 1,5; màn khóa và gửi kháng nghị 2). Kiểm thử 2 ngày. Tích hợp một dịch vụ xác minh bên ngoài: thêm 3–5 ngày tùy nhà cung cấp.</li>
+<li>Phụ thuộc: <b>C1</b> (hàng đợi), <b>C3</b> (nhật ký thao tác, quyền người duyệt), <b>C2</b> (ẩn nội dung của tài khoản bị khóa, dùng chung bộ lọc), <b>E2</b> (xóa tài khoản sau 90 ngày), <b>A5</b> nếu chọn xác minh qua định danh điện tử.</li>
+<li>Rủi ro: lưu ảnh giấy tờ là dữ liệu rất nhạy cảm; báo cáo sai để quấy rối; người dưới 18 dùng giấy tờ của người khác; chi phí dịch vụ xác minh; yêu cầu pháp lý chưa được luật sư xác nhận.</li>
+</ul>

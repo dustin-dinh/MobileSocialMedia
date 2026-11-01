@@ -1,0 +1,154 @@
+<h3>B3. Cảnh báo lừa đảo (tin nhắn, đường link, hồ sơ giả mạo)</h3>
+<p><i>Nhóm: An toàn tin nhắn · Giai đoạn: GĐ2 · Ước lượng: 13 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Lừa đảo qua tin nhắn ở Việt Nam thường theo vài kịch bản quen: mượn tiền qua tài khoản người quen bị chiếm, xin mã OTP, "việc nhẹ lương cao", trúng thưởng phải đóng phí, link giả ngân hàng, và tài khoản giả tên người quen. Tính năng này nhận ra các dấu hiệu đó, cảnh báo người nhận ngay cạnh tin nhắn, chặn mở link nguy hiểm, và cho một đường báo cáo lừa đảo nhanh. Mục tiêu là giảm số người chuyển tiền hoặc đưa mã OTP cho kẻ gian; không phải đọc trộm tin nhắn — mọi kiểm tra chạy tự động trên máy chủ, người không xem nội dung khi chưa có báo cáo.</p>
+
+<h4>b) Hiện trạng</h4>
+<p><b>Đã có</b> (<i>apps/api/src/modules/moderation/text-safety.ts</i>, <i>messages.service.ts</i>, <i>reports</i>):</p>
+<ul>
+<li><i>normalizeVietnamese</i>: bỏ dấu, chữ thường.</li>
+<li><i>findBlockedContact</i>: chặn link (kể cả "abc chấm com", <i>t.me</i>, <i>bit.ly</i>, <i>zalo.me</i>), số điện thoại Việt Nam, dãy 8–19 chữ số — <b>chỉ</b> trong tin của người ẩn danh chưa tiết lộ và người mở tin nhắn chờ.</li>
+<li><i>hasScamWarning</i>: 28 cụm từ (chuyển khoản, OTP, mật khẩu, nạp tiền, stk, việc nhẹ lương cao, đầu tư, USDT, Zalo, Telegram...). Có một cụm là cờ <i>warning = true</i>, app hiện "Tin nhắn có dấu hiệu lừa đảo. Đừng chuyển tiền hay gửi mã OTP." Chỉ áp dụng cho tin từ người lạ hoặc ẩn danh; <b>tính lúc đọc, không lưu</b>.</li>
+<li>Báo cáo hội thoại có lý do <i>SCAM</i> đứng đầu, lưu bản chụp 50 tin; admin khóa được tài khoản.</li>
+</ul>
+<p><b>Còn thiếu:</b></p>
+<ul>
+<li>Không chấm điểm: một từ "zalo" và một tin "chuyển khoản gấp vào stk, gửi mã OTP" cùng một mức cảnh báo. Cảnh báo dễ bị bỏ qua vì xuất hiện quá thường.</li>
+<li>Hội thoại đã chấp nhận <b>không được kiểm tra</b>, trong khi kịch bản phổ biến nhất là tài khoản bạn bè bị chiếm rồi hỏi mượn tiền.</li>
+<li>Link trong hội thoại đã chấp nhận không được kiểm tra; trong app link chỉ là chữ, không bấm được (không có <i>Linking</i> trong <i>features/messages</i>), nên người dùng phải sao chép sang trình duyệt — không có chỗ nào cảnh báo.</li>
+<li>Không phát hiện tài khoản giả tên người quen; lý do báo cáo chưa có "giả mạo".</li>
+<li>Không lưu kết quả kiểm tra nên admin không thống kê được, không biết ai hay gửi tin bị cờ.</li>
+<li>Khi admin khóa một kẻ lừa đảo, những người khác đã nhận tin của họ không được báo.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Phân tích chữ trong tin nhắn</b> (sơ đồ 1)</p>
+<ol>
+<li>Người gửi gửi tin có chữ. Máy chủ chuẩn hóa: bỏ dấu (hàm hiện có), thay teencode và chữ lách phổ biến ("ck" → "chuyen khoan", "o.t.p" → "otp", số thay chữ "0" → "o" trong từ).</li>
+<li>Nếu là tin chờ hoặc tin ẩn danh: chạy <i>findBlockedContact</i> như hiện nay, có liên lạc thì chặn tin.</li>
+<li>Dò cụm từ theo 8 nhóm (bảng ở mục e), mỗi nhóm có điểm; một nhóm chỉ tính một lần dù xuất hiện nhiều cụm.</li>
+<li>Tách các đường link trong tin, chạy kiểm tra link (luồng 2). Link đáng ngờ cộng 2, nguy hiểm cộng 5.</li>
+<li>Cộng điểm bối cảnh: người lạ / ẩn danh +1; tài khoản người gửi dưới 30 ngày +1; người gửi đang có báo cáo lừa đảo chưa xử lý hoặc điểm lạm dụng (B2) từ 30 thì +2.</li>
+<li>Tổng dưới 3: lưu và gửi bình thường. Từ 3: lưu mức <b>Cảnh báo</b>; từ 5: mức <b>Cao</b>. Lưu lý do (các nhóm đã khớp), ghi <i>SafetyEvent</i> cho người gửi (+10).</li>
+<li>Người nhận thấy: mức Cảnh báo → thanh vàng dưới tin, ghi lý do cụ thể ("Tin này xin mã OTP. Không ai cần mã OTP của bạn, kể cả ngân hàng."). Mức Cao → tin bị che, chỉ hiện thanh đỏ "Tin này có nhiều dấu hiệu lừa đảo", nút "Vẫn xem" và "Báo cáo lừa đảo"; link trong tin không bấm được.</li>
+<li>Thông báo đẩy của tin mức Cao không chứa nội dung ("Đã gửi cho bạn một tin nhắn").</li>
+<li><b>Nhắc trước khi gửi mã:</b> nếu tin gần nhất người dùng nhận trong hội thoại có lý do OTP, và người dùng sắp gửi một dãy 4–8 chữ số, app hỏi "Bạn có đang gửi mã OTP? Không ai cần mã này. Vẫn gửi?" (chạy trên app, không lưu gì).</li>
+</ol>
+<p><b>Luồng 2: Kiểm tra đường link</b> (sơ đồ 2)</p>
+<ol>
+<li>Khi lưu tin có link: máy chủ chuẩn hóa (thêm <i>https://</i> nếu thiếu, bỏ phần theo dõi, chuyển tên miền dạng punycode về chữ thường), tách tên miền.</li>
+<li>Tra <b>danh sách chặn nội bộ</b> (bảng <i>BlockedDomain</i>, admin thêm). Có → kết quả <i>NGUY HIỂM</i>.</li>
+<li>Kiểm tra <b>nhái tên miền thật</b>: so với danh sách tên miền tin cậy để trong code (ngân hàng, ví điện tử, cơ quan nhà nước, chính app này). Tên miền giống nhưng không trùng (ví dụ <i>vietc0mbank-xacminh.com</i>, ký tự lạ, thêm chữ "xacminh", "hotro") → <i>ĐÁNG NGỜ</i>. Dịch vụ rút gọn link (<i>bit.ly</i>, <i>tinyurl</i>...) → <i>ĐÁNG NGỜ</i> vì không biết đích (máy chủ <b>không</b> tự mở link để xem đích, tránh bị lợi dụng tấn công).</li>
+<li>Còn lại: hỏi <b>Google Web Risk</b> (dịch vụ của Google cho biết một URL có nằm trong danh sách lừa đảo, mã độc hay không). Báo hại → <i>NGUY HIỂM</i>. Không → <i>KHÔNG RÕ</i>. Lưu kết quả vào bảng <i>LinkCheck</i>, dùng lại trong 24 giờ.</li>
+<li>Web Risk lỗi hoặc quá chậm (quá 2 giây): lưu <i>KHÔNG RÕ</i>, tin vẫn gửi, không chặn người dùng vì lỗi dịch vụ ngoài.</li>
+<li>Trong app, link trong tin <b>bấm được</b>. Khi người nhận chạm: app hỏi kết quả mới nhất (danh sách chặn có thể vừa cập nhật).</li>
+<li><i>NGUY HIỂM</i> → không mở, hiện "Trang này đã bị đánh dấu lừa đảo hoặc nguy hiểm" và nút Báo cáo.</li>
+<li>Còn lại → màn "Bạn sắp rời ứng dụng", hiện rõ tên miền thật (in đậm), mức rủi ro, lời nhắc "Đừng nhập mật khẩu, mã OTP, số thẻ". Bấm "Vẫn mở" thì mở trình duyệt hệ thống, "Ở lại" thì quay về.</li>
+</ol>
+<p><b>Luồng 3: Cảnh báo tài khoản giả mạo</b> (sơ đồ 3)</p>
+<ol>
+<li>Khi có tin nhắn chờ hoặc yêu cầu theo dõi mới từ tài khoản Y gửi tới người dùng N, và khi N mở trang cá nhân của Y.</li>
+<li>Chỉ xét Y dưới 30 ngày tuổi (tài khoản giả thường mới).</li>
+<li>So tên hiển thị và username của Y với những người N đang theo dõi (và tài khoản đã xác minh, E4): chuẩn hóa bỏ dấu, thay ký tự trông giống nhau (0/o, 1/l/i, rn/m), bỏ dấu chấm, gạch dưới; giống khi trùng hẳn sau chuẩn hóa hoặc chỉ khác 1–2 ký tự. Bỏ qua nếu N đã theo dõi Y.</li>
+<li>Giống tên, khác người (X là người thật N theo dõi, X lâu năm hơn Y) → lưu <i>impersonationOfId = X</i> vào hội thoại, ghi <i>SafetyEvent</i> cho Y.</li>
+<li>App hiện thanh cam ở yêu cầu và trang cá nhân của Y: "Tài khoản này có tên giống <i>X</i> mà bạn theo dõi, nhưng mới tạo 5 ngày trước. Có thể là giả mạo." Hai nút: "Xem trang của <i>X</i>" và "Báo cáo giả mạo".</li>
+<li>Báo cáo giả mạo: lưu báo cáo lý do <i>IMPERSONATION</i>, xóa yêu cầu, chặn Y. Từ 3 báo cáo khác nhau trong 7 ngày → tạm lọc mọi tin của Y vào "Đã lọc" của người nhận (B1) cho tới khi admin xem. Báo cáo vào hàng chờ kiểm duyệt.</li>
+</ol>
+<p><b>Luồng 4: Báo cáo lừa đảo và quản trị viên xử lý</b> (sơ đồ 4)</p>
+<ol>
+<li>Người nhận bấm "Báo cáo lừa đảo" ngay ở thanh cảnh báo (một chạm, lý do <i>SCAM</i> chọn sẵn), hoặc từ menu báo cáo.</li>
+<li>Máy chủ lưu báo cáo kèm bản chụp 50 tin (như hiện nay), ẩn hội thoại khỏi hộp thư của người báo cáo, app hỏi "Chặn luôn?".</li>
+<li>Từ 3 người khác nhau báo lừa đảo cùng một tài khoản trong 7 ngày → <b>tạm hạn chế</b> tài khoản đó: không mở được tin chờ mới, tin gửi người không theo dõi mình vào "Đã lọc", mất quyền ẩn danh, cho tới khi admin xem.</li>
+<li>Báo cáo lừa đảo đứng đầu hàng chờ. Quản trị viên xem bản chụp, các link trong tin và kết quả kiểm tra link, lịch sử báo cáo, điểm lạm dụng.</li>
+<li>Không phải lừa đảo → gỡ hạn chế, ghi "báo nhầm" (dùng để đo chất lượng bộ lọc), báo cáo <i>DISMISSED</i>.</li>
+<li>Đúng lừa đảo → khóa tài khoản (hàm <i>setBanned</i> có sẵn, ghi lý do <i>SCAM</i>), thêm tên miền trong tin vào <i>BlockedDomain</i> bằng một nút, ghi nhật ký.</li>
+<li>Máy chủ tìm những người khác đã nhận tin của tài khoản này trong 30 ngày, gắn cảnh báo vào hội thoại của họ ("Tài khoản này đã bị khóa vì lừa đảo. Đừng chuyển tiền hay gửi mã.") và gửi thông báo đẩy. Người báo cáo nhận "Báo cáo của bạn đã được xử lý".</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: phân tích một tin nhắn từ lúc gửi tới lúc người nhận thấy cảnh báo.</p>
+<!--FLOW:b3-phan-tich-tin-nhan-->
+<p>Sơ đồ 2: kiểm tra link khi lưu tin, và khi người nhận chạm vào link.</p>
+<!--FLOW:b3-kiem-tra-link-->
+<p>Sơ đồ 3: phát hiện và cảnh báo tài khoản giả mạo người quen.</p>
+<!--FLOW:b3-canh-bao-gia-mao-->
+<p>Sơ đồ 4: báo cáo lừa đảo, hạn chế tự động và quản trị viên xử lý.</p>
+<!--FLOW:b3-bao-cao-lua-dao-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Nhóm cụm từ và điểm</b> (đề xuất; danh sách nằm trong <i>text-safety.ts</i> như hiện nay, sửa một chỗ là đủ):</p>
+<table>
+<tr><th>Nhóm</th><th>Ví dụ (sau khi bỏ dấu)</th><th>Điểm</th></tr>
+<tr><td>Xin mã OTP</td><td>ma otp, ma xac nhan, ma xac thuc, gui ma, doc ma</td><td>3</td></tr>
+<tr><td>Đòi chuyển tiền</td><td>chuyen khoan, ck truoc, muon tien, vay tien, ung tien, nap tien, nap the</td><td>2</td></tr>
+<tr><td>Thông tin ngân hàng, thẻ</td><td>stk, so tai khoan, so the, cvv, mat khau, tên ngân hàng và ví điện tử</td><td>2</td></tr>
+<tr><td>Việc làm, nhiệm vụ</td><td>viec nhe luong cao, cong tac vien, ctv, nhiem vu, hoa hong, kiem tien online</td><td>2</td></tr>
+<tr><td>Trúng thưởng, đóng phí</td><td>trung thuong, nhan qua, phi nhan, phi giai ngan</td><td>2</td></tr>
+<tr><td>Đầu tư, tiền ảo</td><td>dau tu, loi nhuan, lai suat, tien ao, usdt, crypto</td><td>1</td></tr>
+<tr><td>Kéo ra ngoài app</td><td>zalo, telegram, ket ban, inbox rieng</td><td>1</td></tr>
+<tr><td>Gấp, giả cơ quan</td><td>gap, khan cap, cong an, toa an, tai khoan se bi khoa, bo phan ho tro</td><td>1</td></tr>
+</table>
+<p>Ví dụ: bạn bè nhắn "chuyển khoản tiền ăn hôm qua nhé" = 2 điểm, không cảnh báo. Tài khoản quen nhắn "mượn tiền gấp, chuyển khoản vào stk này" = 2 + 2 + 1 = 5, mức Cao. Người lạ nhắn "kết bạn zalo" = 1 + 1 = 2, không cảnh báo (hiện nay có cảnh báo — đây là thay đổi có chủ ý để cảnh báo ít mà trúng).</p>
+<ul>
+<li><b>Hội thoại đã chấp nhận</b> cũng được chấm, cùng ngưỡng; người lạ chỉ được cộng thêm điểm bối cảnh.</li>
+<li><b>Người gửi không được báo</b> tin của họ bị gắn cảnh báo (tránh kẻ gian dò luật).</li>
+<li><b>Tin đã tiết lộ / hội thoại với tài khoản bị khóa:</b> cảnh báo giữ nguyên trên tin cũ.</li>
+<li><b>Sửa tin</b> (D2): chấm lại khi sửa.</li>
+<li><b>Link:</b> tối đa 5 link được kiểm tra mỗi tin; quá thì phần còn lại là <i>KHÔNG RÕ</i>. Mỗi người gửi tối đa 50 lượt hỏi Web Risk mỗi giờ (đề xuất) để tránh đốt tiền.</li>
+<li><b>Giả mạo:</b> chỉ so trong phạm vi người N theo dõi (giới hạn 2.000 tài khoản đầu) và tài khoản đã xác minh; không quét toàn bộ người dùng.</li>
+<li><b>Báo nhầm:</b> admin bấm "báo nhầm" thì gỡ hạn chế và xóa điểm của các báo cáo đó. Một người báo cáo lừa đảo sai nhiều lần (từ 5 lần bị kết luận báo nhầm trong 30 ngày) thì báo cáo của họ không còn tính vào ngưỡng tự hạn chế.</li>
+<li><b>Viết số thành chữ</b> ("không chín một hai...") vẫn lọt — đã ghi trong hạn chế của MODERATION_PLAN; giải quyết sau bằng mô hình chữ (MODERATION_PLAN mục 8).</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><i>Đây là đề xuất. Phải ghi vào docs/api-contract.md và docs/decisions.md trước khi code.</i></p>
+<table>
+<tr><th>Thay đổi</th><th>Chi tiết</th></tr>
+<tr><td><i>Message.riskLevel</i> String?, <i>Message.riskReasons</i> String[]</td><td><i>null | WARN | HIGH</i>; lý do: <i>OTP, MONEY, BANK, JOB, PRIZE, INVEST, OFF_PLATFORM, URGENT, LINK_SUSPICIOUS, LINK_MALICIOUS</i>. Không lưu điểm chi tiết.</td></tr>
+<tr><td>Bảng <i>LinkCheck</i></td><td><i>urlHash</i> (khóa), <i>domain, verdict</i> (<i>SAFE | UNKNOWN | SUSPICIOUS | MALICIOUS</i>), <i>source</i> (<i>BLOCKLIST | LOOKALIKE | WEB_RISK | ADMIN</i>), <i>checkedAt, expiresAt</i></td></tr>
+<tr><td>Bảng <i>BlockedDomain</i></td><td><i>domain</i> (khóa), <i>reason, addedById, createdAt</i></td></tr>
+<tr><td><i>Conversation.impersonationOfId</i> String?</td><td>Người thật mà tài khoản kia nhái tên</td></tr>
+<tr><td><i>User.banReason</i> String?</td><td>Dùng chung với C2; giá trị <i>SCAM</i> để gắn cảnh báo cho người đã nhận tin</td></tr>
+<tr><td>Hằng số trong code</td><td>Danh sách tên miền tin cậy (ngân hàng, ví, cơ quan nhà nước) để so nhái tên</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Ghi chú</th></tr>
+<tr><td>Đối tượng tin nhắn</td><td>Thêm <i>risk: null | { level, reasons }</i>; giữ <i>warning</i> (= có <i>risk</i>) cho bản app cũ</td></tr>
+<tr><td>Đối tượng hội thoại</td><td>Thêm <i>safetyNotice: null | { type: "IMPERSONATION", of: { id, username, displayName } } | { type: "PEER_BANNED_SCAM" }</i></td></tr>
+<tr><td><i>GET /links/check?url=</i></td><td><i>{ verdict, domain }</i>; cần đăng nhập; giới hạn 60 lần / phút</td></tr>
+<tr><td><i>GET /users/:id</i></td><td>Thêm <i>impersonationOf</i> (theo góc nhìn người xem) </td></tr>
+<tr><td><i>POST /reports</i></td><td>Thêm lý do <i>IMPERSONATION</i></td></tr>
+<tr><td><i>GET / POST / DELETE /admin/blocked-domains</i></td><td>Quản lý danh sách chặn</td></tr>
+<tr><td><i>POST /admin/reports/:id/resolve</i></td><td>Thêm tùy chọn <i>blockDomains: true</i> và hành động <i>FALSE_REPORT</i></td></tr>
+</table>
+<p>Code cần sửa: <i>text-safety.ts</i> (từ <i>hasScamWarning</i> sang hàm chấm điểm trả mức và lý do, giữ hàm cũ để không vỡ chỗ gọi), <i>messages.service.ts</i> (chấm khi lưu thay vì khi đọc), module mới <i>link-safety</i> trong <i>moderation</i>, <i>reports</i>, <i>admin</i>, <i>ChatScreen.tsx</i> (thanh cảnh báo theo mức, link bấm được, màn rời app, nhắc trước khi gửi mã), <i>ProfileView.tsx</i> (thanh giả mạo).</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Mở link: dùng <i>Linking.openURL</i> có sẵn trong React Native, mở trình duyệt hệ thống trên cả Android và iOS; không cần thư viện mới. Không dùng <i>Linking.canOpenURL</i> (trên iOS cần khai báo danh sách scheme trong <i>app.json</i>). Chỉ mở <i>http</i> và <i>https</i>; các scheme khác (<i>tel:</i>, <i>intent:</i>, ...) không biến thành link.</li>
+<li>Không cần quyền thiết bị mới.</li>
+<li><b>Dịch vụ ngoài và chi phí:</b> Google Web Risk API (Google Cloud, cần tài khoản thanh toán). Bản Safe Browsing miễn phí chỉ cho mục đích phi thương mại, nên app thương mại dùng Web Risk. Web Risk có hạn mức miễn phí hằng tháng rồi tính phí theo số nghìn lượt gọi — <b>cần kiểm tra bảng giá hiện hành trước khi ký</b>. Bộ nhớ đệm 24 giờ theo link làm số lượt gọi thấp. Link được gửi sang Google: phải ghi trong chính sách quyền riêng tư.</li>
+<li>Có thể bổ sung danh sách web lừa đảo của tổ chức trong nước (ví dụ dự án chống lừa đảo của cộng đồng Việt Nam) — <b>cần kiểm tra giấy phép sử dụng</b> trước khi tích hợp.</li>
+<li>Trang quản trị (web): quản lý <i>BlockedDomain</i>, xem kết quả kiểm tra link trong bản chụp, nút "báo nhầm".</li>
+<li>App Store và Google Play: không có yêu cầu riêng; tính năng hỗ trợ phần "kiểm duyệt nội dung do người dùng tạo".</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Bộ test đơn vị cho hàm chấm điểm với ít nhất 40 câu mẫu (20 câu lừa đảo thật, 20 câu bình thường như chia tiền ăn, hẹn đi chơi): không cảnh báo nhầm câu bình thường nào ở mức Cao.</li>
+<li>Tin "mượn tiền gấp, chuyển khoản vào stk" trong hội thoại đã chấp nhận hiện mức Cao, tin bị che, thông báo đẩy không có nội dung.</li>
+<li>Link trong <i>BlockedDomain</i> không mở được; link nhái ngân hàng hiện màn rời app với mức "đáng ngờ"; Web Risk tắt mạng thì tin vẫn gửi và link là "không rõ".</li>
+<li>Gửi dãy 6 số ngay sau khi nhận tin xin OTP: app hỏi lại.</li>
+<li>Tài khoản mới đặt tên giống người mình theo dõi: thanh giả mạo hiện ở tin chờ và trang cá nhân; báo cáo giả mạo hoạt động.</li>
+<li>3 người báo lừa đảo cùng một tài khoản: tài khoản bị tạm hạn chế; admin khóa thì người đã nhận tin thấy cảnh báo và nhận thông báo đẩy.</li>
+<li>Chạy tay trên Android <b>và</b> iPhone (đặc biệt: mở link, màn rời app, thanh cảnh báo); ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 7 ngày (chấm điểm và lưu 2 ngày, kiểm tra link và Web Risk 2 ngày, giả mạo 1,5 ngày, báo cáo lừa đảo và cảnh báo người đã nhận 1,5 ngày), mobile 4 ngày, kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B1 (<i>SafetyEvent</i>, "Đã lọc"), C1 (hàng chờ ưu tiên), C2 (<i>banReason</i>, cảnh cáo), E4 (tài khoản đã xác minh làm mốc so tên — không bắt buộc). B1 và B2 dùng bộ chấm điểm này.</li>
+<li>Rủi ro: cảnh báo nhầm làm người dùng mất tin tưởng hoặc làm phiền giao dịch thật (bán hàng online hay nói "chuyển khoản", "stk"). Giảm bằng ngưỡng 3, chỉ che tin ở mức 5, và đo tỉ lệ "báo nhầm" hằng tuần.</li>
+<li>Rủi ro: kẻ gian học luật và đổi cách viết. Danh sách cụm từ cần người cập nhật định kỳ (đề xuất mỗi tháng, từ các báo cáo <i>SCAM</i>).</li>
+</ul>

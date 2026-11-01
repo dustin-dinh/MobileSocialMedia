@@ -1,0 +1,25 @@
+{"id":"b2-tiet-lo-danh-tinh","title":"Người gửi ẩn danh tự tiết lộ danh tính",
+"lanes":[{"name":"Người gửi ẩn danh"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Menu: Tiết lộ danh tính"},
+ {"id":"cf","type":"io","lane":1,"row":0,"label":"Hộp xác nhận: không thu hồi"},
+ {"id":"d1","type":"decision","lane":1,"row":1,"label":"Bấm Tiết lộ?"},
+ {"id":"no","type":"end","lane":0,"row":1,"label":"Vẫn ẩn danh"},
+ {"id":"chk","type":"decision","lane":2,"row":1,"label":"Là bên ẩn danh?"},
+ {"id":"e400","type":"end","lane":2,"col":1,"row":1,"label":"Lỗi 400, không đổi gì"},
+ {"id":"was","type":"decision","lane":2,"row":2,"label":"Đã tiết lộ trước đó?"},
+ {"id":"same","type":"end","lane":2,"col":1,"row":2,"label":"Trả hội thoại như cũ"},
+ {"id":"db","type":"data","lane":2,"row":3,"label":"Ghi revealedAt, tin hệ thống"},
+ {"id":"sock","type":"process","lane":2,"row":4,"label":"Socket conversation:updated, hai bên"},
+ {"id":"me","type":"io","lane":1,"row":5,"label":"Người gửi: bỏ nhãn ẩn danh"},
+ {"id":"peer","type":"io","lane":2,"col":1,"row":5,"label":"Người nhận thấy tên thật"},
+ {"id":"e","type":"end","lane":1,"row":6,"label":"Được gửi link, SĐT"}
+],
+"edges":[
+ {"from":"s","to":"cf"},{"from":"cf","to":"d1"},
+ {"from":"d1","to":"no","label":"Không"},{"from":"d1","to":"chk","label":"Có"},
+ {"from":"chk","to":"e400","label":"Không"},{"from":"chk","to":"was","label":"Có"},
+ {"from":"was","to":"same","label":"Có"},{"from":"was","to":"db","label":"Không"},
+ {"from":"db","to":"sock"},{"from":"sock","to":"me"},{"from":"sock","to":"peer","exit":"right","entry":"top"},
+ {"from":"me","to":"e"}
+]}

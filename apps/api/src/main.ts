@@ -14,6 +14,10 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix("api");
 
+  // Bản web gọi API từ origin khác; xác thực bằng Bearer token, không dùng cookie.
+  // shortcut: mở cho mọi origin, giới hạn bằng danh sách origin khi deploy web thật.
+  app.enableCors();
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,

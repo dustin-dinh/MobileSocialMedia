@@ -6,6 +6,7 @@ import ArrowUp from 'lucide-react-native/icons/arrow-up';
 import Ban from 'lucide-react-native/icons/ban';
 import Bell from 'lucide-react-native/icons/bell';
 import Bookmark from 'lucide-react-native/icons/bookmark';
+import Cake from 'lucide-react-native/icons/cake';
 import Camera from 'lucide-react-native/icons/camera';
 import Check from 'lucide-react-native/icons/check';
 import ChevronLeft from 'lucide-react-native/icons/chevron-left';
@@ -20,6 +21,7 @@ import Globe from 'lucide-react-native/icons/globe';
 import Heart from 'lucide-react-native/icons/heart';
 import House from 'lucide-react-native/icons/house';
 import Image from 'lucide-react-native/icons/image';
+import Inbox from 'lucide-react-native/icons/inbox';
 import Link from 'lucide-react-native/icons/link';
 import Lock from 'lucide-react-native/icons/lock';
 import LogOut from 'lucide-react-native/icons/log-out';
@@ -29,16 +31,21 @@ import Pencil from 'lucide-react-native/icons/pencil';
 import Play from 'lucide-react-native/icons/play';
 import Plus from 'lucide-react-native/icons/plus';
 import Repeat2 from 'lucide-react-native/icons/repeat-2';
+import Reply from 'lucide-react-native/icons/reply';
 import Search from 'lucide-react-native/icons/search';
 import Send from 'lucide-react-native/icons/send';
 import Settings from 'lucide-react-native/icons/settings';
+import ShieldAlert from 'lucide-react-native/icons/shield-alert';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Share from 'lucide-react-native/icons/share';
 import Share2 from 'lucide-react-native/icons/share-2';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Trash from 'lucide-react-native/icons/trash';
+import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
 import User from 'lucide-react-native/icons/user';
 import UserPlus from 'lucide-react-native/icons/user-plus';
 import Users from 'lucide-react-native/icons/users';
+import VenetianMask from 'lucide-react-native/icons/venetian-mask';
 import Video from 'lucide-react-native/icons/video';
 import Volume2 from 'lucide-react-native/icons/volume-2';
 import VolumeX from 'lucide-react-native/icons/volume-x';
@@ -55,6 +62,7 @@ const ICON_MAP = {
   ArrowUp,
   Bell,
   BookmarkSimple: Bookmark,
+  Cake,
   Camera,
   CaretLeft: ChevronLeft,
   CaretRight: ChevronRight,
@@ -71,6 +79,7 @@ const ICON_MAP = {
   Heart,
   House,
   Image,
+  Inbox,
   LinkSimple: Link,
   LockKey: Lock,
   MagnifyingGlass: Search,
@@ -80,13 +89,19 @@ const ICON_MAP = {
   Play,
   Plus,
   Prohibit: Ban,
+  /** Anonymous sender or recipient. */
+  Mask: VenetianMask,
   Repeat: Repeat2,
+  Reply,
   ShareNetwork: Share2,
+  ShieldCheck,
+  ShieldWarning: ShieldAlert,
   SignOut: LogOut,
   Sparkle: Sparkles,
   SpeakerHigh: Volume2,
   SpeakerSlash: VolumeX,
   Trash,
+  TriangleWarning: TriangleAlert,
   User,
   UserPlus,
   Users,

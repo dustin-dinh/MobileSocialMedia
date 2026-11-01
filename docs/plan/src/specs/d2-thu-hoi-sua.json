@@ -1,0 +1,26 @@
+{"id":"d2-thu-hoi-sua","title":"Thu hồi và sửa tin nhắn",
+"lanes":[{"name":"Người gửi"},{"name":"Máy chủ","cols":2},{"name":"Người nhận"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Nhấn giữ tin, chọn Thu hồi hoặc Sửa"},
+ {"id":"own","type":"decision","lane":1,"row":0,"label":"Tin của mình, chưa thu hồi?"},
+ {"id":"time","type":"decision","lane":1,"row":1,"label":"Còn trong thời hạn?"},
+ {"id":"err","type":"end","lane":1,"col":1,"row":1,"label":"Trả lỗi, app báo lý do"},
+ {"id":"kind","type":"decision","lane":1,"row":2,"label":"Thu hồi hay sửa?"},
+ {"id":"val","type":"decision","lane":1,"col":1,"row":2,"label":"Nội dung mới hợp lệ?"},
+ {"id":"un","type":"data","lane":1,"row":3,"label":"Xóa nội dung và tệp, ghi unsentAt"},
+ {"id":"ed","type":"data","lane":1,"col":1,"row":3,"label":"Lưu bản cũ vào MessageEdit"},
+ {"id":"emit","type":"process","lane":1,"row":4,"label":"Socket message:updated cho hai bên"},
+ {"id":"recv","type":"io","lane":2,"row":5,"label":"Thấy “Tin đã thu hồi” hoặc “(đã sửa)”"},
+ {"id":"end","type":"end","lane":0,"row":5,"label":"Người gửi thấy cập nhật"}
+],
+"edges":[
+ {"from":"s","to":"own"},
+ {"from":"own","to":"err","label":"Không"},{"from":"own","to":"time","label":"Có"},
+ {"from":"time","to":"err","label":"Không"},{"from":"time","to":"kind","label":"Có"},
+ {"from":"kind","to":"un","label":"Thu hồi"},{"from":"kind","to":"val","label":"Sửa"},
+ {"from":"val","to":"err","label":"Không","exit":"top","entry":"bottom"},
+ {"from":"val","to":"ed","label":"Có"},
+ {"from":"un","to":"emit"},{"from":"ed","to":"emit","exit":"bottom","entry":"right"},
+ {"from":"emit","to":"recv","exit":"bottom","entry":"top"},
+ {"from":"emit","to":"end","exit":"left","entry":"top"}
+]}

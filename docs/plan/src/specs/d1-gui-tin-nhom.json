@@ -1,0 +1,30 @@
+{"id":"d1-gui-tin-nhom","title":"Gửi tin trong nhóm và trạng thái Đã xem",
+"lanes":[{"name":"Người gửi"},{"name":"Máy chủ","cols":2},{"name":"Thành viên khác"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Gửi tin trong nhóm (kèm clientId)"},
+ {"id":"mem","type":"decision","lane":1,"row":0,"label":"Còn là thành viên?"},
+ {"id":"e1","type":"end","lane":1,"col":1,"row":0,"label":"404, app gỡ nhóm khỏi hộp thư"},
+ {"id":"dup","type":"decision","lane":1,"row":1,"label":"clientId đã lưu?"},
+ {"id":"old","type":"end","lane":1,"col":1,"row":1,"label":"Trả lại tin đã lưu"},
+ {"id":"chk","type":"process","lane":1,"row":2,"label":"Kiểm tra độ dài, quét ảnh nhạy cảm"},
+ {"id":"db","type":"data","lane":1,"row":3,"label":"Ghi Message, cập nhật lastMessageAt"},
+ {"id":"list","type":"process","lane":1,"row":4,"label":"Lấy danh sách thành viên đang ở nhóm"},
+ {"id":"blk","type":"decision","lane":1,"row":5,"label":"Thành viên chặn người gửi?"},
+ {"id":"hide","type":"process","lane":1,"col":1,"row":5,"label":"Không push, tin hiện thu gọn"},
+ {"id":"emit","type":"process","lane":1,"row":6,"label":"Socket message:new, push nếu cần"},
+ {"id":"recv","type":"io","lane":2,"row":7,"label":"Thấy tin mới trong nhóm"},
+ {"id":"read","type":"process","lane":2,"row":8,"label":"Mở nhóm, đánh dấu đã đọc"},
+ {"id":"rd","type":"data","lane":1,"col":1,"row":8,"label":"Ghi lastReadAt của thành viên"},
+ {"id":"seen","type":"process","lane":1,"col":1,"row":9,"label":"Socket message:read tới nhóm"},
+ {"id":"show","type":"end","lane":0,"row":9,"label":"Thấy “Đã xem bởi 3 người”"}
+],
+"edges":[
+ {"from":"s","to":"mem"},
+ {"from":"mem","to":"e1","label":"Không"},{"from":"mem","to":"dup","label":"Có"},
+ {"from":"dup","to":"old","label":"Có"},{"from":"dup","to":"chk","label":"Không"},
+ {"from":"chk","to":"db"},{"from":"db","to":"list"},{"from":"list","to":"blk"},
+ {"from":"blk","to":"hide","label":"Có"},{"from":"blk","to":"emit","label":"Không"},
+ {"from":"hide","to":"emit","exit":"bottom","entry":"right"},
+ {"from":"emit","to":"recv"},{"from":"recv","to":"read"},{"from":"read","to":"rd"},
+ {"from":"rd","to":"seen"},{"from":"seen","to":"show"}
+]}

@@ -13,6 +13,7 @@ import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { GoogleButton } from '../components/GoogleButton';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { formatBirthDateInput } from '../birthDate';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
 import { authService } from '../services/authService';
 import {
@@ -24,6 +25,7 @@ import {
 type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 const INITIAL_VALUES: RegisterFormValues = {
+  birthDate: '',
   confirmPassword: '',
   email: '',
   password: '',
@@ -36,6 +38,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const emailInputRef = useRef<TextInput | null>(null);
   const passwordInputRef = useRef<TextInput | null>(null);
   const confirmPasswordInputRef = useRef<TextInput | null>(null);
+  const birthDateInputRef = useRef<TextInput | null>(null);
   const { signInWithGoogle } = useAuthSession();
   const { isSubmitting, reset, submit, submissionMessage, submissionTone } = useAuthSubmission();
 
@@ -89,11 +92,24 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         error={errors.username}
         label="Username"
         onChangeText={(value) => updateField('username', value)}
-        onSubmitEditing={() => emailInputRef.current?.focus()}
+        onSubmitEditing={() => birthDateInputRef.current?.focus()}
         placeholder="Choose a username"
         returnKeyType="next"
         textContentType="username"
         value={values.username}
+      />
+      <AuthTextInput
+        editable={!isSubmitting}
+        error={errors.birthDate}
+        inputRef={birthDateInputRef}
+        keyboardType="number-pad"
+        label="Date of birth"
+        maxLength={10}
+        onChangeText={(value) => updateField('birthDate', formatBirthDateInput(value))}
+        onSubmitEditing={() => emailInputRef.current?.focus()}
+        placeholder="DD/MM/YYYY"
+        returnKeyType="next"
+        value={values.birthDate}
       />
       <AuthTextInput
         autoCapitalize="none"

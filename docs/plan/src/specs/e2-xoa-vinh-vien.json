@@ -1,0 +1,29 @@
+{"id":"e2-xoa-vinh-vien","title":"Xóa vĩnh viễn khi hết 30 ngày chờ","lanes":[{"name":"Máy chủ (việc nền)","cols":2},{"name":"Kho tệp S3"},{"name":"Quản trị viên"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Việc nền chạy mỗi ngày"},
+ {"id":"fd","type":"data","lane":0,"row":1,"label":"Lấy từng tài khoản quá hạn"},
+ {"id":"any","type":"decision","lane":0,"row":2,"label":"Còn tài khoản cần xóa?"},
+ {"id":"dn","type":"end","lane":0,"col":1,"row":2,"label":"Kết thúc lượt chạy"},
+ {"id":"hl","type":"decision","lane":0,"row":3,"label":"Đang bị giữ để điều tra?"},
+ {"id":"kp","type":"process","lane":0,"col":1,"row":3,"label":"Hoãn xóa, ghi lý do"},
+ {"id":"ad","type":"io","lane":2,"row":3,"label":"Danh sách tài khoản bị giữ"},
+ {"id":"cl","type":"data","lane":0,"row":4,"label":"Gom đường dẫn mọi tệp"},
+ {"id":"ar","type":"data","lane":0,"row":5,"label":"Giữ báo cáo, chép ảnh bằng chứng"},
+ {"id":"ms","type":"data","lane":0,"row":6,"label":"Xử lý tin nhắn theo phương án"},
+ {"id":"dl","type":"data","lane":0,"row":7,"label":"Xóa dữ liệu, User thành bia mộ"},
+ {"id":"rm","type":"process","lane":0,"row":8,"label":"Xóa tệp trong kho"},
+ {"id":"s3","type":"data","lane":1,"row":8,"label":"Ảnh, video, story, bản xuất"},
+ {"id":"er","type":"decision","lane":0,"row":9,"label":"Có tệp xóa lỗi?"},
+ {"id":"rq","type":"data","lane":0,"col":1,"row":9,"label":"Ghi hàng đợi xóa lại"},
+ {"id":"lg","type":"data","lane":0,"row":10,"label":"Nhật ký: đã xóa, không lưu tên"},
+ {"id":"em","type":"end","lane":0,"col":1,"row":10,"label":"Email xác nhận đã xóa"}
+],
+"edges":[
+ {"from":"s","to":"fd"},{"from":"fd","to":"any"},
+ {"from":"any","to":"dn","label":"Không"},{"from":"any","to":"hl","label":"Có"},
+ {"from":"hl","to":"kp","label":"Có"},{"from":"kp","to":"ad"},
+ {"from":"hl","to":"cl","label":"Không"},{"from":"cl","to":"ar"},{"from":"ar","to":"ms"},{"from":"ms","to":"dl"},
+ {"from":"dl","to":"rm"},{"from":"rm","to":"s3"},{"from":"rm","to":"er"},
+ {"from":"er","to":"rq","label":"Có"},{"from":"er","to":"lg","label":"Không"},
+ {"from":"rq","to":"em"},{"from":"lg","to":"em"}
+]}

@@ -140,4 +140,20 @@ export class AdminController {
     unban(@Request() request: AuthedRequest, @Param('id') id: string) {
         return this.adminService.setBanned(request.user.userId, id, false);
     }
+
+    @Delete('users/:id/age-lock')
+    unlockAge(@Param('id') id: string) {
+        return this.adminService.unlockAge(id);
+    }
+
+    // Trả lại / tước quyền gửi tin ẩn danh.
+    @Post('users/:id/anonymous')
+    allowAnonymous(@Param('id') id: string) {
+        return this.adminService.setAnonymousAllowed(id, true);
+    }
+
+    @Delete('users/:id/anonymous')
+    suspendAnonymous(@Param('id') id: string) {
+        return this.adminService.setAnonymousAllowed(id, false);
+    }
 }

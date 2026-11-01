@@ -1,0 +1,140 @@
+<h3>B7. Bộ lọc bình luận và từ ngữ ẩn; giới hạn ai được bình luận</h3>
+<p><i>Nhóm: An toàn và kiểm duyệt · Giai đoạn: GĐ2 · Ước lượng: 9–10 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Bình luận là nơi dễ bị chửi bới, công kích nhất. Hiện nay ai xem được bài là bình luận được, và mọi bình luận hiện ngay. Tính năng này chặn bình luận có từ ngữ nặng, tự ẩn bình luận có thể xúc phạm, cho mỗi người tự đặt danh sách từ cần ẩn, và cho chủ bài chọn ai được bình luận (mọi người, người theo dõi, không ai). Chủ bài vẫn xem lại được những bình luận đã bị ẩn để hiện lại nếu máy ẩn nhầm. Người được lợi chủ yếu là người đăng bài, nhất là người hay bị công kích.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Gửi bình luận</b>: <i>apps/api/src/modules/comments/comments.service.ts</i>. Máy chủ chỉ kiểm tra người bình luận có xem được bài không (<i>visiblePostWhere</i>: bài chưa xóa, không chặn nhau, đúng quyền riêng tư). Nội dung chỉ được cắt khoảng trắng, tối đa 1000 ký tự (<i>dto/create-comment.dto.ts</i>). Không lọc chữ.</li>
+<li><b>Trả lời</b>: chỉ hai cấp; trả lời một câu trả lời thì gắn vào bình luận gốc. Sửa bình luận (<i>PATCH /comments/:id</i>) không kiểm tra lại nội dung.</li>
+<li><b>Danh sách bình luận</b> loại người đang chặn nhau với người xem. Không có trạng thái ẩn.</li>
+<li><b>Xóa</b>: người viết hoặc chủ bài xóa được (xóa thật, kéo theo các trả lời).</li>
+<li><b>Thông báo</b>: bình luận tạo thông báo COMMENT / REPLY và MENTION khi có @tên; không tạo thông báo giữa hai người chặn nhau (<i>notifications/notifications.service.ts</i>).</li>
+<li><b>Báo cáo, quản trị</b>: báo cáo bình luận đã có; quản trị viên "Gỡ nội dung" thì xóa bình luận.</li>
+<li><b>Công cụ chữ có sẵn</b>: <i>moderation/text-safety.ts</i> có hàm <i>normalizeVietnamese</i> (bỏ dấu, chữ thường), luật phát hiện link, số điện thoại, số tài khoản và danh sách cụm từ lừa đảo. Hiện chỉ dùng cho tin nhắn ẩn danh và tin nhắn chờ.</li>
+<li><b>Chưa có</b>: lọc từ ngữ xúc phạm; danh sách từ ẩn cá nhân; cài đặt ai được bình luận (bài viết chỉ có quyền xem <i>PUBLIC / FRIENDS / PRIVATE</i>); mục "bình luận đã ẩn". <i>MODERATION_PLAN.md</i> mục 8.1 đã ghi kế hoạch lọc chữ tiếng Việt.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p>Có bốn lớp, máy chủ kiểm tra theo thứ tự mỗi khi có bình luận mới hoặc bình luận được sửa:</p>
+<ol>
+<li><b>Quyền bình luận</b> theo cài đặt của chủ bài.</li>
+<li><b>Từ mức nặng</b> (danh sách chung của nền tảng): chặn, không lưu.</li>
+<li><b>Lý do phải ẩn</b>: người viết đang bị chủ bài hạn chế (B8); có từ mức nhẹ và chủ bài bật "Ẩn bình luận có thể xúc phạm"; có từ trong danh sách từ ẩn của chủ bài.</li>
+<li>Không có gì: hiện với mọi người như hiện nay.</li>
+</ol>
+
+<p><b>Luồng 1: Chủ bài đặt ai được bình luận</b></p>
+<ol>
+<li>Vào Cài đặt → Quyền riêng tư → "Bình luận". Chọn mặc định cho mọi bài: Mọi người (mặc định) / Người theo dõi bạn / Không ai.</li>
+<li>Khi tạo hoặc sửa bài, trong menu quyền riêng tư của bài (<i>PostPrivacyModal</i>) có thêm mục "Ai được bình luận" để đặt riêng cho bài đó.</li>
+<li>"Người theo dõi bạn" là người đang theo dõi chủ bài (đã được chấp nhận nếu là tài khoản riêng tư). Chủ bài luôn bình luận được trên bài của mình.</li>
+<li>Đổi cài đặt không xóa bình luận cũ, chỉ áp dụng cho bình luận mới. Trả lời đi theo cùng quy tắc của bài.</li>
+<li>Người không được bình luận thấy ô nhập bị thay bằng dòng "Chủ bài viết đã giới hạn người có thể bình luận". Máy chủ vẫn kiểm tra (trả 403) để không lách được bằng cách gọi API thẳng.</li>
+</ol>
+
+<p><b>Luồng 2: Gửi hoặc sửa bình luận</b></p>
+<ol>
+<li>Người dùng viết bình luận và bấm Gửi.</li>
+<li>Máy chủ kiểm tra quyền xem bài (đã có) và quyền bình luận (luồng 1).</li>
+<li>Máy chủ chuẩn hóa nội dung: bỏ dấu, chữ thường (dùng <i>normalizeVietnamese</i>); bỏ ký tự chèn giữa chữ ("đ.m", "đ m"); gộp chữ lặp ("nguuuu"); đổi số và ký hiệu thay chữ (0→o, 1→i, 3→e, 4→a, @→a); quy đổi teencode phổ biến.</li>
+<li><b>Có từ mức nặng</b> (chửi tục nặng, đe dọa bạo lực, kỳ thị vùng miền, tôn giáo, giới tính, xúc phạm ngoại hình nặng): trả lỗi, không lưu. Ứng dụng hiện "Bình luận có từ ngữ vi phạm tiêu chuẩn cộng đồng" và giữ nguyên chữ trong ô nhập để người viết sửa. Máy chủ chỉ đếm số lần bị chặn, không lưu nội dung.</li>
+<li><b>Có lý do phải ẩn</b>: lưu bình luận ở trạng thái ẩn kèm lý do (HẠN CHẾ / XÚC PHẠM / TỪ ẨN). Không gửi thông báo cho chủ bài và cho người được nhắc tên. Người viết thấy bình luận của mình như bình thường (đề xuất, chủ dự án quyết; xem mục e). Người khác không thấy và số bình luận họ thấy không tính bình luận này.</li>
+<li><b>Không có gì</b>: lưu và hiện như hiện nay, gửi thông báo như hiện nay.</li>
+<li>Sửa bình luận chạy lại các bước 3–5. Bình luận đang hiện mà sửa thành có từ ẩn thì chuyển sang ẩn; sửa thành có từ nặng thì bị từ chối, giữ nội dung cũ.</li>
+</ol>
+
+<p><b>Luồng 3: Danh sách từ ẩn cá nhân</b></p>
+<ol>
+<li>Cài đặt → Quyền riêng tư → "Từ ngữ ẩn". Người dùng thêm từ hoặc cụm từ (mỗi mục 1–50 ký tự, tối đa 200 mục, đề xuất). Có thể thêm cả biểu tượng cảm xúc.</li>
+<li>Máy chủ lưu cả bản người dùng gõ (để hiển thị) và bản đã chuẩn hóa (để so khớp). Từ trùng thì bỏ qua.</li>
+<li>Từ ẩn áp dụng cho bình luận <b>mới</b> trên bài của người đó (và trả lời trong các bình luận đó). Bình luận đã có không bị đổi.</li>
+<li>Xóa một từ không làm hiện lại bình luận đã ẩn vì từ đó; chủ bài hiện lại bằng tay ở luồng 4.</li>
+<li>Bật "Ẩn bình luận có thể xúc phạm" (mặc định bật) nằm cùng màn này.</li>
+</ol>
+
+<p><b>Luồng 4: Chủ bài xem bình luận đã ẩn</b></p>
+<ol>
+<li>Cuối danh sách bình luận của bài mình, chủ bài thấy dòng "Bình luận đã ẩn (n)". Người khác không thấy dòng này.</li>
+<li>Bấm vào, ứng dụng tải danh sách. Máy chủ kiểm tra người gọi là chủ bài, nếu không trả 403.</li>
+<li>Mỗi bình luận hiện kèm lý do ẩn ("Có từ trong danh sách của bạn", "Có thể xúc phạm", "Từ người bạn đã hạn chế").</li>
+<li>Chủ bài chọn:
+  <ul>
+  <li><b>Hiện</b>: bình luận hiện với mọi người. Không gửi thông báo bù.</li>
+  <li><b>Xóa</b>: xóa như hiện nay. Người viết không được báo.</li>
+  <li>Sau khi xóa, có thể <b>chặn</b> (đã có) hoặc <b>hạn chế</b> (B8) người viết, hoặc báo cáo.</li>
+  <li>Không làm gì: bình luận vẫn ẩn.</li>
+  </ul></li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: máy chủ kiểm tra một bình luận mới hoặc bình luận được sửa.</p>
+<!--FLOW:b7-gui-binh-luan-->
+<p>Sơ đồ 2: chủ bài xem và xử lý bình luận đã ẩn.</p>
+<!--FLOW:b7-duyet-binh-luan-an-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Danh sách từ của nền tảng</b> nằm trong một tệp mã nguồn (giống <i>SCAM_PHRASES</i>), chia hai mức nặng / nhẹ. Nội dung danh sách do chủ dự án hoặc người kiểm duyệt soạn và duyệt; giai đoạn sau có thể sửa trên trang quản trị (C3). Mỗi lần đổi danh sách nên chạy lại bộ câu thử có sẵn.</li>
+<li><b>Bỏ dấu dễ bắt nhầm</b>: nhiều từ tiếng Việt chỉ khác dấu. Từ nào bỏ dấu sẽ trùng từ bình thường thì chỉ so khớp ở dạng còn dấu. So khớp theo nguyên từ (không bắt chữ nằm giữa từ khác).</li>
+<li><b>Bình luận ẩn</b>: không tính vào số bình luận người khác thấy (người viết thấy số có tính bình luận của mình); không tạo thông báo COMMENT, REPLY, MENTION; các trả lời cho bình luận ẩn cũng ẩn theo.</li>
+<li><b>Người viết có được biết bình luận bị ẩn không</b>: đề xuất không báo (giống Instagram), để người cố tình công kích không thử lách từng chữ. Đổi lại kém minh bạch với người bị ẩn nhầm. Chủ dự án quyết.</li>
+<li><b>Lạm dụng</b>: người bị chặn vì từ mức nặng 5 lần trong 1 giờ thì không bình luận được trong 1 giờ (429, đề xuất). Giới hạn chung của API (throttler trong <i>app.module.ts</i>) vẫn áp dụng.</li>
+<li><b>Lỗi mạng</b>: giữ chữ trong ô nhập khi gửi lỗi như hiện nay; gửi lại không tạo trùng vì lần đầu chưa lưu.</li>
+<li><b>Người chặn nhau</b>: không thấy bài của nhau nên không bình luận được (đã có).</li>
+<li><b>Bài đổi sang "Không ai được bình luận"</b>: bình luận cũ vẫn hiện; ô nhập ẩn đi.</li>
+<li><b>Tài khoản riêng tư</b>: chỉ người theo dõi mới xem được bài, nên "Mọi người" và "Người theo dõi" cho kết quả như nhau.</li>
+<li><b>Quản trị</b>: bình luận ẩn không vào hàng đợi trừ khi bị báo cáo. Trang quản trị thêm số bình luận bị chặn / bị ẩn mỗi ngày để theo dõi tỉ lệ chặn nhầm.</li>
+<li><b>Ngoài phạm vi</b>: lọc chữ trong bài viết, tên, tiểu sử (C1 và <i>MODERATION_PLAN.md</i> mục 8.1); mô hình phân loại chữ tiếng Việt.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Tất cả là đề xuất, cần đưa vào <i>docs/api-contract.md</i> trước khi code. Hai trường ẩn của <i>Comment</i> và API xem / hiện bình luận ẩn được tạo trong B8 (giai đoạn 1); B7 dùng lại và thêm lý do.</p>
+<table>
+<tr><th>Bảng</th><th>Trường mới</th><th>Ý nghĩa</th></tr>
+<tr><td>Comment</td><td>filteredAt DateTime?, filterReason String? (RESTRICTED / OFFENSIVE / HIDDEN_WORD)</td><td>Bình luận bị bộ lọc của chủ bài ẩn và lý do (tạo ở B8, B7 thêm hai lý do). Khác với <i>hiddenAt</i> của C1 (ẩn tạm chờ kiểm duyệt viên duyệt); hai trường độc lập, tên khác nhau để không lẫn</td></tr>
+<tr><td>User</td><td>commentPolicy String (EVERYONE / FOLLOWERS / OFF, mặc định EVERYONE), hideOffensiveComments Boolean (mặc định true)</td><td>Cài đặt mặc định của chủ bài</td></tr>
+<tr><td>Post</td><td>commentPolicy String? (null = theo cài đặt tài khoản)</td><td>Cài đặt riêng của bài</td></tr>
+<tr><td>HiddenWord (mới)</td><td>userId, normalized String, display String, createdAt; khóa chính (userId, normalized)</td><td>Danh sách từ ẩn cá nhân</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Mô tả</th></tr>
+<tr><td>POST /posts/:id/comments, POST /comments/:id/replies, PATCH /comments/:id</td><td>Thêm lỗi 403 <i>COMMENTS_RESTRICTED</i>, 400 <i>COMMENT_BLOCKED</i>, 429 <i>COMMENT_COOLDOWN</i>. Bình luận trả về cho người viết có thêm <i>hidden</i> chỉ khi chủ dự án chọn cho người viết biết</td></tr>
+<tr><td>Bài viết trả về</td><td>Thêm <i>commentPolicy</i> và <i>canComment</i> (người xem có được bình luận không)</td></tr>
+<tr><td>POST /posts, PATCH /posts/:id</td><td>Nhận <i>commentPolicy</i></td></tr>
+<tr><td>PATCH /users/me</td><td>Nhận <i>commentPolicy</i>, <i>hideOffensiveComments</i></td></tr>
+<tr><td>GET /users/me/hidden-words, POST /users/me/hidden-words, DELETE /users/me/hidden-words/:word</td><td>Quản lý từ ẩn</td></tr>
+<tr><td>GET /posts/:id/comments/filtered, POST /comments/:id/approve</td><td>Chủ bài xem và hiện bình luận ẩn (tạo ở B8). Xóa dùng <i>DELETE /comments/:id</i> đã có</td></tr>
+</table>
+<p>Trong code: thêm tệp danh sách từ và hàm chuẩn hóa mở rộng trong <i>moderation/</i> (cạnh <i>text-safety.ts</i>), kèm test đơn vị với các câu mẫu (có dấu, không dấu, chèn ký tự, teencode, câu bình thường dễ bắt nhầm).</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Toàn bộ là màn hình và logic thường, không dùng API riêng của nền tảng nào, không cần quyền thiết bị, không cần thư viện mới.</li>
+<li>Màn "Từ ngữ ẩn" có ô nhập: dùng <i>KeyboardAvoidingView</i> đúng hành vi từng nền tảng và safe-area như các màn cài đặt hiện có.</li>
+<li>Thao tác trên bình luận ẩn dùng menu / hộp xác nhận chung của app (không dùng <i>ActionSheetIOS</i> hay menu chỉ có trên Android).</li>
+<li><b>App Store / Google Play</b>: cả hai yêu cầu app có nội dung người dùng tạo phải có cách lọc nội dung phản cảm, báo cáo và chặn. Tính năng này giúp đáp ứng phần lọc.</li>
+<li><b>Web</b>: trang quản trị thêm số liệu chặn / ẩn. Không có phần nào khác cho web.</li>
+<li><b>Chi phí</b>: không có dịch vụ ngoài.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Chủ bài chọn "Người theo dõi bạn": người không theo dõi thấy dòng giới hạn, gọi API thẳng nhận 403. Chọn "Không ai": chỉ chủ bài bình luận được. Cài đặt riêng của bài ghi đè cài đặt tài khoản.</li>
+<li>Bình luận có từ mức nặng (cả viết có dấu, không dấu, chèn dấu chấm, teencode) bị từ chối với thông báo tiếng Việt; chữ vẫn còn trong ô nhập.</li>
+<li>Bình luận có từ mức nhẹ: ẩn khi chủ bài bật lọc, hiện khi chủ bài tắt lọc.</li>
+<li>Thêm từ ẩn "abc": bình luận mới chứa "abc" bị ẩn, bình luận cũ không đổi.</li>
+<li>Bình luận ẩn: người khác không thấy, số bình luận không tính, không có thông báo; chủ bài thấy trong "Bình luận đã ẩn" kèm lý do, hiện lại hoặc xóa được.</li>
+<li>Sửa bình luận đang hiện thành có từ nặng: bị từ chối; thành có từ ẩn: chuyển sang ẩn.</li>
+<li>Bộ câu thử tiếng Việt bình thường (ít nhất 100 câu) không bị chặn nhầm.</li>
+<li>Chạy trên Android và trên iPhone, ghi rõ máy đã chạy trong <i>docs/change.md</i>.</li>
+<li>Test tự động: test đơn vị cho hàm chuẩn hóa và so khớp; thêm vào <i>social-smoke.cjs</i> các trường hợp quyền bình luận và bình luận ẩn.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (chuẩn hóa và so khớp kèm test 1,5; quyền bình luận 1; từ ẩn và lọc khi gửi / sửa 1; số liệu quản trị 0,5). Mobile 4 ngày (cài đặt bình luận và mục trong <i>PostPrivacyModal</i> 1; màn từ ẩn 1; ô nhập bị giới hạn, lỗi bị chặn 0,5; "Bình luận đã ẩn" mở rộng từ B8 1,5). Kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: <b>B8</b> (trường ẩn của bình luận và mục "Bình luận đã ẩn" làm ở giai đoạn 1). Danh sách từ cần chủ dự án / người kiểm duyệt soạn trước khi kiểm thử. Có thể dùng chung từ ẩn cho tin nhắn chờ nếu nhóm B1 (G2) muốn.</li>
+<li>Rủi ro: chặn nhầm câu bình thường vì tiếng Việt bỏ dấu dễ trùng; người dùng lách bằng cách viết khác đi (danh sách cần cập nhật thường xuyên); danh sách từ là dữ liệu nhạy cảm để soạn và duyệt.</li>
+</ul>

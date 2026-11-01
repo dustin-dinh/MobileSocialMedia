@@ -1,0 +1,25 @@
+{"id":"a1-tat-2fa","title":"Tắt xác thực hai lớp",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Tắt xác thực hai lớp"},
+ {"id":"form","type":"io","lane":1,"row":1,"label":"Hỏi mật khẩu và mã 6 số"},
+ {"id":"enter","type":"process","lane":0,"row":2,"label":"Nhập mật khẩu và mã (hoặc mã dự phòng)"},
+ {"id":"pw","type":"decision","lane":2,"row":2,"label":"Mật khẩu đúng?"},
+ {"id":"pwno","type":"end","lane":2,"col":1,"row":2,"label":"Báo sai, tính vào A4"},
+ {"id":"code","type":"decision","lane":2,"row":3,"label":"Mã đúng?"},
+ {"id":"codeno","type":"end","lane":2,"col":1,"row":3,"label":"Báo sai, 5 lần chờ 15 phút"},
+ {"id":"del","type":"data","lane":2,"row":4,"label":"Xóa khóa và mã dự phòng"},
+ {"id":"mail","type":"process","lane":2,"col":1,"row":4,"label":"Email + push, nút Không phải tôi"},
+ {"id":"done","type":"end","lane":1,"row":5,"label":"Báo 2FA đã tắt"}
+],
+"edges":[
+ {"from":"s","to":"form"},
+ {"from":"form","to":"enter","exit":"left","entry":"top","via":[[0,1]]},
+ {"from":"enter","to":"pw"},
+ {"from":"pw","to":"pwno","label":"Không"},
+ {"from":"pw","to":"code","label":"Có"},
+ {"from":"code","to":"codeno","label":"Không"},
+ {"from":"code","to":"del","label":"Có"},
+ {"from":"del","to":"mail"},
+ {"from":"del","to":"done"}
+]}

@@ -1,3 +1,5 @@
+import { birthDateProblem } from './birthDate';
+
 export type FieldErrors<TField extends string> = Partial<Record<TField, string>>;
 
 export type LoginFormValues = {
@@ -6,6 +8,8 @@ export type LoginFormValues = {
 };
 
 export type RegisterFormValues = {
+  /** DD/MM/YYYY as typed. */
+  birthDate: string;
   confirmPassword: string;
   email: string;
   password: string;
@@ -72,8 +76,21 @@ export function validateRegister(
     errors.confirmPassword = 'Passwords do not match.';
   }
 
+  const birthProblem = birthDateProblem(values.birthDate);
+
+  if (birthProblem) {
+    errors.birthDate = REGISTER_BIRTH_DATE_ERRORS[birthProblem];
+  }
+
   return errors;
 }
+
+const REGISTER_BIRTH_DATE_ERRORS = {
+  future: 'Enter your real date of birth.',
+  invalid: 'Enter your date of birth as DD/MM/YYYY.',
+  missing: 'Enter your date of birth.',
+  underage: 'You must be at least 18 years old to use this app.',
+} as const;
 
 export type ForgotPasswordFormValues = {
   email: string;

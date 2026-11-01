@@ -1,0 +1,32 @@
+{"id":"b7-duyet-binh-luan-an","title":"Chủ bài viết xem và xử lý bình luận đã ẩn",
+"lanes":[{"name":"Chủ bài viết"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Mở 'Bình luận đã ẩn (n)'"},
+ {"id":"call","type":"process","lane":1,"row":0,"label":"Gọi danh sách bình luận ẩn"},
+ {"id":"own","type":"decision","lane":2,"row":0,"label":"Người gọi là chủ bài?"},
+ {"id":"e403","type":"end","lane":2,"col":1,"row":0,"label":"Lỗi 403, không trả gì"},
+ {"id":"read","type":"data","lane":2,"row":1,"label":"Đọc bình luận ẩn kèm lý do"},
+ {"id":"list","type":"io","lane":1,"row":1,"label":"Danh sách: lý do, nút Hiện / Xóa"},
+ {"id":"act","type":"decision","lane":0,"row":2,"label":"Chọn hành động?"},
+ {"id":"show","type":"process","lane":1,"row":2,"label":"Gửi 'Hiện bình luận'"},
+ {"id":"unh","type":"data","lane":2,"row":2,"label":"Bỏ cờ ẩn, ghi người duyệt"},
+ {"id":"vis","type":"end","lane":2,"col":1,"row":2,"label":"Mọi người thấy; không thông báo bù"},
+ {"id":"del","type":"process","lane":1,"row":3,"label":"Gửi lệnh xóa"},
+ {"id":"rm","type":"data","lane":2,"row":3,"label":"Xóa bình luận và trả lời (đã có)"},
+ {"id":"silent","type":"end","lane":2,"col":1,"row":3,"label":"Người viết không được báo"},
+ {"id":"more","type":"decision","lane":0,"row":4,"label":"Xử lý người viết?"},
+ {"id":"b8","type":"sub","lane":1,"row":4,"label":"Luồng chặn (đã có) / hạn chế (B8)"},
+ {"id":"done","type":"end","lane":0,"row":5,"label":"Xong"}
+],
+"edges":[
+ {"from":"s","to":"call"},{"from":"call","to":"own"},
+ {"from":"own","to":"e403","label":"Không"},{"from":"own","to":"read","label":"Có"},
+ {"from":"read","to":"list","exit":"left","entry":"right"},
+ {"from":"list","to":"act","exit":"bottom","entry":"top","via":[[1,1.5],[0,1.5]]},
+ {"from":"act","to":"show","label":"Hiện","exit":"right","entry":"left"},
+ {"from":"show","to":"unh"},{"from":"unh","to":"vis"},
+ {"from":"act","to":"del","label":"Xóa","exit":"bottom","entry":"left","via":[[0,3]]},
+ {"from":"del","to":"rm"},{"from":"rm","to":"silent"},
+ {"from":"del","to":"more","exit":"bottom","entry":"top","via":[[1,3.5],[0,3.5]]},
+ {"from":"more","to":"b8","label":"Có"},{"from":"more","to":"done","label":"Không"}
+]}

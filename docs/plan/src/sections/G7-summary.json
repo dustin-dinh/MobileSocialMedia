@@ -1,0 +1,18 @@
+[
+ {"id": "E1", "name": "Tải xuống dữ liệu của bạn", "phase": 3, "be_days": 5, "mb_days": 2, "qa_days": 1.5,
+  "depends": [], "flows": ["e1-yeu-cau-xuat-du-lieu", "e1-tao-va-tai-tep"],
+  "new_services": ["@nestjs/schedule (việc nền định kỳ, dùng chung E1-E4)", "archiver (tạo ZIP)", "@aws-sdk/lib-storage (tải lên nhiều phần)", "dung lượng S3 cho tệp ZIP 7 ngày", "dịch vụ email giao dịch khi phát hành"],
+  "risks": ["Tệp rất lớn làm việc nền lâu, tốn băng thông", "Che sai làm lộ danh tính người gửi ẩn danh", "Bảng mới thêm sau này bị bỏ sót khỏi bản xuất", "Thời hạn phản hồi theo luật chưa được luật sư xác nhận"]},
+ {"id": "E2", "name": "Xóa tài khoản có thời gian chờ 30 ngày + trang web yêu cầu xóa", "phase": 1, "be_days": 7, "mb_days": 2, "qa_days": 2.5,
+  "depends": ["A2", "A6", "C3", "E1"], "flows": ["e2-yeu-cau-xoa-trong-app", "e2-trang-web-yeu-cau-xoa", "e2-xoa-vinh-vien"],
+  "new_services": ["Tên miền HTTPS công khai cho trang web xóa tài khoản", "@nestjs/schedule (chung với E1)", "Captcha tùy chọn (Cloudflare Turnstile, miễn phí)", "Dịch vụ email giao dịch khi phát hành"],
+  "risks": ["Bỏ sót chỗ hiển thị khiến tài khoản chờ xóa vẫn lộ ra", "Đổi từ Cascade sang bia mộ chạm nhiều bảng", "Danh sách dữ liệu giữ lại và thời hạn chưa được luật sư chốt", "Google Play từ chối nếu thiếu trang web"]},
+ {"id": "E3", "name": "Kiểm tra quyền riêng tư", "phase": 3, "be_days": 1.5, "mb_days": 3, "qa_days": 1,
+  "depends": ["A1", "A2", "B1", "B7", "B8", "D6", "E1", "D8"], "flows": ["e3-kiem-tra-quyen-rieng-tu"],
+  "new_services": [],
+  "risks": ["Ít giá trị nếu làm trước A1 và B1 (chỉ 2–3 lựa chọn)", "Lời nhắc dày gây phiền"]},
+ {"id": "E4", "name": "Xác minh tài khoản (dấu tick)", "phase": 4, "be_days": 4, "mb_days": 2.5, "qa_days": 1.5,
+  "depends": ["A1", "C2", "C3"], "flows": ["e4-nop-va-duyet-xac-minh", "e4-mat-dau-tick-va-mao-danh"],
+  "new_services": ["Thời gian người duyệt (thủ công)", "eKYC chỉ khi lượng đơn lớn (có phí, không đề xuất ở GĐ4)"],
+  "risks": ["Cấp tick nhầm cho tài khoản giả", "Lưu giấy tờ tùy thân là trách nhiệm pháp lý", "Chuẩn hóa tên quá chặt chặn nhầm người thật"]}
+]

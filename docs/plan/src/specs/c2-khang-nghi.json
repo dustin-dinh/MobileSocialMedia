@@ -1,0 +1,27 @@
+{"id":"c2-khang-nghi","title":"Kháng nghị với người duyệt thứ hai",
+"lanes":[{"name":"Người bị xử lý"},{"name":"Ứng dụng"},{"name":"Máy chủ"},{"name":"Người duyệt thứ hai"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Kháng nghị"},
+ {"id":"form","type":"io","lane":1,"row":1,"label":"Nhập lý do, gửi"},
+ {"id":"ok","type":"decision","lane":2,"row":2,"label":"Còn hạn, chưa kháng nghị?"},
+ {"id":"no","type":"io","lane":1,"row":2,"label":"Báo: không thể kháng nghị"},
+ {"id":"stop","type":"end","lane":0,"row":2,"label":"Kết thúc"},
+ {"id":"save","type":"data","lane":2,"row":3,"label":"Lưu Appeal: Chờ xem xét"},
+ {"id":"assign","type":"process","lane":2,"row":4,"label":"Giao người khác người xử phạt"},
+ {"id":"look","type":"io","lane":3,"row":5,"label":"Xem quyết định cũ, bằng chứng"},
+ {"id":"right","type":"decision","lane":3,"row":6,"label":"Quyết định cũ đúng?"},
+ {"id":"rev","type":"process","lane":2,"row":6,"label":"Đảo ngược hoặc giảm bậc"},
+ {"id":"keep","type":"process","lane":3,"row":7,"label":"Giữ nguyên quyết định"},
+ {"id":"log","type":"data","lane":2,"row":8,"label":"Ghi kết quả, nhật ký"},
+ {"id":"res","type":"io","lane":1,"row":9,"label":"Thông báo kết quả, lý do"},
+ {"id":"e","type":"end","lane":0,"row":9,"label":"Quyết định cuối cùng"}
+],
+"edges":[
+ {"from":"s","to":"form"},{"from":"form","to":"ok"},
+ {"from":"ok","to":"no","label":"Không"},{"from":"no","to":"stop"},
+ {"from":"ok","to":"save","label":"Có"},{"from":"save","to":"assign"},{"from":"assign","to":"look"},
+ {"from":"look","to":"right"},
+ {"from":"right","to":"keep","label":"Có"},{"from":"right","to":"rev","label":"Không"},
+ {"from":"rev","to":"log"},{"from":"keep","to":"log","exit":"bottom","entry":"right"},
+ {"from":"log","to":"res"},{"from":"res","to":"e"}
+]}

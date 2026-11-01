@@ -1,0 +1,121 @@
+<h3>B8. Hạn chế (Restrict) và tắt tiếng (Mute)</h3>
+<p><i>Nhóm: An toàn và kiểm duyệt · Giai đoạn: GĐ1 · Ước lượng: 8–9 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện nay người dùng chỉ có một cách đối phó với người làm phiền: chặn. Chặn mạnh và người bị chặn dễ nhận ra (không xem được trang cá nhân, mất theo dõi hai chiều), nên nhiều người ngại chặn bạn bè, đồng nghiệp hay người đang quấy rối mà họ sợ bị trả đũa. <b>Hạn chế</b> cho phép lặng lẽ giảm ảnh hưởng của một người: bình luận của họ chỉ họ thấy cho tới khi mình duyệt, tin nhắn của họ vào mục chờ, mình không nhận thông báo từ họ, còn họ không biết. <b>Tắt tiếng</b> cho phép không thấy bài, story hoặc thông báo tin nhắn của một người mà không phải bỏ theo dõi.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chặn đã có</b>: bảng <i>Block</i> (<i>apps/api/prisma/schema.prisma</i>). <i>blockedUserIds</i> (<i>posts/post-view.ts</i>) tính cả hai chiều và được dùng ở bảng tin, chi tiết bài, bình luận, Reels, story, tìm kiếm, gợi ý, tin nhắn. Chặn xóa theo dõi và yêu cầu theo dõi cả hai chiều (<i>users/users.service.ts</i> hàm <i>setBlocked</i>). Không tạo thông báo giữa hai người chặn nhau (<i>notifications.service.ts</i>). Không nhắn được cho nhau (<i>messages.service.ts</i>). Người bị chặn mở trang cá nhân của người chặn thì nhận 404. Danh sách "Người dùng đã chặn" trong Cài đặt (<i>BlockedUsersScreen.tsx</i>). Nút chặn có trên trang cá nhân và trong cuộc trò chuyện.</li>
+<li><b>Ẩn một bài</b>: bảng <i>HiddenPost</i>, "Ẩn bài viết" trong menu bài (<i>PostOptionsModal.tsx</i>). Chỉ ẩn từng bài, không ẩn theo người.</li>
+<li><b>Tin nhắn chờ</b>: hội thoại có trạng thái <i>PENDING</i> / <i>ACCEPTED</i> dùng chung cho cả hai người (<i>Conversation.status</i>), kèm thời điểm đọc của từng bên (<i>userAReadAt</i>, <i>userBReadAt</i>).</li>
+<li><b>Chưa có</b>: hạn chế, tắt tiếng người dùng, tắt thông báo một cuộc trò chuyện, trạng thái ẩn của bình luận. Trong ứng dụng, chữ "mute" chỉ xuất hiện ở nút tắt âm thanh video Reels.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>So sánh ba cách</b> (A là người thao tác, B là người bị áp dụng):</p>
+<table>
+<tr><th></th><th>Chặn (đã có)</th><th>Hạn chế (mới)</th><th>Tắt tiếng (mới)</th></tr>
+<tr><td>B có được báo?</td><td>Không, nhưng dễ nhận ra</td><td>Không, khó nhận ra</td><td>Không, khó nhận ra</td></tr>
+<tr><td>Theo dõi</td><td>Bị xóa hai chiều</td><td>Giữ nguyên</td><td>Giữ nguyên</td></tr>
+<tr><td>B xem bài, story của A</td><td>Không</td><td>Có, như cũ</td><td>Có, như cũ</td></tr>
+<tr><td>A xem bài, story của B</td><td>Không</td><td>Có, như cũ</td><td>Không hiện ở bảng tin / khay story (tùy chọn), vẫn xem được trên trang cá nhân của B</td></tr>
+<tr><td>B bình luận bài của A</td><td>Không được</td><td>Được, nhưng chỉ B và A thấy cho tới khi A duyệt</td><td>Như bình thường</td></tr>
+<tr><td>B nhắn tin cho A</td><td>Không được</td><td>Được; với A, tin vào mục "Tin nhắn chờ", không thông báo; B không thấy "Đã xem"</td><td>Tin đến bình thường nhưng không có thông báo đẩy (nếu A tắt tiếng tin nhắn)</td></tr>
+<tr><td>Thông báo từ B tới A (thích, bình luận, nhắc tên, theo dõi, cảm xúc story)</td><td>Không</td><td>Không</td><td>Như bình thường</td></tr>
+<tr><td>Bỏ</td><td>Bỏ chặn; theo dõi không tự quay lại</td><td>Bỏ hạn chế; bình luận đang chờ vẫn chờ A duyệt</td><td>Bỏ tắt tiếng; nội dung hiện lại ngay</td></tr>
+</table>
+
+<p><b>Luồng 1: Hạn chế</b></p>
+<ol>
+<li>A mở menu trên trang cá nhân của B, trên một bình luận của B ở bài của A, hoặc trong cuộc trò chuyện với B, chọn "Hạn chế". Ứng dụng giải thích ngắn: "B sẽ không biết. Bình luận mới của B trên bài của bạn chỉ hiện khi bạn duyệt. Tin nhắn của B sẽ vào mục Tin nhắn chờ."</li>
+<li>Máy chủ kiểm tra hai người không chặn nhau (đang chặn thì trả 409, vì chặn đã mạnh hơn), rồi ghi bản ghi hạn chế. Theo dõi giữ nguyên. Không gửi gì cho B.</li>
+<li><b>B bình luận hoặc trả lời trên bài của A</b>: máy chủ lưu bình luận ở trạng thái ẩn, lý do "hạn chế". B thấy bình luận của mình như thường. Người khác không thấy. A không nhận thông báo; A thấy bình luận trong mục "Bình luận chờ duyệt" của bài và chọn Hiện / Xóa / để nguyên. Bình luận của B trên bài người khác không bị ảnh hưởng.</li>
+<li><b>B nhắn tin cho A</b>: máy chủ lưu tin như bình thường, B gửi được không giới hạn như trước. Trong hộp thư của A, cuộc trò chuyện với B nằm ở mục "Tin nhắn chờ" và không tính vào số chưa đọc. A không nhận thông báo đẩy. B không thấy "Đã xem" dù A đã mở. Trả lời story của A từ B cũng đi theo cách này.</li>
+<li><b>Mọi thông báo khác từ B tới A</b> (thích, cảm xúc, nhắc tên, đăng lại, theo dõi, cảm xúc story) không được tạo.</li>
+<li><b>Bỏ hạn chế</b>: từ trang cá nhân của B hoặc Cài đặt → Quyền riêng tư → "Tài khoản bị hạn chế". Bình luận mới của B hiện bình thường. Bình luận đang chờ vẫn chờ A duyệt. Cuộc trò chuyện quay về hộp thư chính. B không được báo.</li>
+</ol>
+
+<p><b>Luồng 2: Tắt tiếng</b></p>
+<ol>
+<li>A mở menu trên trang cá nhân của B, chọn "Tắt tiếng", rồi chọn: Bài viết, Story (chọn một hoặc cả hai). Trong cuộc trò chuyện, chọn "Tắt thông báo" với thời hạn 1 giờ, 8 giờ, 24 giờ hoặc "Cho tới khi bật lại".</li>
+<li>Máy chủ ghi bản ghi tắt tiếng (hoặc thời hạn tắt thông báo của cuộc trò chuyện). Không gửi gì cho B.</li>
+<li><b>Bài viết</b>: bài và lượt đăng lại của B không hiện trong bảng tin và Reels của A.</li>
+<li><b>Story</b>: vòng story của B không hiện trong khay story của A.</li>
+<li><b>Tin nhắn</b>: tin vẫn đến và vẫn tính chưa đọc, nhưng không có thông báo đẩy cho tới hết thời hạn. Áp dụng cả cho cuộc trò chuyện ẩn danh (không lộ danh tính ai).</li>
+<li>A vẫn mở trang cá nhân của B và xem đủ mọi thứ. Thông báo tương tác từ B (thích, bình luận) vẫn đến; muốn chặn những thông báo đó thì dùng Hạn chế.</li>
+<li><b>Bỏ tắt tiếng</b>: từ trang cá nhân của B hoặc Cài đặt → Quyền riêng tư → "Tài khoản đã tắt tiếng". Nội dung hiện lại từ lần tải tiếp theo.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ 1: A hạn chế B, rồi B bình luận hoặc nhắn tin.</p>
+<!--FLOW:b8-han-che-->
+<p>Sơ đồ 2: tắt tiếng và bỏ tắt tiếng.</p>
+<!--FLOW:b8-tat-tieng-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Chặn thắng tất cả</b>: chặn một người thì xóa luôn bản ghi hạn chế và tắt tiếng giữa hai người (hai chiều). Bỏ chặn không khôi phục lại.</li>
+<li><b>Không để lộ</b>: mọi phản hồi API mà B nhận phải giống hệt như khi chưa bị hạn chế. Ví dụ: số bình luận B thấy có tính bình luận của chính B; tin nhắn của B không bị giới hạn 3 tin như tin nhắn chờ thật; không có trường nào cho B biết. Thêm phép thử tự động so sánh phản hồi trước và sau khi hạn chế.</li>
+<li><b>Hạn chế người ẩn danh</b>: không có, vì A không biết đó là ai. Với cuộc trò chuyện ẩn danh vẫn chỉ có Chặn và Báo cáo như hiện nay; Tắt thông báo thì có.</li>
+<li><b>Giới hạn</b> (đề xuất): tối đa 1000 tài khoản bị hạn chế và 1000 tài khoản bị tắt tiếng mỗi người. Giới hạn tần suất API chung vẫn áp dụng.</li>
+<li><b>Người bị hạn chế bị nhắc tên trong bài của A</b>: không ảnh hưởng. Hạn chế chỉ một chiều, từ B tới A.</li>
+<li><b>B trả lời một bình luận của người khác trên bài của A</b>: vẫn ẩn chờ duyệt (vì là bài của A).</li>
+<li><b>Tài khoản B bị khóa hoặc xóa</b>: bản ghi xóa theo tài khoản (khóa ngoại xóa dây chuyền).</li>
+<li><b>Lỗi mạng khi bấm Hạn chế / Tắt tiếng</b>: thao tác lặp lại không tạo bản ghi trùng (ghi đè); ứng dụng chỉ đổi trạng thái nút sau khi máy chủ xác nhận.</li>
+<li><b>Thông báo cũ</b>: thông báo đã nhận từ B trước khi hạn chế giữ nguyên.</li>
+<li><b>"Cho tới khi bật lại"</b> của tắt thông báo cuộc trò chuyện lưu bằng một mốc rất xa (năm 9999). Đây là cách đơn giản, đủ dùng.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Tất cả là đề xuất, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng</th><th>Trường</th><th>Ý nghĩa</th></tr>
+<tr><td>Restrict (mới)</td><td>restricterId, restrictedId, createdAt; khóa chính (restricterId, restrictedId); chỉ mục theo restrictedId</td><td>A hạn chế B. Cấu trúc giống <i>Block</i></td></tr>
+<tr><td>Mute (mới)</td><td>muterId, mutedId, posts Boolean, stories Boolean, createdAt; khóa chính (muterId, mutedId)</td><td>A tắt tiếng bài / story của B</td></tr>
+<tr><td>Conversation</td><td>userAMutedUntil DateTime?, userBMutedUntil DateTime?</td><td>Tắt thông báo theo từng bên, giống cặp <i>userAReadAt</i> / <i>userBReadAt</i> đã có</td></tr>
+<tr><td>Comment</td><td>filteredAt DateTime?, filterReason String?</td><td>Bình luận bị ẩn bởi lựa chọn của chủ bài; B8 dùng lý do RESTRICTED, B7 thêm lý do khác. Không dùng tên <i>hiddenAt</i> vì C1 đã dùng tên đó cho "ẩn tạm chờ duyệt"</td></tr>
+</table>
+<table>
+<tr><th>API</th><th>Mô tả</th></tr>
+<tr><td>POST /users/:id/restrict, DELETE /users/:id/restrict</td><td>Hạn chế / bỏ hạn chế. 409 nếu đang chặn nhau, 400 nếu tự hạn chế mình</td></tr>
+<tr><td>GET /users/me/restricted</td><td>Danh sách tài khoản bị hạn chế</td></tr>
+<tr><td>PUT /users/:id/mute <i>{ posts, stories }</i>, DELETE /users/:id/mute</td><td>Tắt tiếng / bỏ tắt tiếng</td></tr>
+<tr><td>GET /users/me/muted</td><td>Danh sách tài khoản đã tắt tiếng</td></tr>
+<tr><td>POST /conversations/:id/mute <i>{ duration: 1h / 8h / 24h / always }</i>, DELETE /conversations/:id/mute</td><td>Tắt / bật thông báo một cuộc trò chuyện</td></tr>
+<tr><td>GET /users/:id</td><td>Thêm <i>isRestricted</i>, <i>muted: { posts, stories }</i>; chỉ là cài đặt của chính người xem</td></tr>
+<tr><td>Hội thoại trả về</td><td>Thêm <i>mutedUntil</i> của chính người gọi</td></tr>
+<tr><td>GET /posts/:id/comments/filtered, POST /comments/:id/approve</td><td>Chủ bài xem và hiện bình luận chờ duyệt (403 nếu không phải chủ bài)</td></tr>
+</table>
+<p>Nơi phải sửa trong code: <i>comments.service.ts</i> (tạo bình luận ẩn, lọc khi đọc, đếm); <i>notifications.service.ts</i> hàm <i>notify</i> (bỏ qua khi người nhận hạn chế người gửi, giống cách đang bỏ qua khi chặn); <i>messages.service.ts</i> (xếp hộp thư theo người xem, ẩn "Đã xem" với B, không đẩy thông báo khi hạn chế hoặc đang tắt thông báo); <i>posts.service.ts</i> hàm bảng tin, <i>reels.service.ts</i>, <i>stories.service.ts</i> hàm <i>feed</i> (bỏ người bị tắt tiếng); <i>users.service.ts</i> hàm <i>setBlocked</i> (xóa hạn chế và tắt tiếng khi chặn).</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không dùng API riêng của nền tảng, không cần quyền thiết bị, không cần thư viện mới.</li>
+<li>Menu trên trang cá nhân, bình luận và cuộc trò chuyện dùng menu / hộp xác nhận chung của app (không dùng <i>ActionSheetIOS</i>). Thao tác giữ lâu trên bình luận phải có cách thay thế bằng nút "…" để dùng được với trình đọc màn hình trên cả hai nền tảng.</li>
+<li>Hai màn danh sách mới ("Tài khoản bị hạn chế", "Tài khoản đã tắt tiếng") làm theo mẫu <i>BlockedUsersScreen.tsx</i>.</li>
+<li>Tắt thông báo cuộc trò chuyện chặn ở máy chủ (không gửi thông báo đẩy), nên giống nhau trên Android (FCM) và iOS (APNs), không cần cấu hình riêng.</li>
+<li><b>Web</b>: không có thay đổi cho trang quản trị.</li>
+<li><b>Chi phí</b>: không có.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>A hạn chế B: B vẫn theo dõi A, vẫn xem bài và story của A; phản hồi API B nhận không có dấu hiệu bị hạn chế.</li>
+<li>B bình luận bài của A: B thấy bình luận; người thứ ba không thấy; A không có thông báo, thấy trong "Bình luận chờ duyệt", hiện lại được.</li>
+<li>B nhắn tin cho A: tin vào "Tin nhắn chờ" của A, không thông báo đẩy, B không thấy "Đã xem".</li>
+<li>B thích bài, nhắc tên A: A không nhận thông báo.</li>
+<li>A tắt tiếng bài viết của B: bài của B không còn trong bảng tin và Reels của A, vẫn có trên trang cá nhân của B. Tắt tiếng story: vòng story của B biến khỏi khay.</li>
+<li>Tắt thông báo cuộc trò chuyện 1 giờ: không có thông báo đẩy trong 1 giờ, sau đó có lại.</li>
+<li>Chặn B sau khi đã hạn chế / tắt tiếng: bản ghi bị xóa; bỏ chặn không khôi phục.</li>
+<li>Bỏ hạn chế, bỏ tắt tiếng từ trang cá nhân và từ Cài đặt.</li>
+<li>Chạy trên Android và trên iPhone, ghi rõ máy đã chạy trong <i>docs/change.md</i>.</li>
+<li>Test tự động: thêm vào <i>social-smoke.cjs</i> các trường hợp trên, gồm phép so sánh phản hồi của B trước và sau khi bị hạn chế.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 4 ngày (bảng và API 1; bình luận ẩn và đếm 1; tin nhắn và thông báo 1,5; bảng tin, Reels, story 0,5). Mobile 3 ngày (menu ở 3 nơi 1; "Bình luận chờ duyệt" 1; hai màn danh sách và tắt thông báo cuộc trò chuyện 1). Kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: không phụ thuộc mã nào chưa làm. B8 tạo trường ẩn của bình luận và mục xem bình luận ẩn mà <b>B7</b> dùng lại. Cách xếp tin nhắn vào "Tin nhắn chờ" phải thống nhất với <b>B1</b> (nhóm G2) nếu B1 đổi cấu trúc tin nhắn chờ. Cài đặt thông báo theo loại thuộc <b>D8</b>; tắt thông báo cuộc trò chuyện ở đây là một trường hợp riêng, cần thống nhất để không làm hai lần.</li>
+<li>Rủi ro: lộ việc bị hạn chế qua một chi tiết nhỏ trong phản hồi API (số đếm, trạng thái đã xem); xếp hộp thư theo từng người xem làm truy vấn hộp thư phức tạp hơn.</li>
+</ul>

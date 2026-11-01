@@ -8,6 +8,8 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { ageLockedUserIds } from '../auth/ban-list';
+import { ageOn, formatBirthDate, MINIMUM_AGE, parseBirthDate } from '../moderation/age';
 import { StorageService } from '../storage/storage.service';
 import {
     authorSelect,
@@ -29,6 +31,7 @@ type CreateUserData = {
     googleId?: string | null;
     displayName?: string | null;
     avatarUrl?: string | null;
+    birthDate?: Date | null;
 };
 
 type MeSource = {
@@ -45,6 +48,8 @@ type MeSource = {
     coverUrl: string | null;
     isPrivate: boolean;
     role: string;
+    birthDate: Date | null;
+    allowAnonymousMessages: boolean;
 };
 
 // Dạng trả về của "tài khoản đang đăng nhập", dùng chung cho login và /users/me.
@@ -63,6 +68,9 @@ export function toMe(user: MeSource) {
         coverUrl: user.coverUrl,
         isPrivate: user.isPrivate,
         role: user.role,
+        // null: tài khoản cũ hoặc đăng ký bằng Google chưa khai; app bắt khai trước khi dùng.
+        birthDate: formatBirthDate(user.birthDate),
+        allowAnonymousMessages: user.allowAnonymousMessages,
     };
 }
 
@@ -116,8 +124,34 @@ export class UsersService {
                 googleId: data.googleId ?? null,
                 displayName: data.displayName ?? null,
                 avatarUrl: data.avatarUrl ?? null,
+                birthDate: data.birthDate ?? null,
             },
         });
+    }
+
+    // Khai ngày sinh một lần (tài khoản chưa có). Dưới 18 tuổi: khóa tài khoản, không xóa dữ liệu.
+    async setBirthDate(userId: string, value: string) {
+        const birthDate = parseBirthDate(value);
+        const current = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { birthDate: true },
+        });
+
+        if (current?.birthDate) {
+            throw new ConflictException('Birth date is already set');
+        }
+
+        const isMinor = ageOn(birthDate) < MINIMUM_AGE;
+        const user = await this.prisma.user.update({
+            where: { id: userId },
+            data: { birthDate, ...(isMinor ? { ageLockedAt: new Date() } : {}) },
+        });
+
+        if (isMinor) {
+            ageLockedUserIds.add(userId);
+        }
+
+        return { data: { ...toMe(user), ageLocked: isMinor } };
     }
 
     async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -129,6 +163,7 @@ export class UsersService {
                     bio: dto.bio,
                     username: dto.username,
                     isPrivate: dto.isPrivate,
+                    allowAnonymousMessages: dto.allowAnonymousMessages,
                 },
             });
 
@@ -240,16 +275,38 @@ export class UsersService {
             );
         }
 
-        const media = await this.prisma.postMedia.findMany({
-            where: { post: { authorId: userId } },
-            select: { url: true },
-        });
+        // Tệp không bị xóa theo dòng database, nên gom trước khi xóa: ảnh và video bài viết, story,
+        // ảnh bìa, và ảnh trong mọi hội thoại của người này (hội thoại bị cascade theo).
+        const [media, stories, messageImages, profile] = await Promise.all([
+            this.prisma.postMedia.findMany({
+                where: { post: { authorId: userId } },
+                select: { url: true, thumbnailUrl: true },
+            }),
+            this.prisma.story.findMany({
+                where: { authorId: userId },
+                select: { url: true, thumbnailUrl: true },
+            }),
+            this.prisma.message.findMany({
+                where: {
+                    imageUrl: { not: null },
+                    conversation: { OR: [{ userAId: userId }, { userBId: userId }] },
+                },
+                select: { imageUrl: true },
+            }),
+            this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { coverUrl: true },
+            }),
+        ]);
 
         // Các bảng liên quan đều onDelete: Cascade theo User.
         await this.prisma.user.delete({ where: { id: userId } });
         await this.storageService.removeByUrls([
-            ...media.map((item) => item.url),
+            ...media.flatMap((item) => [item.url, item.thumbnailUrl]),
+            ...stories.flatMap((story) => [story.url, story.thumbnailUrl]),
+            ...messageImages.map((message) => message.imageUrl),
             user.avatarUrl,
+            profile?.coverUrl,
         ]);
 
         return { data: { deleted: true } };
@@ -264,6 +321,7 @@ export class UsersService {
                     bio: true,
                     coverUrl: true,
                     isPrivate: true,
+                    allowAnonymousMessages: true,
                     createdAt: true,
                     _count: { select: { followers: true, following: true } },
                     followRequestsReceived: {
@@ -324,6 +382,8 @@ export class UsersService {
                 followRequested: user.followRequestsReceived.length > 0,
                 followsYou: follows.some((f) => f.followerId === targetUserId),
                 isBlocked: blocks.length > 0,
+                // Người này nhận tin ẩn danh; chỉ người đang theo dõi mới gửi được (MessagesService).
+                acceptsAnonymousMessages: user.allowAnonymousMessages,
             },
         };
     }

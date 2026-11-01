@@ -1,0 +1,200 @@
+{
+ "id": "b5-hien-thi-nhay-cam",
+ "title": "Quyết định hiển thị nội dung nhạy cảm cho người xem",
+ "lanes": [
+  {
+   "name": "Người xem"
+  },
+  {
+   "name": "Ứng dụng"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Mở bảng tin, Reels, story, hồ sơ"
+  },
+  {
+   "id": "call",
+   "type": "process",
+   "lane": 1,
+   "row": 0,
+   "label": "Gọi API danh sách"
+  },
+  {
+   "id": "own",
+   "type": "decision",
+   "lane": 2,
+   "row": 0,
+   "label": "Người xem là tác giả?"
+  },
+  {
+   "id": "ownok",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 0,
+   "label": "Trả nguyên bản, kèm nhãn và trạng thái"
+  },
+  {
+   "id": "held",
+   "type": "decision",
+   "lane": 2,
+   "row": 1,
+   "label": "Đang giữ chờ duyệt?"
+  },
+  {
+   "id": "drop1",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 1,
+   "label": "Không trả về"
+  },
+  {
+   "id": "sens",
+   "type": "decision",
+   "lane": 2,
+   "row": 2,
+   "label": "Có nhãn nhạy cảm?"
+  },
+  {
+   "id": "normal",
+   "type": "end",
+   "lane": 1,
+   "row": 2,
+   "label": "Hiện bình thường"
+  },
+  {
+   "id": "hide",
+   "type": "decision",
+   "lane": 2,
+   "row": 3,
+   "label": "Người xem chọn 'Ẩn hẳn'?"
+  },
+  {
+   "id": "drop2",
+   "type": "end",
+   "lane": 2,
+   "col": 1,
+   "row": 3,
+   "label": "Bỏ khỏi bảng tin, Reels, khay story"
+  },
+  {
+   "id": "flag",
+   "type": "process",
+   "lane": 2,
+   "row": 4,
+   "label": "Trả kèm sensitive = true"
+  },
+  {
+   "id": "blur",
+   "type": "io",
+   "lane": 1,
+   "row": 4,
+   "label": "Ảnh mờ, nút 'Xem'; video không tự phát"
+  },
+  {
+   "id": "tap",
+   "type": "decision",
+   "lane": 0,
+   "row": 5,
+   "label": "Chạm 'Xem'?"
+  },
+  {
+   "id": "show",
+   "type": "end",
+   "lane": 1,
+   "row": 5,
+   "label": "Hiện rõ lần này"
+  },
+  {
+   "id": "skip",
+   "type": "end",
+   "lane": 0,
+   "row": 6,
+   "label": "Lướt qua, vẫn mờ"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "call"
+  },
+  {
+   "from": "call",
+   "to": "own"
+  },
+  {
+   "from": "own",
+   "to": "ownok",
+   "label": "Có"
+  },
+  {
+   "from": "own",
+   "to": "held",
+   "label": "Không"
+  },
+  {
+   "from": "held",
+   "to": "drop1",
+   "label": "Có"
+  },
+  {
+   "from": "held",
+   "to": "sens",
+   "label": "Không"
+  },
+  {
+   "from": "sens",
+   "to": "normal",
+   "label": "Không",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "sens",
+   "to": "hide",
+   "label": "Có"
+  },
+  {
+   "from": "hide",
+   "to": "drop2",
+   "label": "Có"
+  },
+  {
+   "from": "hide",
+   "to": "flag",
+   "label": "Không"
+  },
+  {
+   "from": "flag",
+   "to": "blur",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "blur",
+   "to": "tap",
+   "exit": "bottom",
+   "entry": "top"
+  },
+  {
+   "from": "tap",
+   "to": "show",
+   "label": "Có"
+  },
+  {
+   "from": "tap",
+   "to": "skip",
+   "label": "Không"
+  }
+ ]
+}

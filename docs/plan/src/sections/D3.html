@@ -1,0 +1,137 @@
+<h3>D3. Nhóm cộng đồng (Groups)</h3>
+<p><i>Nhóm: Mở rộng · Giai đoạn: GĐ4 · Ước lượng: 33–36 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Cho người dùng lập cộng đồng theo sở thích, khu vực hoặc lớp học, giống Facebook Groups: có trang nhóm, bảng tin riêng, nội quy, quản trị viên và người kiểm duyệt của nhóm. Lợi ích: người dùng quay lại app vì cộng đồng, không chỉ vì bạn bè. Đổi lại, nhóm là nơi dễ phát sinh nội dung xấu nhất, nên phần kiểm duyệt phải làm cùng lúc, không để sau.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Chưa có gì cho nhóm cộng đồng.</b> Trong <i>apps/api/prisma/schema.prisma</i> không có bảng hay trường nào về nhóm; không có module <i>groups</i> trong <i>apps/api/src/modules</i> hay <i>apps/mobile/src/features</i>.</li>
+<li><b>Bài viết</b> (<i>Post</i>) có <i>privacy</i> (PUBLIC và các mức khác), <i>deletedAt</i>, <i>reelEligible</i>; không có trường trạng thái duyệt bài và không có trường gắn với nhóm.</li>
+<li><b>Quyền xem bài</b> nằm ở một chỗ duy nhất: <i>visiblePostWhere</i> trong <i>apps/api/src/modules/posts/post-view.ts</i> (đã lọc người chặn nhau, bài đã xóa, tài khoản riêng tư). Bảng tin, trang cá nhân, Reels đều dựa vào điều kiện này. Thêm bài nhóm mà quên sửa chỗ này thì bài của nhóm kín sẽ lọt ra bảng tin.</li>
+<li><b>Báo cáo</b> (<i>reports</i>) nhận <i>targetType</i> POST, COMMENT, USER, CONVERSATION; chưa có thông tin nhóm. Quản trị viên app duyệt báo cáo ở <i>apps/api/src/modules/admin</i>.</li>
+<li><b>Có thể dùng lại:</b> soạn bài và đăng ảnh/video (luồng 3 bước qua <i>/media/upload-url</i>), cảm xúc, bình luận, bộ quét ảnh nhạy cảm, bộ lọc chữ <i>text-safety</i>, thông báo trong app và push, điều kiện "tài khoản đủ 7 ngày và đã xác minh email" đang dùng cho nhắn ẩn danh.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Ba loại nhóm</b></p>
+<table>
+<tr><th>Loại</th><th>Ai tìm thấy nhóm</th><th>Ai xem được bài</th><th>Vào nhóm</th></tr>
+<tr><td>Công khai</td><td>Mọi người (tìm kiếm, trang nhóm)</td><td>Mọi người</td><td>Bấm "Tham gia" là vào ngay (quản trị viên có thể bật duyệt thành viên)</td></tr>
+<tr><td>Riêng tư</td><td>Mọi người thấy tên, mô tả, nội quy, số thành viên</td><td>Chỉ thành viên</td><td>Gửi đơn, trả lời câu hỏi, chờ duyệt</td></tr>
+<tr><td>Ẩn</td><td>Chỉ thành viên và người được mời</td><td>Chỉ thành viên</td><td>Chỉ qua lời mời của thành viên, rồi chờ duyệt</td></tr>
+</table>
+<p><b>Luồng 1: Tạo nhóm</b></p>
+<ol>
+<li>Người dùng chọn "Tạo nhóm cộng đồng". Máy chủ kiểm tra tài khoản đủ 7 ngày và đã xác minh email (dùng lại điều kiện nhắn ẩn danh), tối đa 3 nhóm mới/ngày (đề xuất).</li>
+<li>Nhập tên (3–75 ký tự), mô tả, chọn loại nhóm, ảnh bìa. Tên và mô tả đi qua bộ lọc chữ; ảnh bìa qua bộ quét ảnh nhạy cảm.</li>
+<li>Bước tiếp: thêm nội quy (tối đa 10 điều), câu hỏi cho người xin vào (tối đa 3 câu), bật/tắt duyệt bài.</li>
+<li>Người tạo là chủ nhóm (quản trị viên cao nhất).</li>
+</ol>
+<p><b>Luồng 2: Xin vào nhóm</b></p>
+<ol>
+<li>Người dùng bấm "Tham gia". Máy chủ kiểm tra người đó được thấy nhóm (nhóm ẩn mà không có lời mời thì trả 404 như không tồn tại) và không bị nhóm cấm.</li>
+<li>Nhóm công khai: vào ngay. Nhóm riêng tư hoặc ẩn: nếu có câu hỏi, app hiện câu hỏi và nội quy; người dùng trả lời (mỗi câu tối đa 500 ký tự) và tích "Tôi đồng ý nội quy".</li>
+<li>Máy chủ lưu đơn ở trạng thái chờ, báo cho quản trị viên và người kiểm duyệt nhóm.</li>
+<li>Quản trị nhóm xem đơn cùng thông tin cơ bản của người xin (ngày tạo tài khoản, số nhóm chung, đã từng bị nhóm cấm chưa) và câu trả lời, rồi duyệt hoặc từ chối.</li>
+<li>Duyệt: người xin thành thành viên, nhận thông báo "Bạn đã được duyệt vào nhóm X". Từ chối: người xin thấy đơn đã đóng, được xin lại sau 7 ngày (đề xuất). Đơn không ai xử lý tự hết hạn sau 30 ngày.</li>
+</ol>
+<p><b>Luồng 3: Đăng bài trong nhóm và duyệt bài</b></p>
+<ol>
+<li>Thành viên viết bài trong trang nhóm (dùng lại màn soạn bài). Máy chủ kiểm tra là thành viên, không bị cấm đăng hay đang bị tạm khóa trong nhóm.</li>
+<li>Bài đi qua bộ lọc chung của app (chữ, ảnh). Bị gắn cờ thì bài vào hàng đợi kiểm duyệt của app (C1), chưa hiện.</li>
+<li>Nhóm bật duyệt bài: bài ở trạng thái chờ, chỉ người đăng và quản trị nhóm thấy. Quản trị nhóm duyệt hoặc từ chối (có thể ghi lý do).</li>
+<li>Không bật duyệt bài, hoặc đã duyệt: bài hiện ở bảng tin nhóm, thành viên nhận thông báo nếu bật "Thông báo mọi bài" cho nhóm đó (mặc định tắt).</li>
+</ol>
+<p><b>Luồng 4: Báo cáo trong nhóm</b></p>
+<ol>
+<li>Thành viên bấm "Báo cáo" trên bài hoặc bình luận trong nhóm, chọn lý do. Danh sách lý do có hai phần: "Vi phạm nội quy nhóm" và lý do theo luật app (lừa đảo, khiêu dâm, bạo lực, xâm hại trẻ em, quấy rối...).</li>
+<li>Lý do theo luật app: báo cáo vào thẳng hàng đợi của quản trị viên app (C1). Quản trị nhóm không thấy người báo cáo là ai.</li>
+<li>Vi phạm nội quy nhóm: báo cáo vào hàng chờ của nhóm. Quản trị nhóm chọn: gỡ bài (kèm cảnh cáo, tắt tiếng hoặc cấm thành viên khỏi nhóm), bỏ qua, hoặc chuyển lên quản trị viên app.</li>
+<li>Mọi thao tác của quản trị nhóm được ghi nhật ký. Quản trị viên app xem được nhật ký này và có thể đình chỉ nhóm hoặc gỡ quyền quản trị nhóm.</li>
+</ol>
+<p><b>Luồng 5: Bảng tin nhóm và bảng tin chính</b></p>
+<ol>
+<li>Trang nhóm có bảng tin riêng, bài mới nhất trước, có bài ghim của quản trị (tối đa 3).</li>
+<li>Thêm một mục "Nhóm" trong app gộp bài mới từ các nhóm mình tham gia.</li>
+<li>Ở bản đầu, bài nhóm <b>không</b> hiện ở bảng tin chính, trang cá nhân hay Reels (đề xuất). Như vậy không phải sửa thuật toán xếp hạng (D5) và không có nguy cơ lộ bài nhóm kín.</li>
+<li>Bài trong nhóm riêng tư và ẩn không chia sẻ (đăng lại) ra ngoài được, không hiện trong tìm kiếm chung.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Xin vào nhóm, với câu hỏi và duyệt đơn:</p>
+<!--FLOW:d3-tham-gia-nhom-->
+<p>Đăng bài và duyệt bài trong nhóm:</p>
+<!--FLOW:d3-duyet-bai-nhom-->
+<p>Báo cáo trong nhóm và chuyển lên quản trị viên app:</p>
+<!--FLOW:d3-bao-cao-trong-nhom-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Vai trò trong nhóm:</b> chủ nhóm (1 người, chuyển được), quản trị viên (tối đa 10, đề xuất), người kiểm duyệt (duyệt đơn, duyệt bài, xử lý báo cáo; không đổi cài đặt nhóm), thành viên. Chủ nhóm rời đi phải chọn người thay; xóa tài khoản thì quyền chuyển cho quản trị viên lâu nhất, không còn ai thì nhóm bị khóa đăng bài và quản trị viên app xử lý.</li>
+<li><b>Giới hạn đề xuất:</b> 3 nhóm mới/ngày mỗi người; tham gia tối đa 200 nhóm; gửi tối đa 20 đơn xin vào/ngày; mời tối đa 50 người/ngày vào nhóm ẩn; đăng tối đa 20 bài/ngày trong một nhóm.</li>
+<li><b>Chặn:</b> bài và bình luận của người mình chặn (hoặc chặn mình) bị ẩn với nhau trong nhóm, giống bảng tin (dùng lại <i>blockedUserIds</i>). Không ai mời được người đã chặn mình vào nhóm ẩn.</li>
+<li><b>Ẩn danh trong nhóm:</b> không có ở bản đầu. Facebook có "đăng ẩn danh trong nhóm" nhưng quản trị nhóm vẫn thấy danh tính; nếu muốn làm sau, phải theo các luật của B2 (cần chủ dự án quyết).</li>
+<li><b>Nhóm 18+ và người dưới 18:</b> chủ nhóm có thể đánh dấu nhóm chỉ dành cho người từ 18 tuổi; người chưa xác minh tuổi không vào được (phụ thuộc B6).</li>
+<li><b>Nhóm vi phạm nhiều:</b> quản trị viên app có thể ẩn nhóm khỏi tìm kiếm, khóa đăng bài, đình chỉ hoặc xóa nhóm; số báo cáo được xác nhận của nhóm tính vào xử phạt theo bậc của chủ nhóm (C2).</li>
+<li><b>Quản trị nhóm lạm quyền</b> (ví dụ cấm hàng loạt để quấy rối, đổi nhóm thành nơi lừa đảo): thành viên báo cáo nhóm theo luật app; quản trị viên app xem nhật ký thao tác của nhóm.</li>
+<li><b>Bị cấm khỏi nhóm:</b> không thấy bài mới, không xin lại được; nhóm công khai vẫn xem được như khách (không bình luận).</li>
+<li><b>Lỗi mạng:</b> thao tác tham gia, duyệt đơn, duyệt bài đều là thao tác một lần, gửi lại không tạo trùng (khóa duy nhất theo <i>(groupId, userId)</i>).</li>
+<li><b>Yêu cầu cửa hàng ứng dụng:</b> App Store (mục 1.2 về nội dung người dùng tạo) và Google Play yêu cầu có báo cáo, chặn và lọc nội dung; báo cáo trong nhóm là bắt buộc, không phải phần thêm.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đề xuất, cần đưa vào <i>docs/api-contract.md</i> và ghi quyết định vào <i>docs/decisions.md</i> (bài viết có thêm "chủ sở hữu" là nhóm) trước khi code.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>Group</i></td><td><i>id</i>, <i>name</i>, <i>description</i>, <i>coverUrl</i>, <i>privacy</i> (PUBLIC | PRIVATE), <i>hidden</i> (Boolean), <i>adultOnly</i>, <i>postApproval</i>, <i>memberApproval</i>, <i>rules</i> (JSON, tối đa 10), <i>questions</i> (JSON, tối đa 3), <i>ownerId</i>, <i>memberCount</i>, <i>createdAt</i>, <i>suspendedAt</i>, <i>deletedAt</i>.</td></tr>
+<tr><td><i>GroupMember</i></td><td><i>groupId</i>, <i>userId</i>, <i>role</i> (OWNER | ADMIN | MODERATOR | MEMBER), <i>joinedAt</i>, <i>mutedUntil</i> (bị tạm khóa đăng), <i>notifyAllPosts</i>. Khóa chính <i>(groupId, userId)</i>.</td></tr>
+<tr><td><i>GroupBan</i></td><td><i>groupId</i>, <i>userId</i>, <i>bannedById</i>, <i>reason</i>, <i>createdAt</i>.</td></tr>
+<tr><td><i>GroupJoinRequest</i></td><td><i>id</i>, <i>groupId</i>, <i>userId</i>, <i>answers</i> (JSON), <i>status</i> (PENDING | APPROVED | REJECTED | EXPIRED), <i>reviewedById</i>, <i>createdAt</i>, <i>reviewedAt</i>.</td></tr>
+<tr><td><i>GroupInvite</i></td><td><i>groupId</i>, <i>inviterId</i>, <i>inviteeId</i>, <i>status</i>, <i>createdAt</i>.</td></tr>
+<tr><td><i>GroupModLog</i></td><td><i>id</i>, <i>groupId</i>, <i>actorId</i>, <i>action</i>, <i>targetType</i>, <i>targetId</i>, <i>reason</i>, <i>createdAt</i>.</td></tr>
+<tr><td><i>Post</i> (thêm)</td><td><i>groupId</i> (trống với bài thường), <i>groupStatus</i> (PUBLISHED | PENDING | REJECTED), <i>pinnedAt</i>. <i>visiblePostWhere</i> thêm điều kiện <i>groupId = null</i> cho bảng tin, trang cá nhân, Reels.</td></tr>
+<tr><td><i>Report</i> (thêm)</td><td><i>groupId</i>, <i>scope</i> (GROUP_RULE | APP_RULE).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Việc</th></tr>
+<tr><td>POST <i>/groups</i>, PATCH <i>/groups/:id</i>, DELETE <i>/groups/:id</i></td><td>Tạo, sửa, xóa nhóm.</td></tr>
+<tr><td>GET <i>/groups/:id</i>, GET <i>/groups?query=</i>, GET <i>/me/groups</i></td><td>Trang nhóm (404 nếu nhóm ẩn và không có quyền), tìm nhóm, nhóm của tôi.</td></tr>
+<tr><td>POST <i>/groups/:id/join</i> <i>{ answers }</i>, POST <i>/groups/:id/leave</i></td><td>Tham gia hoặc gửi đơn; rời nhóm.</td></tr>
+<tr><td>GET <i>/groups/:id/requests</i>, POST <i>/groups/:id/requests/:rid/approve</i> | <i>reject</i></td><td>Duyệt đơn.</td></tr>
+<tr><td>POST <i>/groups/:id/invites</i> <i>{ userIds }</i></td><td>Mời vào nhóm (bắt buộc với nhóm ẩn).</td></tr>
+<tr><td>GET <i>/groups/:id/posts</i>, POST <i>/groups/:id/posts</i></td><td>Bảng tin nhóm, đăng bài trong nhóm.</td></tr>
+<tr><td>GET <i>/groups/:id/pending-posts</i>, POST <i>/groups/:id/posts/:postId/approve</i> | <i>reject</i></td><td>Duyệt bài.</td></tr>
+<tr><td>PUT <i>/groups/:id/members/:userId</i> <i>{ role }</i>, POST <i>/groups/:id/bans</i>, DELETE <i>/groups/:id/bans/:userId</i></td><td>Đổi vai trò, cấm, bỏ cấm.</td></tr>
+<tr><td>GET <i>/groups/:id/reports</i>, POST <i>/groups/:id/reports/:rid/resolve</i> <i>{ action }</i></td><td>Hàng chờ báo cáo của nhóm (không lộ người báo cáo).</td></tr>
+<tr><td>GET <i>/groups/:id/mod-log</i></td><td>Nhật ký quản trị nhóm (quản trị nhóm và quản trị viên app).</td></tr>
+<tr><td>GET <i>/feed/groups</i></td><td>Bài mới từ các nhóm của tôi.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị mới (ảnh bìa và ảnh bài viết dùng <i>expo-image-picker</i> đã cấu hình). Không cần thư viện mới.</li>
+<li>Mobile: thư mục mới <i>apps/mobile/src/features/groups</i> theo cách tổ chức theo tính năng (DEC-001): trang nhóm, tạo nhóm, câu hỏi khi xin vào, bảng quản trị nhóm (đơn, bài chờ, báo cáo, thành viên, cấm, nhật ký). Dùng lại PostCard và màn soạn bài.</li>
+<li>Liên kết sâu tới nhóm (ví dụ <i>mobilesocial://groups/&lt;id&gt;</i>) phải chạy trên cả hai nền tảng (scheme <i>mobilesocial</i> đã có trong <i>app.json</i>).</li>
+<li>Web quản trị app: thêm trang danh sách nhóm, báo cáo theo nhóm, nhật ký quản trị nhóm, nút đình chỉ nhóm.</li>
+<li>Chi phí: không có dịch vụ ngoài mới; tải cơ sở dữ liệu và kho tệp tăng theo số bài.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Tạo được ba loại nhóm; nhóm ẩn trả 404 với người ngoài, kể cả khi đoán đúng id.</li>
+<li>Xin vào nhóm riêng tư có câu hỏi; quản trị nhóm duyệt và từ chối; người xin nhận thông báo; đơn hết hạn sau 30 ngày.</li>
+<li>Bài trong nhóm riêng tư không hiện ở bảng tin chính, trang cá nhân, Reels, tìm kiếm, và không đăng lại được (test tự động trên <i>visiblePostWhere</i>).</li>
+<li>Nhóm bật duyệt bài: bài chờ chỉ người đăng và quản trị thấy; duyệt xong mới hiện.</li>
+<li>Báo cáo theo luật app vào thẳng hàng đợi của app; báo cáo nội quy vào hàng chờ của nhóm; "chuyển lên" hoạt động; quản trị nhóm không thấy người báo cáo.</li>
+<li>Người bị cấm khỏi nhóm không đăng, không xin lại được; người chặn nhau không thấy bài của nhau trong nhóm.</li>
+<li>Quản trị viên app xem nhật ký nhóm, đình chỉ nhóm được.</li>
+<li>Chạy trên Android và iPhone thật, ghi rõ trong <i>docs/change.md</i>.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 15 ngày (bảng và quyền: 4; đơn xin vào, lời mời: 3; bài nhóm, duyệt bài, sửa <i>visiblePostWhere</i>: 3; báo cáo, nhật ký, công cụ quản trị app: 3; thông báo: 2). Mobile 14 ngày (trang nhóm, bảng tin nhóm: 4; tạo nhóm, câu hỏi: 3; bảng quản trị nhóm: 5; mục Nhóm, thông báo: 2). Kiểm thử 5 ngày.</li>
+<li>Phụ thuộc: C1 (hàng đợi kiểm duyệt app), C2 (xử phạt theo bậc cho chủ nhóm), C3 (phân quyền quản trị app để xem nhóm), B6 (nhóm 18+), B7 (bộ lọc bình luận dùng trong nhóm), D8 (cài đặt thông báo theo nhóm), D5 nếu sau này muốn đưa bài nhóm lên bảng tin chính.</li>
+<li>Rủi ro: lộ bài nhóm kín nếu có một truy vấn bài viết nào không đi qua <i>visiblePostWhere</i> (cần rà toàn bộ truy vấn <i>post.findMany</i>); khối lượng kiểm duyệt tăng mạnh; quản trị nhóm là người dùng thường, có thể lạm quyền.</li>
+</ul>

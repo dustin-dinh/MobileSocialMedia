@@ -1,0 +1,222 @@
+{
+ "id": "b6-bao-cao-duoi-18",
+ "title": "Báo cáo người có thể dưới 18 tuổi và xem xét",
+ "lanes": [
+  {
+   "name": "Người báo cáo"
+  },
+  {
+   "name": "Máy chủ"
+  },
+  {
+   "name": "Quản trị viên"
+  },
+  {
+   "name": "Người bị báo cáo"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Chọn 'Có thể chưa đủ 18 tuổi'"
+  },
+  {
+   "id": "save",
+   "type": "data",
+   "lane": 1,
+   "row": 0,
+   "label": "Lưu báo cáo UNDERAGE"
+  },
+  {
+   "id": "many",
+   "type": "decision",
+   "lane": 1,
+   "row": 1,
+   "label": "≥ 3 người báo / 30 ngày?"
+  },
+  {
+   "id": "q",
+   "type": "process",
+   "lane": 2,
+   "row": 1,
+   "label": "Vào hàng đợi, ưu tiên thường"
+  },
+  {
+   "id": "limit",
+   "type": "process",
+   "lane": 1,
+   "row": 2,
+   "label": "Hạn chế tạm, đẩy lên đầu hàng đợi"
+  },
+  {
+   "id": "look",
+   "type": "process",
+   "lane": 2,
+   "row": 2,
+   "label": "Xem hồ sơ, bài, ảnh, bình luận"
+  },
+  {
+   "id": "note",
+   "type": "io",
+   "lane": 3,
+   "row": 2,
+   "label": "Báo 'Một số tính năng tạm giới hạn'"
+  },
+  {
+   "id": "dec",
+   "type": "decision",
+   "lane": 2,
+   "row": 3,
+   "label": "Kết luận?"
+  },
+  {
+   "id": "close",
+   "type": "end",
+   "lane": 1,
+   "row": 3,
+   "label": "Đóng báo cáo, gỡ hạn chế"
+  },
+  {
+   "id": "lock1",
+   "type": "sub",
+   "lane": 3,
+   "row": 3,
+   "label": "Khóa vì tuổi (sơ đồ kháng nghị)"
+  },
+  {
+   "id": "ask",
+   "type": "process",
+   "lane": 2,
+   "row": 4,
+   "label": "Yêu cầu xác minh tuổi"
+  },
+  {
+   "id": "dl",
+   "type": "data",
+   "lane": 1,
+   "row": 4,
+   "label": "Ghi hạn xác minh 14 ngày"
+  },
+  {
+   "id": "push",
+   "type": "io",
+   "lane": 3,
+   "row": 4,
+   "label": "Màn 'Cần xác minh tuổi trong 14 ngày'"
+  },
+  {
+   "id": "ok",
+   "type": "decision",
+   "lane": 3,
+   "row": 5,
+   "label": "Xác minh đạt trước hạn?"
+  },
+  {
+   "id": "clear",
+   "type": "end",
+   "lane": 1,
+   "row": 5,
+   "label": "Gỡ hạn chế, ghi 'đã xác minh'"
+  },
+  {
+   "id": "lock2",
+   "type": "sub",
+   "lane": 3,
+   "row": 6,
+   "label": "Khóa vì tuổi (sơ đồ kháng nghị)"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "save"
+  },
+  {
+   "from": "save",
+   "to": "many",
+   "exit": "bottom",
+   "entry": "top"
+  },
+  {
+   "from": "many",
+   "to": "q",
+   "label": "Không"
+  },
+  {
+   "from": "many",
+   "to": "limit",
+   "label": "Có"
+  },
+  {
+   "from": "limit",
+   "to": "look",
+   "exit": "right",
+   "entry": "left"
+  },
+  {
+   "from": "q",
+   "to": "look"
+  },
+  {
+   "from": "look",
+   "to": "note",
+   "dashed": true,
+   "exit": "right",
+   "entry": "left"
+  },
+  {
+   "from": "look",
+   "to": "dec"
+  },
+  {
+   "from": "dec",
+   "to": "close",
+   "label": "Ổn",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "dec",
+   "to": "lock1",
+   "label": "Dưới 18",
+   "exit": "right",
+   "entry": "left"
+  },
+  {
+   "from": "dec",
+   "to": "ask",
+   "label": "Nghi ngờ"
+  },
+  {
+   "from": "ask",
+   "to": "dl",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "ask",
+   "to": "push",
+   "exit": "right",
+   "entry": "left"
+  },
+  {
+   "from": "push",
+   "to": "ok"
+  },
+  {
+   "from": "ok",
+   "to": "clear",
+   "label": "Có",
+   "exit": "left",
+   "entry": "right"
+  },
+  {
+   "from": "ok",
+   "to": "lock2",
+   "label": "Không / hết hạn"
+  }
+ ]
+}

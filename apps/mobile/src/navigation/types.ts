@@ -39,6 +39,8 @@ export type MainTabParamList = {
 
 /** Screens pushed on top of the tab bar. `Tabs` is the tab navigator itself. */
 export type MainStackParamList = {
+  /** Risk warning and the switch for anonymous messages. */
+  AnonymousMessages: undefined;
   BlockedUsers: undefined;
   ChangePassword: undefined;
   /** One-to-one conversation. */
@@ -76,7 +78,8 @@ export type MainStackParamList = {
     groups: StoryGroup[];
     startIndex: number;
   };
-  StoryViewers: {
+  /** Who reacted to one of your stories (anonymous reactions show as "Người ẩn danh"). */
+  StoryReactions: {
     storyId: string;
   };
   Tabs: { params?: { query?: string }; screen: keyof MainTabParamList } | undefined;

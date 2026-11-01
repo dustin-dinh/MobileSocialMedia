@@ -1,0 +1,138 @@
+<h3>C1. Hàng đợi kiểm duyệt (tự động quét + người duyệt)</h3>
+<p><i>Nhóm: Kiểm duyệt và quản trị · Giai đoạn: GĐ1 · Ước lượng: 13–15 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện nay báo cáo của người dùng nằm thành một danh sách xếp theo thời gian, và bài viết, bình luận, ảnh công khai không được máy kiểm tra. Nội dung nguy hiểm (lừa đảo, xâm hại trẻ em, đe dọa bạo lực) có thể nằm trên bảng tin hàng giờ trước khi có người xem tới. Tính năng này gom hai nguồn tín hiệu (máy quét tự động và báo cáo của người dùng) vào <b>một hàng đợi duy nhất</b>, xếp theo mức nguy hiểm và có hạn xử lý (SLA, tức thời hạn tối đa từ lúc vào hàng đợi đến lúc có người quyết). Người dùng được lợi vì nội dung xấu bị ẩn sớm; người báo cáo và người đăng đều được báo kết quả; người duyệt biết việc nào cần làm trước.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Báo cáo</b> (<i>apps/api/src/modules/reports</i>): <i>POST /reports</i> nhận đối tượng <i>POST</i>, <i>COMMENT</i>, <i>USER</i>, <i>CONVERSATION</i> và lý do <i>SPAM</i>, <i>HARASSMENT</i>, <i>SENSITIVE</i>, <i>MISINFORMATION</i>, <i>SCAM</i>, <i>OTHER</i>. Mỗi người chỉ có một báo cáo cho một đối tượng (báo cáo lại chỉ cập nhật lý do). Báo cáo hội thoại lưu bản chụp 50 tin gần nhất; hội thoại ẩn danh bị đóng ngay và người gửi ẩn danh mất quyền gửi ẩn danh cho tới khi admin xem.</li>
+<li><b>Chưa báo cáo được story</b>: app có nút báo cáo ở bài viết, bình luận, Reels, trang cá nhân và cuộc trò chuyện (<i>apps/mobile/src/features/report/ReportModal.tsx</i>), không có ở story.</li>
+<li><b>Chưa có lý do</b> cho xâm hại trẻ em, bạo lực, tự hại, thù ghét, giả mạo danh tính.</li>
+<li><b>Server không chặn tự báo cáo chính mình</b> và không có giới hạn riêng cho báo cáo; chỉ có trần chung 300 request mỗi phút mỗi IP (<i>app.module.ts</i>).</li>
+<li><b>Trang quản trị</b> (<i>apps/api/src/modules/admin</i>, trang <i>admin.html</i>): tab Báo cáo liệt kê từng báo cáo theo trạng thái <i>OPEN / RESOLVED / DISMISSED</i>, xếp <b>mới nhất trước</b>, không có mức ưu tiên, không có SLA, không gộp các báo cáo cùng một đối tượng thành một mục. Ba hành động: <i>DISMISS</i>, <i>REMOVE_CONTENT</i> (chỉ bài viết và bình luận), <i>BAN_USER</i>. Xử lý một báo cáo thì mọi báo cáo đang mở cùng đối tượng được đóng cùng lúc; ghi <i>resolvedById</i>, <i>resolvedAt</i>.</li>
+<li><b>Gỡ bình luận là xóa hẳn</b> (<i>comment.deleteMany</i>), nên không khôi phục được nếu kháng nghị thắng (C2). Gỡ bài viết là xóa mềm (<i>Post.deletedAt</i>).</li>
+<li><b>Máy quét</b> (<i>apps/api/src/modules/moderation</i>): mô hình ảnh NSFW (<i>image-moderation.service.ts</i>, chạy ngay trên server, ngưỡng 0,7) <b>chỉ chạy cho ảnh trong tin nhắn</b>. Luật chữ (<i>text-safety.ts</i>) chỉ chạy cho tin nhắn ẩn danh và tin nhắn chờ. Bài viết, bình luận, story, ảnh đại diện, ảnh bìa <b>không được quét</b>.</li>
+<li><b>Không tự ẩn</b> nội dung theo số báo cáo. <b>Không báo</b> cho người báo cáo hay người đăng biết kết quả. Bảng <i>Notification</i> bắt buộc có <i>actorId</i> (người gây ra thông báo), nên chưa gửi được thông báo "từ hệ thống".</li>
+<li>Không có hệ thống chạy việc nền (không Redis, không BullMQ, không <i>@nestjs/schedule</i>). Gửi email đã có (<i>nodemailer</i>, <i>modules/mail</i>).</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Nội dung mới được quét tự động</b></p>
+<ol>
+<li>Người dùng đăng bài, bình luận, story, hoặc đổi ảnh đại diện / ảnh bìa / tiểu sử. Máy chủ lưu và hiển thị ngay, không bắt người dùng chờ quét.</li>
+<li>Máy chủ ghi một việc quét vào cơ sở dữ liệu (trạng thái "chờ quét"). Một tiến trình nền lấy việc ra lần lượt.</li>
+<li>Quét chữ: chạy luật từ khóa và luật liên lạc (link, số điện thoại, số tài khoản) của <i>text-safety.ts</i> cùng danh sách từ cấm của B7. Kết quả là mã luật bị khớp và mức: không có gì / cần xem / nặng.</li>
+<li>Nếu có ảnh: chạy mô hình NSFW sẵn có. Video: chấm ảnh bìa (<i>thumbnailUrl</i> đã có cho video); chấm nhiều khung hình thuộc B5.</li>
+<li>Mô hình không chạy được (chưa tải, lỗi): ghi lỗi, trang quản trị hiện cảnh báo đỏ như hiện nay, và nội dung có ảnh được <b>đưa thẳng vào hàng đợi</b> để người xem.</li>
+<li>Dưới ngưỡng cần duyệt: giữ nguyên, chỉ lưu kết quả quét (mã luật, mức), không lưu điểm số ảnh.</li>
+<li>Vượt ngưỡng cần duyệt nhưng chưa tới ngưỡng ẩn: vào hàng đợi, nội dung vẫn hiện (ảnh có thể bị làm mờ theo B5).</li>
+<li>Vượt ngưỡng ẩn ngay: nội dung bị ẩn tạm với mọi người trừ người đăng; người đăng thấy nhãn "Đang được xem xét" và nhận thông báo. Mục vào hàng đợi.</li>
+</ol>
+<p><b>Luồng 2: Người dùng báo cáo</b></p>
+<ol>
+<li>Người dùng bấm Báo cáo, chọn lý do (danh sách mới ở mục f), có thể ghi chú tối đa 500 ký tự.</li>
+<li>Máy chủ kiểm tra: đối tượng còn tồn tại, không tự báo cáo chính mình, chưa vượt giới hạn báo cáo. Sai thì trả lỗi, app hiện lời nhắn ngắn.</li>
+<li>Lưu báo cáo. Bài viết và bình luận cũng được chụp lại nội dung lúc báo cáo (như hội thoại hiện nay), để người đăng sửa hay xóa thì bằng chứng vẫn còn.</li>
+<li>Máy chủ gộp báo cáo vào <b>mục hàng đợi của đối tượng đó</b> (mỗi đối tượng một mục), tính lại mức ưu tiên và đếm số người báo cáo khác nhau.</li>
+<li>Đủ ngưỡng tự ẩn (bảng ở mục e): ẩn tạm và báo người đăng "Đang được xem xét".</li>
+<li>App hiện "Cảm ơn, chúng tôi đã nhận báo cáo" và gợi ý chặn hoặc tắt tiếng người kia (B8). Người báo cáo xem trạng thái ở mục "Báo cáo của bạn" trong Cài đặt.</li>
+<li>Báo cáo hội thoại ẩn danh giữ nguyên hành vi hiện có (đóng ngay, tước quyền gửi ẩn danh) và vào hàng đợi mức P1.</li>
+</ol>
+<p><b>Luồng 3: Người duyệt xử lý một mục</b></p>
+<ol>
+<li>Kiểm duyệt viên mở tab Hàng đợi. Máy chủ giao mục có ưu tiên cao nhất, trong cùng mức thì mục sắp quá hạn trước, và giữ mục đó cho người này 15 phút để hai người không xử lý trùng.</li>
+<li>Màn hình hiện: nội dung (ảnh bị làm mờ cho tới khi bấm), mọi báo cáo và lý do, kết quả máy quét, lịch sử vi phạm của người đăng (số điểm cảnh cáo C2), các lần xử lý trước đó.</li>
+<li>Chưa đủ chắc: bấm "Chuyển lên quản trị viên". Mục chuyển sang trạng thái chờ quản trị viên, giữ nguyên hạn SLA.</li>
+<li>Không vi phạm: bấm "Bỏ qua". Nội dung đang bị ẩn tạm thì hiện lại; các báo cáo đóng với trạng thái "không vi phạm".</li>
+<li>Có vi phạm: chọn hành động (gỡ nội dung, đánh dấu nhạy cảm/làm mờ, hoặc khóa tài khoản) và chọn <b>điều khoản bị vi phạm</b> trong danh sách cố định. Máy chủ thực hiện, rồi gọi C2 để cộng điểm cảnh cáo.</li>
+<li>Máy chủ đóng mọi báo cáo cùng đối tượng, ghi nhật ký thao tác (C3), và gửi thông báo:
+<ul>
+<li>Người báo cáo: "Chúng tôi đã xem báo cáo của bạn. Nội dung đã bị gỡ" hoặc "không vi phạm tiêu chuẩn cộng đồng". Không nói người kia bị phạt thế nào.</li>
+<li>Người đăng (chỉ khi có xử lý): nội dung nào, vi phạm điều khoản nào, hậu quả, nút "Kháng nghị" (C2).</li>
+</ul></li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Sơ đồ C1-1: nội dung mới đi qua máy quét tự động.</p>
+<!--FLOW:c1-quet-tu-dong-->
+<p>Sơ đồ C1-2: báo cáo của người dùng và ngưỡng tự ẩn.</p>
+<!--FLOW:c1-bao-cao-nguoi-dung-->
+<p>Sơ đồ C1-3: người duyệt xử lý một mục.</p>
+<!--FLOW:c1-nguoi-duyet-xu-ly-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<p><b>Mức ưu tiên và SLA (đề xuất)</b></p>
+<table>
+<tr><th>Mức</th><th>Loại</th><th>SLA</th><th>Tự ẩn khi</th></tr>
+<tr><td>P0</td><td>Xâm hại trẻ em (<i>CHILD_SAFETY</i>), nguy cơ tự hại (<i>SELF_HARM</i>), đe dọa giết người hoặc khủng bố</td><td>1 giờ</td><td>1 báo cáo hợp lệ (xâm hại trẻ em, đe dọa). Tự hại: không ẩn, app hiện thông tin đường dây hỗ trợ cho người đăng</td></tr>
+<tr><td>P1</td><td>Lừa đảo (<i>SCAM</i>), bạo lực (<i>VIOLENCE</i>), báo cáo hội thoại ẩn danh</td><td>4 giờ</td><td>3 người khác nhau trong 24 giờ</td></tr>
+<tr><td>P2</td><td>Quấy rối, thù ghét, khỏa thân/nhạy cảm, giả mạo danh tính; nội dung máy quét đánh giá "nặng"</td><td>24 giờ</td><td>5 người khác nhau trong 24 giờ, hoặc máy quét đánh giá "nặng" (ảnh NSFW từ 0,9)</td></tr>
+<tr><td>P3</td><td>Spam, thông tin sai lệch, lý do khác; máy quét đánh giá "cần xem"</td><td>72 giờ</td><td>Không tự ẩn</td></tr>
+</table>
+<ul>
+<li><b>Nâng mức</b>: mục có từ 10 người báo cáo khác nhau được nâng một mức. Mục có nhiều lý do lấy lý do có mức cao nhất.</li>
+<li><b>Quá hạn SLA</b>: mục quá hạn nổi lên đầu hàng đợi và tô đỏ. Mục P0 quá hạn 30 phút thì gửi email cho mọi quản trị viên.</li>
+<li><b>Báo cáo được tính vào ngưỡng tự ẩn</b> chỉ khi tài khoản báo cáo từ 7 ngày tuổi, đã xác thực email, và chưa có từ 3 báo cáo bị kết luận "không vi phạm" trong 30 ngày. Báo cáo không đủ điều kiện vẫn vào hàng đợi, chỉ không đẩy việc tự ẩn. Mục đích: chống nhóm người hùa nhau báo cáo để ẩn bài của người khác.</li>
+<li><b>Không tự ẩn tài khoản</b> (đối tượng <i>USER</i>). Khóa tài khoản luôn do người quyết, trừ cơ chế ẩn danh đã có.</li>
+<li><b>Giới hạn báo cáo</b>: 20 báo cáo mỗi giờ mỗi người (đề xuất). Không báo cáo được chính mình. Báo cáo lại cùng đối tượng chỉ cập nhật lý do, không đếm thêm (giữ như hiện nay).</li>
+<li><b>Người đăng tự xóa nội dung khi đang chờ duyệt</b>: mục vẫn mở, người duyệt xem bản chụp; vẫn có thể cộng cảnh cáo.</li>
+<li><b>Người đăng đã bị khóa</b>: mục vẫn xử lý để ra kết luận cho người báo cáo.</li>
+<li><b>Báo cáo sau khi mục đã đóng</b>: mục mở lại nếu có lý do mức cao hơn kết luận cũ, hoặc thêm 5 người khác nhau báo cáo. Nếu không, báo cáo được ghi nhận và đóng ngay với kết luận cũ.</li>
+<li><b>Lỗi mạng khi báo cáo</b>: app cho gửi lại; server dùng upsert nên gửi lại không tạo bản ghi trùng (đã đúng ở code hiện tại).</li>
+<li><b>Ảnh nghi xâm hại trẻ em</b>: mô hình NSFW không phát hiện đáng tin loại này (<i>MODERATION_PLAN.md</i>, mục 4). Báo cáo <i>CHILD_SAFETY</i> được ẩn ngay; người duyệt không tải ảnh về, không chuyển tiếp; quy trình báo cơ quan chức năng do người vận hành quyết, <b>cần luật sư xác nhận</b>. Công cụ đối chiếu ảnh đã biết (ví dụ PhotoDNA) cần xin cấp quyền riêng, không nằm trong ước lượng này.</li>
+<li><b>Yêu cầu gỡ từ cơ quan chức năng</b> (Nghị định 147/2024 đặt thời hạn gỡ khi có yêu cầu; con số cụ thể <b>cần luật sư xác nhận</b>): quản trị viên tạo mục thủ công mức P0.</li>
+<li><b>Sức khỏe người duyệt</b>: ảnh và video mặc định bị làm mờ và đen trắng trong trang quản trị cho tới khi bấm xem.</li>
+<li><b>Máy quét chậm</b>: mỗi ảnh mất khoảng 0,5–0,7 giây trên CPU. Hàng việc quét tồn quá 1.000 việc thì trang quản trị hiện cảnh báo.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p><b>Toàn bộ mục này là đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> và thống nhất trước khi code. Các route cũ <i>GET /admin/reports</i> và <i>POST /admin/reports/:id/resolve</i> giữ chạy trong thời gian chuyển đổi.</p>
+<table>
+<tr><th>Thay đổi</th><th>Nội dung</th></tr>
+<tr><td>Bảng mới <i>ModerationCase</i></td><td><i>id, targetType, targetId, ownerId</i> (người đăng), <i>status</i> (<i>OPEN | ESCALATED | RESOLVED | DISMISSED</i>), <i>priority</i> (0–3), <i>category</i>, <i>source</i> (<i>SCAN | REPORT | BOTH | MANUAL</i>), <i>autoHidden</i>, <i>reporterCount</i>, <i>dueAt</i> (hạn SLA), <i>assigneeId</i>, <i>lockedUntil</i>, <i>decision</i>, <i>policyCode</i> (điều khoản vi phạm), <i>decisionNote</i>, <i>resolvedById</i>, <i>resolvedAt</i>, <i>createdAt</i>. Duy nhất theo (<i>targetType, targetId</i>). Chỉ mục theo (<i>status, priority, dueAt</i>).</td></tr>
+<tr><td>Bảng mới <i>ScanJob</i></td><td><i>id, targetType, targetId, status</i> (<i>PENDING | DONE | FAILED</i>), <i>attempts</i>, <i>verdict</i> (<i>CLEAN | REVIEW | HIDE</i>), <i>ruleCodes</i> (mảng mã luật), <i>createdAt, doneAt</i>. Không lưu điểm số ảnh.</td></tr>
+<tr><td><i>Report</i></td><td>Thêm <i>caseId</i>; <i>snapshot</i> dùng cho cả bài viết và bình luận; thêm <i>counted</i> (báo cáo có được tính vào ngưỡng tự ẩn không). Sửa chú thích <i>targetType</i> trong schema (hiện ghi thiếu <i>CONVERSATION</i>).</td></tr>
+<tr><td><i>Post</i>, <i>Comment</i>, <i>Story</i></td><td>Thêm <i>hiddenAt</i> (ẩn tạm chờ duyệt) và <i>removedAt</i> (bị gỡ do vi phạm). Bình luận chuyển sang xóa mềm khi admin gỡ, để khôi phục được khi kháng nghị thắng. Trường "nhạy cảm" cho bài viết thuộc B5, dùng chung tên trường.</td></tr>
+<tr><td><i>Notification</i></td><td>Thêm loại <i>REPORT_RESULT</i>, <i>CONTENT_UNDER_REVIEW</i>, <i>CONTENT_REMOVED</i>; <i>actorId</i> cho phép rỗng (thông báo từ hệ thống). Phối hợp với D8.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Mô tả</th></tr>
+<tr><td><i>POST /reports</i></td><td>Thêm <i>targetType: STORY</i>; thêm lý do <i>CHILD_SAFETY, SELF_HARM, VIOLENCE, HATE, NUDITY, IMPERSONATION</i>. Lỗi mới: <i>CANNOT_REPORT_SELF</i>, <i>REPORT_LIMIT</i> (429).</td></tr>
+<tr><td><i>GET /reports/mine</i></td><td>Người báo cáo xem báo cáo của mình: đối tượng, lý do, trạng thái (<i>Đang xem xét / Đã gỡ / Không vi phạm</i>).</td></tr>
+<tr><td><i>GET /admin/queue?status=&amp;priority=&amp;category=&amp;page=</i></td><td>Danh sách mục, xếp theo ưu tiên rồi <i>dueAt</i>; mỗi mục có số báo cáo, lý do, kết quả quét, hạn SLA.</td></tr>
+<tr><td><i>POST /admin/queue/next</i></td><td>Nhận mục tiếp theo và giữ 15 phút.</td></tr>
+<tr><td><i>POST /admin/cases/:id/release</i></td><td>Trả mục về hàng đợi.</td></tr>
+<tr><td><i>POST /admin/cases/:id/decision</i></td><td><i>{ action: DISMISS | REMOVE | MARK_SENSITIVE | BAN_USER | ESCALATE, policyCode, severity, note }</i>. Từ chối nếu mục đang được người khác giữ.</td></tr>
+<tr><td><i>GET /admin/stats</i></td><td>Thêm số mục mở theo mức, số mục quá hạn, số việc quét đang tồn.</td></tr>
+</table>
+<p>Tiến trình quét chạy trong chính tiến trình API, lấy việc từ bảng <i>ScanJob</i> mỗi vài giây. Đây là cách làm tạm cho một máy chủ; khi chạy nhiều bản API cần khóa hàng (<i>SELECT ... FOR UPDATE SKIP LOCKED</i>) hoặc chuyển sang hàng đợi Redis. Thêm thư viện lập lịch hay Redis là quyết định kiến trúc, phải ghi vào <i>docs/decisions.md</i>.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Trang quản trị là web (<i>admin.html</i> do API phục vụ), không phụ thuộc nền tảng di động.</li>
+<li>App: thêm lý do báo cáo mới và nút báo cáo story; nhãn "Đang được xem xét" trên bài của chính mình; màn hình "Báo cáo của bạn" trong Cài đặt; xử lý ba loại thông báo mới. Toàn bộ là giao diện React Native thường, chạy giống nhau trên Android và iOS, không cần quyền thiết bị mới, không cần thư viện mới.</li>
+<li>Thông báo đẩy dùng hạ tầng hiện có (FCM cho Android, APNs cho iOS); D8 phải chạy được trên cả hai thì C1 mới báo đẩy được.</li>
+<li><b>Yêu cầu cửa hàng</b>: App Store (Guideline 1.2) và Google Play yêu cầu app có nội dung người dùng tạo phải có cách báo cáo, cách chặn, và xử lý báo cáo kịp thời. C1 đáp ứng phần "xử lý kịp thời"; nên ghi SLA vào phần ghi chú khi nộp duyệt.</li>
+<li>Chi phí: máy quét chạy trên CPU của máy chủ, không tốn phí dịch vụ ngoài. Ước tính 5.000 ảnh mỗi ngày chiếm khoảng 1 giờ CPU mỗi ngày.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Bài viết có ảnh NSFW điểm cao bị ẩn tạm trong 1 phút sau khi đăng, người đăng thấy nhãn "Đang được xem xét", mục xuất hiện trong hàng đợi mức P2.</li>
+<li>Tắt mô hình ảnh: bài có ảnh vẫn đăng được và vào hàng đợi; trang quản trị hiện cảnh báo.</li>
+<li>3 tài khoản đủ điều kiện báo cáo lừa đảo cùng một bài trong 24 giờ: bài bị ẩn tạm. 3 tài khoản mới tạo hôm nay: bài không bị ẩn nhưng vẫn vào hàng đợi.</li>
+<li>Hàng đợi xếp đúng P0 trước P3, trong cùng mức mục sắp quá hạn trước; hai người duyệt mở cùng lúc không nhận cùng một mục.</li>
+<li>Bỏ qua một mục đang ẩn: nội dung hiện lại. Gỡ một bình luận: bình luận bị ẩn mềm, khôi phục được.</li>
+<li>Người báo cáo và người đăng nhận đúng thông báo; người báo cáo không thấy hình phạt của người kia.</li>
+<li>Không tự báo cáo được chính mình; báo cáo thứ 21 trong một giờ bị từ chối.</li>
+<li>Báo cáo story và các lý do mới chạy trên Android và iPhone (ghi rõ thiết bị đã chạy trong <i>docs/change.md</i>).</li>
+<li>Bổ sung phép thử vào <i>apps/api/scripts/safety-smoke.cjs</i> cho ngưỡng tự ẩn, thứ tự hàng đợi, khóa mục 15 phút.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 8 ngày (bảng mới, tiến trình quét, gộp báo cáo, ngưỡng tự ẩn, ẩn nội dung ở bảng tin/trang cá nhân/tìm kiếm, API hàng đợi), trang quản trị 2 ngày (tính trong backend vì là <i>admin.html</i>), mobile 3 ngày, kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: B5 (làm mờ và trường nhạy cảm cho bài viết, chấm nhiều khung hình video), B7 (danh sách từ cấm cho bình luận), B3 (luật lừa đảo), D8 (thông báo đẩy và loại thông báo hệ thống), C3 (nhật ký thao tác; nếu C3 làm sau, C1 ghi tạm vào <i>ModerationCase</i>). C2 dùng kết quả của C1.</li>
+<li>Rủi ro: ẩn nhầm do người dùng hùa nhau báo cáo (giảm bằng điều kiện tài khoản báo cáo); mô hình ảnh chặt tay nên hàng đợi P2 có thể đông; không đủ người duyệt để giữ SLA P0 1 giờ ngoài giờ hành chính. Đội ngũ trực là quyết định vận hành của chủ dự án.</li>
+</ul>

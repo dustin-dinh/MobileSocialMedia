@@ -1,0 +1,31 @@
+{"id":"d3-tham-gia-nhom","title":"Xin vào nhóm cộng đồng",
+"lanes":[{"name":"Người dùng"},{"name":"Máy chủ","cols":2},{"name":"Quản trị nhóm"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Tham gia nhóm"},
+ {"id":"vis","type":"decision","lane":1,"row":0,"label":"Được thấy nhóm?"},
+ {"id":"no","type":"end","lane":1,"col":1,"row":0,"label":"Từ chối (404 hoặc 403)"},
+ {"id":"ban","type":"decision","lane":1,"row":1,"label":"Bị nhóm cấm?"},
+ {"id":"pub","type":"decision","lane":1,"row":2,"label":"Nhóm công khai?"},
+ {"id":"now","type":"end","lane":1,"col":1,"row":2,"label":"Vào nhóm ngay, ghi GroupMember"},
+ {"id":"q","type":"decision","lane":1,"row":3,"label":"Nhóm có câu hỏi?"},
+ {"id":"ans","type":"io","lane":0,"row":3,"label":"Trả lời câu hỏi, đồng ý nội quy"},
+ {"id":"req","type":"data","lane":1,"row":4,"label":"Ghi GroupJoinRequest PENDING"},
+ {"id":"noti","type":"process","lane":1,"row":5,"label":"Báo quản trị nhóm"},
+ {"id":"view","type":"io","lane":2,"row":5,"label":"Xem đơn và câu trả lời"},
+ {"id":"dec","type":"decision","lane":2,"row":6,"label":"Duyệt đơn?"},
+ {"id":"mem","type":"data","lane":1,"col":1,"row":7,"label":"Ghi GroupMember, báo người xin"},
+ {"id":"rej","type":"end","lane":2,"row":7,"label":"Từ chối, đơn đóng lại"},
+ {"id":"end","type":"end","lane":0,"row":8,"label":"Thấy bảng tin nhóm"}
+],
+"edges":[
+ {"from":"s","to":"vis"},
+ {"from":"vis","to":"no","label":"Không"},{"from":"vis","to":"ban","label":"Có"},
+ {"from":"ban","to":"no","label":"Có","exit":"right","entry":"bottom"},
+ {"from":"ban","to":"pub","label":"Không"},
+ {"from":"pub","to":"now","label":"Có"},{"from":"pub","to":"q","label":"Không"},
+ {"from":"q","to":"ans","label":"Có"},{"from":"q","to":"req","label":"Không"},
+ {"from":"ans","to":"req","exit":"bottom","entry":"left"},
+ {"from":"req","to":"noti"},{"from":"noti","to":"view"},{"from":"view","to":"dec"},
+ {"from":"dec","to":"mem","label":"Có"},{"from":"dec","to":"rej","label":"Không"},
+ {"from":"mem","to":"end"}
+]}

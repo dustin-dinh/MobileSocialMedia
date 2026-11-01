@@ -1,0 +1,33 @@
+{"id":"b2-bat-nhan-an-danh","title":"Bật, tạm dừng và tắt nhận tin nhắn ẩn danh",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Mở Cài đặt, Tin nhắn ẩn danh"},
+ {"id":"risk","type":"io","lane":1,"row":0,"label":"Màn rủi ro và cách bảo vệ"},
+ {"id":"d1","type":"decision","lane":0,"row":1,"label":"Bấm Tôi đã hiểu, bật?"},
+ {"id":"later","type":"end","lane":1,"row":1,"label":"Để sau: vẫn tắt"},
+ {"id":"opt","type":"io","lane":0,"row":2,"label":"Chọn ai được nhắn, giới hạn ngày"},
+ {"id":"save","type":"process","lane":1,"row":2,"label":"Gửi cài đặt lên máy chủ"},
+ {"id":"elig","type":"decision","lane":2,"row":2,"label":"Đủ điều kiện bật?"},
+ {"id":"eelig","type":"end","lane":2,"col":1,"row":2,"label":"Từ chối, nêu lý do"},
+ {"id":"db","type":"data","lane":2,"row":3,"label":"Lưu cài đặt, giờ đồng ý"},
+ {"id":"btn","type":"process","lane":2,"row":4,"label":"Hồ sơ hiện nút Nhắn ẩn danh"},
+ {"id":"done","type":"io","lane":1,"row":5,"label":"Báo đã bật, chỉ chỗ Tạm dừng"},
+ {"id":"pause","type":"process","lane":0,"row":6,"label":"Sau này: bấm Tạm dừng hoặc Tắt"},
+ {"id":"pick","type":"io","lane":1,"row":6,"label":"Chọn 24 giờ, 7 ngày, tắt hẳn"},
+ {"id":"d2","type":"decision","lane":2,"row":6,"label":"Tắt hẳn?"},
+ {"id":"off","type":"data","lane":2,"col":1,"row":6,"label":"allowAnonymous = false"},
+ {"id":"eoff","type":"end","lane":2,"col":1,"row":7,"label":"Hội thoại cũ chỉ còn đọc"},
+ {"id":"pz","type":"data","lane":2,"row":7,"label":"Lưu anonymousPausedUntil"},
+ {"id":"epz","type":"end","lane":2,"row":8,"label":"Người gửi được báo tạm dừng"}
+],
+"edges":[
+ {"from":"s","to":"risk"},{"from":"risk","to":"d1","exit":"bottom","entry":"top","via":[[1,0.5],[0,0.5]]},
+ {"from":"d1","to":"later","label":"Không"},{"from":"d1","to":"opt","label":"Có"},
+ {"from":"opt","to":"save"},{"from":"save","to":"elig"},
+ {"from":"elig","to":"eelig","label":"Không"},{"from":"elig","to":"db","label":"Có"},
+ {"from":"db","to":"btn"},{"from":"btn","to":"done"},
+ {"from":"done","to":"pause","dashed":true},
+ {"from":"pause","to":"pick"},{"from":"pick","to":"d2"},
+ {"from":"d2","to":"off","label":"Có"},{"from":"off","to":"eoff"},
+ {"from":"d2","to":"pz","label":"Không"},{"from":"pz","to":"epz"}
+]}

@@ -1,0 +1,131 @@
+<h3>D1. Nhắn tin nhóm</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 19–21 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Cho phép từ 3 đến 50 người trò chuyện chung trong một cuộc hội thoại (nhóm bạn, nhóm lớp, nhóm làm việc). Đây là tính năng người dùng mạng xã hội mặc định mong có. Khó nhất không phải là gửi tin cho nhiều người, mà là giữ nguyên các quy tắc an toàn đang có (tin nhắn chờ, chặn, cảnh báo lừa đảo) khi một hội thoại có nhiều người.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Mô hình dữ liệu chỉ cho hai người.</b> Bảng <i>Conversation</i> trong <i>apps/api/prisma/schema.prisma</i> có đúng hai cột người dùng <i>userAId</i>, <i>userBId</i>, cột <i>kind</i> (DIRECT, ANON_A, ANON_B) và ràng buộc duy nhất <i>(userAId, userBId, kind)</i>. Thời điểm đọc lưu ở hai cột <i>userAReadAt</i>, <i>userBReadAt</i>. Trạng thái tin nhắn chờ (<i>status</i> ACCEPTED, PENDING, DECLINED; <i>requesterId</i>), ẩn danh (<i>revealedAt</i>) và đóng hội thoại (<i>closedAt</i>) đều gắn với một cặp người.</li>
+<li><b>Mã máy chủ giả định hai người ở mọi chỗ.</b> Trong <i>apps/api/src/modules/messages/messages.service.ts</i>: <i>requireMember</i> chỉ so với userA/userB và trả về một <i>peerId</i>; <i>unreadByConversation</i> là câu SQL đọc <i>userAReadAt</i>/<i>userBReadAt</i>; <i>send</i> phát socket cho đúng hai người (<i>peerId</i>, <i>userId</i>) và push cho một người; <i>markRead</i> phát <i>message:read</i> cho một người. <i>apps/api/src/modules/reports/reports.service.ts</i> coi "người bị báo cáo" là người còn lại của cặp.</li>
+<li><b>Thời gian thực:</b> <i>notifications.gateway.ts</i> chỉ đẩy từ máy chủ xuống (<i>emitToUser</i> vào phòng <i>user:&lt;id&gt;</i>), chưa nhận sự kiện nào từ ứng dụng. Chỉ có một máy chủ, chưa có Redis adapter (cần kiểm tra lại khi chạy nhiều máy chủ).</li>
+<li><b>Ứng dụng:</b> <i>apps/mobile/src/features/messages</i> (ChatScreen, ConversationsScreen, NewMessageScreen, messageService). Kiểu <i>Conversation</i> có trường bắt buộc <i>peer</i> (một người); tiêu đề, ảnh đại diện và "Đã xem" trong ChatScreen đều dựa vào <i>peer</i> và <i>peerReadAt</i>.</li>
+<li><b>Thiếu:</b> không có bảng thành viên, tên nhóm, ảnh nhóm, vai trò quản trị, tin hệ thống ("A đã thêm B"), không có API hay màn hình nào cho nhóm.</li>
+</ul>
+<p><b>Ý nghĩa với nhóm chat: bắt buộc phải đổi cấu trúc dữ liệu (migration).</b> Có ba cách:</p>
+<table>
+<tr><th>Cách</th><th>Làm gì</th><th>Ưu</th><th>Nhược</th></tr>
+<tr><td>A (đề xuất)</td><td>Thêm bảng <i>ConversationMember</i> cho <b>mọi</b> hội thoại (chép sẵn 2 dòng cho mỗi hội thoại cũ). Hội thoại 1-1 giữ <i>userAId/userBId</i> để tìm cặp nhanh; nhóm để hai cột này trống. Thời điểm đọc chuyển sang <i>ConversationMember.lastReadAt</i>.</td><td>Một đường code cho đọc, chưa đọc, phát socket; 1-1 vẫn giữ nguyên quy tắc ẩn danh và tin nhắn chờ.</td><td>Phải sửa và kiểm thử lại toàn bộ luồng 1-1 đang chạy.</td></tr>
+<tr><td>B</td><td>Tạo bảng riêng <i>GroupConversation</i>, <i>GroupMessage</i>, không đụng 1-1.</td><td>Không rủi ro cho 1-1.</td><td>Hai bộ code gần giống nhau; báo cáo, xóa tài khoản, tìm kiếm tin nhắn (D9) phải làm hai lần.</td></tr>
+<tr><td>C</td><td>Bỏ hẳn userA/userB, mọi thứ qua bảng thành viên.</td><td>Gọn nhất về lâu dài.</td><td>Ràng buộc "mỗi cặp một hội thoại thường, một hội thoại ẩn danh mỗi chiều" phải viết lại bằng code; rủi ro cao nhất.</td></tr>
+</table>
+<p>Chọn cách nào là quyết định kiến trúc, phải ghi vào <i>docs/decisions.md</i> và bàn với người phụ trách backend trước khi làm (RULE.md, mục 7 và 9).</p>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Tạo nhóm</b></p>
+<ol>
+<li>Người dùng vào Tin nhắn, bấm "Tạo nhóm", chọn 2–49 người (tìm theo tên, ưu tiên người mình theo dõi), đặt tên nhóm (bắt buộc, 1–50 ký tự), chọn ảnh nhóm (không bắt buộc).</li>
+<li>Ứng dụng gửi tên, ảnh và danh sách người lên máy chủ.</li>
+<li>Máy chủ kiểm tra số người (2–49), giới hạn tạo nhóm (tối đa 10 nhóm mỗi 24 giờ, đề xuất).</li>
+<li>Máy chủ lặng lẽ bỏ những người có quan hệ chặn với người tạo (chiều nào cũng vậy). Người tạo chỉ thấy câu chung "Một số người không thể được thêm", không biết ai đã chặn mình.</li>
+<li>Với từng người còn lại: nếu người đó <b>đang theo dõi người tạo</b> thì được thêm thẳng; nếu không thì nhận <b>lời mời vào nhóm</b> trong mục "Tin nhắn chờ" (giống quy tắc tin nhắn chờ 1-1 hiện có).</li>
+<li>Máy chủ ghi hội thoại loại GROUP, các dòng thành viên (người tạo là quản trị viên), tin hệ thống "A đã tạo nhóm", rồi phát socket <i>conversation:new</i> cho thành viên và push cho người được mời.</li>
+<li>Ứng dụng mở màn hình nhóm.</li>
+</ol>
+<p><b>Luồng 2: Lời mời vào nhóm (người được mời)</b></p>
+<ol>
+<li>Người được mời thấy trong "Tin nhắn chờ": tên nhóm, ai mời, số thành viên, 3 thành viên mình có theo dõi (nếu có). Không thấy nội dung tin nhắn của nhóm.</li>
+<li>Có ba nút: "Tham gia", "Xóa lời mời", "Báo cáo". Xóa lời mời thì người mời không được báo (giống tin nhắn chờ 1-1).</li>
+<li>Tham gia: trở thành thành viên, thấy tin từ thời điểm vào nhóm (không thấy lịch sử trước đó, đề xuất), các thành viên thấy tin hệ thống "B đã tham gia".</li>
+<li>Lời mời không trả lời tự hết hạn sau 30 ngày (đề xuất).</li>
+</ol>
+<p><b>Luồng 3: Gửi tin và "Đã xem"</b></p>
+<ol>
+<li>Thành viên gửi tin chữ hoặc ảnh, kèm <i>clientId</i> như hiện nay.</li>
+<li>Máy chủ kiểm tra người gửi còn là thành viên, kiểm tra <i>clientId</i> trùng (gửi lại khi mất mạng), độ dài, quét ảnh nhạy cảm bằng <i>ImageModerationService</i> như 1-1.</li>
+<li>Máy chủ lưu tin, cập nhật <i>lastMessageAt</i>, rồi gửi socket <i>message:new</i> cho từng thành viên đang hoạt động. Thành viên đang bật tắt tiếng nhóm hoặc đã chặn người gửi thì không nhận push.</li>
+<li>Thành viên mở nhóm: ứng dụng gọi đánh dấu đã đọc, máy chủ lưu <i>lastReadAt</i> của thành viên đó và phát <i>message:read</i> cho cả nhóm.</li>
+<li>Dưới tin cuối của mình, người gửi thấy "Đã xem bởi 3 người"; chạm vào để xem danh sách ảnh đại diện. Khi mọi người đã xem: "Mọi người đã xem".</li>
+</ol>
+<p><b>Luồng 4: Quản trị nhóm, rời nhóm, xóa thành viên</b></p>
+<ol>
+<li>Quản trị viên được: thêm người (cùng quy tắc theo dõi/lời mời ở luồng 1), xóa thành viên, đổi tên và ảnh nhóm, chỉ định hoặc bỏ quản trị viên khác, bật "Chỉ quản trị viên được đổi thông tin nhóm" (mặc định bật, đề xuất).</li>
+<li>Thành viên thường được: thêm người nếu nhóm cho phép (mặc định cho phép, đề xuất), rời nhóm, tắt tiếng nhóm, báo cáo nhóm hoặc một tin.</li>
+<li>Rời nhóm hoặc bị xóa: máy chủ ghi <i>leftAt</i>, thêm tin hệ thống, nhóm biến khỏi hộp thư người đó. Người đã rời không đọc được tin mới; tin cũ vẫn lưu cho báo cáo.</li>
+<li>Nếu quản trị viên cuối cùng rời đi, quyền chuyển cho thành viên vào nhóm lâu nhất. Nếu không còn ai, nhóm và tệp ảnh của nhóm bị xóa.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Tạo nhóm và quy tắc thêm người:</p>
+<!--FLOW:d1-tao-nhom-chat-->
+<p>Gửi tin trong nhóm, xử lý người bị chặn và "Đã xem":</p>
+<!--FLOW:d1-gui-tin-nhom-->
+<p>Rời nhóm, xóa thành viên và chuyển quyền quản trị:</p>
+<!--FLOW:d1-roi-nhom-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Số thành viên:</b> tối đa 50 người một nhóm (đề xuất; Messenger cho 250). Con số nhỏ giữ chi phí phát socket và push thấp, và giảm nguy cơ nhóm bị dùng để spam. Có thể nâng sau.</li>
+<li><b>Giới hạn chống spam (đề xuất):</b> tạo tối đa 10 nhóm/24 giờ; thêm tối đa 20 người/giờ mỗi người; tối đa 30 tin/phút mỗi người (dùng <i>@nestjs/throttler</i> đã có trong <i>apps/api/package.json</i>).</li>
+<li><b>Không có ẩn danh trong nhóm.</b> Nhóm không có chế độ gửi ẩn danh; trả lời story ẩn danh vẫn chỉ mở hội thoại 1-1 như hiện nay. Lý do: ẩn danh trong nhóm khó kiểm duyệt và dễ thành công cụ bắt nạt tập thể.</li>
+<li><b>Chặn trong nhóm (đề xuất, cần chủ dự án duyệt):</b> hai người chặn nhau vẫn ở chung nhóm đã có. Tin của người mình chặn hiện thu gọn "Tin từ người bạn đã chặn — chạm để xem", không có push. Người bị chặn không thể thêm người chặn mình vào nhóm mới. Ứng dụng hiện dòng nhắc "Có người bạn đã chặn trong nhóm này".</li>
+<li><b>Tin nhắn chờ:</b> lời mời từ người mình không theo dõi nằm ở "Tin nhắn chờ". Chưa chấp nhận thì không nhận tin, không ai biết mình đã xem lời mời.</li>
+<li><b>Cảnh báo lừa đảo:</b> cờ <i>warning</i> hiện có tính theo người xem: tin từ thành viên mà người xem không theo dõi và có cụm từ lừa đảo (<i>hasScamWarning</i>) thì hiện cảnh báo. Không chặn link trong nhóm đã chấp nhận (giống 1-1 đã chấp nhận).</li>
+<li><b>Báo cáo:</b> báo cáo một tin hoặc cả nhóm. Bản chụp gồm 50 tin gần nhất như báo cáo hội thoại hiện có, nhưng phải ghi người bị báo cáo là người gửi tin được chọn, không phải "người còn lại".</li>
+<li><b>Mất mạng, gửi lại:</b> giữ cơ chế <i>clientId</i> hiện có; cùng <i>clientId</i> thì trả lại tin đã lưu.</li>
+<li><b>Tài khoản bị khóa hoặc xóa:</b> tài khoản bị khóa không gửi được; tin cũ vẫn hiện tên. Xóa tài khoản: hiện nay <i>Message.sender</i> có <i>onDelete: Cascade</i>, nghĩa là xóa tài khoản sẽ xóa cả tin của họ trong nhóm, làm hội thoại của người khác bị thủng. Cần quyết: giữ cascade (đơn giản) hay đổi thành "Người dùng đã xóa" (liên quan E2).</li>
+<li><b>Socket:</b> mỗi tin gọi <i>emitToUser</i> cho tối đa 50 người, mỗi lần ký lại URL ảnh riêng tư theo từng kết nối. Với 50 người chấp nhận được; nhóm lớn hơn thì nên cho socket vào phòng theo hội thoại.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đây là đề xuất theo cách A, cần đưa vào <i>docs/api-contract.md</i> và <i>docs/decisions.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>Conversation</i> (sửa)</td><td><i>kind</i> thêm giá trị GROUP; <i>userAId</i>, <i>userBId</i> cho phép trống với GROUP; thêm <i>name</i>, <i>avatarUrl</i> (lưu kho riêng tư, dạng <i>s3p:</i>), <i>createdById</i>, <i>membersCanAdd</i> (Boolean).</td></tr>
+<tr><td><i>ConversationMember</i> (mới)</td><td><i>conversationId</i>, <i>userId</i>, <i>role</i> (ADMIN | MEMBER), <i>status</i> (ACTIVE | INVITED | LEFT), <i>invitedById</i>, <i>joinedAt</i>, <i>leftAt</i>, <i>lastReadAt</i>, <i>mutedUntil</i>. Khóa chính <i>(conversationId, userId)</i>, chỉ mục <i>(userId, status)</i>. Hội thoại 1-1 cũ được chép thành 2 dòng.</td></tr>
+<tr><td><i>Message</i> (sửa)</td><td>Thêm <i>systemEvent</i> (CREATED, MEMBER_ADDED, MEMBER_LEFT, MEMBER_REMOVED, RENAMED, ADMIN_CHANGED) và <i>systemTargetId</i> cho tin hệ thống.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint</th><th>Việc</th></tr>
+<tr><td>POST <i>/conversations/groups</i></td><td>Tạo nhóm. Multipart: <i>name</i>, <i>memberIds[]</i>, <i>avatar</i> (tùy chọn). Lỗi: GROUP_SIZE, GROUP_DAILY_LIMIT.</td></tr>
+<tr><td>PATCH <i>/conversations/:id</i></td><td>Đổi tên, ảnh, <i>membersCanAdd</i>. Lỗi NOT_GROUP_ADMIN.</td></tr>
+<tr><td>GET <i>/conversations/:id/members</i></td><td>Danh sách thành viên, vai trò, <i>lastReadAt</i>.</td></tr>
+<tr><td>POST <i>/conversations/:id/members</i></td><td>Thêm người <i>{ userIds }</i>.</td></tr>
+<tr><td>DELETE <i>/conversations/:id/members/:userId</i></td><td>Quản trị viên xóa thành viên.</td></tr>
+<tr><td>POST <i>/conversations/:id/leave</i></td><td>Rời nhóm.</td></tr>
+<tr><td>POST / DELETE <i>/conversations/:id/admins/:userId</i></td><td>Thêm, bỏ quản trị viên.</td></tr>
+<tr><td>POST <i>/conversations/:id/accept</i>, <i>/decline</i> (đã có)</td><td>Dùng lại cho lời mời vào nhóm.</td></tr>
+<tr><td>POST <i>/conversations/:id/mute</i></td><td>Tắt tiếng nhóm <i>{ until }</i> (liên quan D8).</td></tr>
+</table>
+<p>Đối tượng hội thoại thêm <i>kind</i> và <i>group: { name, avatarUrl, memberCount, myRole }</i>; với nhóm, <i>peer</i> là null (ứng dụng phải sửa mọi chỗ đang dùng <i>peer</i>). Socket: thêm <i>conversation:new</i>; <i>message:read</i> thêm <i>userId</i>; <i>conversation:updated</i> (đã có) dùng cho đổi tên, thêm/bớt người.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li>Không cần quyền thiết bị mới: chọn ảnh nhóm dùng <i>expo-image-picker</i> đã cấu hình trong <i>app.json</i> (plugin có câu xin quyền thư viện ảnh <i>photosPermission</i> cho iOS, dùng chung cho Android).</li>
+<li>Không cần thư viện mới. Màn hình mới dùng thành phần sẵn có (PeerAvatar, ConfirmModal, toast). Ảnh đại diện nhóm ghép từ 2 ảnh thành viên khi chưa có ảnh nhóm.</li>
+<li>Push nhóm: tiêu đề là tên nhóm, nội dung "Tên: tin nhắn". Dùng Expo push hiện có (APNs và FCM qua Expo), không đổi gì riêng cho nền tảng nào.</li>
+<li>Bàn phím và vùng an toàn: màn hình thông tin nhóm có ô sửa tên phải dùng <i>KeyboardAvoidingView</i> đúng hành vi từng nền tảng như ChatScreen.</li>
+<li>Web quản trị (<i>apps/api/src/modules/admin/admin.html</i>): báo cáo nhóm phải hiện tên nhóm, danh sách thành viên và người bị báo cáo.</li>
+<li>Chi phí ngoài: không có.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Tạo nhóm 3 người, gửi chữ và ảnh, cả ba thấy tin ngay qua socket; người không mở app nhận push.</li>
+<li>Người không theo dõi người tạo nhận lời mời trong "Tin nhắn chờ", không thấy tin cho tới khi tham gia; xóa lời mời thì người mời không được báo.</li>
+<li>Không thêm được người đã chặn hoặc bị chặn; thông báo không lộ ai chặn ai.</li>
+<li>"Đã xem bởi N người" đúng sau khi từng người mở nhóm.</li>
+<li>Rời nhóm, bị xóa, quản trị viên cuối rời đi (quyền tự chuyển), nhóm hết người (bị xóa cùng tệp).</li>
+<li>Hội thoại 1-1, tin nhắn chờ, ẩn danh, tiết lộ danh tính, báo cáo hội thoại vẫn chạy như trước sau migration (test hồi quy).</li>
+<li>Vượt giới hạn: nhóm 50 người, 10 nhóm/ngày, 30 tin/phút trả đúng mã lỗi, app hiện câu tiếng Việt.</li>
+<li>Chạy trên máy Android và iPhone thật (ghi rõ đã chạy máy nào trong <i>docs/change.md</i>).</li>
+<li>Test tự động: migration chép đúng 2 thành viên cho mỗi hội thoại cũ; quyền quản trị; quy tắc chặn; đếm chưa đọc nhóm.</li>
+<li>Quản trị viên app xem được báo cáo nhóm với bản chụp tin và đúng người bị báo cáo.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 9 ngày (migration và sửa lại luồng 1-1: 4; API nhóm và quyền: 3; socket, push, báo cáo: 2). Mobile 8 ngày (sửa kiểu dữ liệu và ChatScreen cho nhóm: 3; tạo nhóm, thông tin nhóm, thành viên: 3; lời mời, Đã xem nhóm: 2). Kiểm thử 3 ngày.</li>
+<li>Phụ thuộc: B1 (quy tắc tin nhắn chờ dùng chung cho lời mời), D8 (tắt tiếng và cài đặt push theo nhóm), E2 (xóa tài khoản xử lý tin trong nhóm). Nên làm trước D2 vì D2 thêm nhiều trường vào <i>Message</i>, làm cùng lúc dễ xung đột migration.</li>
+<li>Rủi ro: migration làm hỏng luồng 1-1 đang chạy (cần test hồi quy kỹ); ChatScreen đã 990 dòng, thêm nhóm nên tách thành phần.</li>
+</ul>

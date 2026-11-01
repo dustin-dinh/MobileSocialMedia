@@ -1,0 +1,102 @@
+<h3>A5. Xác thực số điện thoại (OTP qua SMS)</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ1 nếu luật bắt buộc, nếu không thì GĐ4 · Ước lượng: 6 ngày công (chưa tính thời gian đăng ký với nhà mạng)</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Người dùng nhập số điện thoại, nhận mã 6 số qua SMS và nhập lại để chứng minh số đó là của mình. Lý do chính là <b>pháp lý</b>: theo hiểu biết hiện có, Nghị định 147/2024/NĐ-CP (về quản lý, cung cấp, sử dụng dịch vụ Internet và thông tin trên mạng, có hiệu lực từ 25/12/2024) yêu cầu mạng xã hội hoạt động tại Việt Nam xác thực tài khoản người dùng bằng số điện thoại di động Việt Nam (hoặc cách khác với người không có số). <b>Luật sư phải xác nhận</b>: Nghị định có áp dụng cho sản phẩm này không (quy mô, có cần giấy phép mạng xã hội không), thời điểm phải áp dụng với tài khoản cũ, cách xử lý người dùng nước ngoài, và yêu cầu lưu trữ dữ liệu. Lợi ích phụ: khó tạo tài khoản ảo hàng loạt hơn.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li>Chưa có gì về số điện thoại: bảng <i>User</i> trong <i>apps/api/prisma/schema.prisma</i> không có trường số điện thoại; không có dịch vụ SMS; không có biến môi trường cho nhà cung cấp SMS trong <i>apps/api/.env.example</i> (cần kiểm tra lại khi làm).</li>
+<li>Khuôn mã OTP đã có và dùng lại được: bảng <i>AuthToken</i>, mã 6 số tạo bằng randomInt, băm HMAC-SHA256 với <i>OTP_HASH_SECRET</i>, hạn 5 phút, sai tối đa 5 lần, gửi tối đa 3 lần/giờ (<i>auth.service.ts</i>, hàm issueVerificationOtp và verifyEmail).</li>
+<li>Đăng ký hiện bắt email, tên người dùng, mật khẩu, ngày sinh (<i>dto/register.dto.ts</i>); tài khoản Google tạo mới chưa có ngày sinh và được hỏi sau (BirthDateScreen). Số điện thoại có thể đi theo cùng cách "hỏi sau khi đăng nhập".</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1. Thêm và xác minh số</b></p>
+<ol>
+<li>Người dùng vào Cài đặt, Tài khoản, <b>Số điện thoại</b> (hoặc bị app đưa tới màn này nếu luật bắt buộc và tài khoản chưa có số).</li>
+<li>App hiện ô nhập số, mặc định đầu số +84. Người dùng nhập số, bấm Gửi mã.</li>
+<li>Máy chủ chuẩn hóa số về dạng quốc tế (ví dụ 0912 345 678 thành +84912345678), kiểm tra đúng đầu số di động Việt Nam và số chưa được tài khoản khác xác minh. Sai: báo lỗi.</li>
+<li>Máy chủ kiểm tra giới hạn gửi (xem mục e). Vượt: trả 429 "Thử lại sau".</li>
+<li>Máy chủ tạo mã 6 số, lưu bản băm (gắn với cả tài khoản và số điện thoại), hạn 5 phút, rồi gọi nhà cung cấp SMS gửi tin: "Ma xac minh cua ban la 123456. Khong chia se ma nay voi bat ky ai." (SMS thương hiệu thường gửi không dấu).</li>
+<li>App hiện ô nhập mã và nút "Gửi lại" sau 60 giây.</li>
+<li>Người dùng nhập mã. Máy chủ kiểm tra; sai thì báo, sai 5 lần thì hủy mã, phải gửi mã mới.</li>
+<li>Đúng: lưu số điện thoại và thời điểm xác minh. App báo "Đã xác minh số điện thoại".</li>
+</ol>
+<p><b>Luồng 2. Đổi số</b></p>
+<ol>
+<li>Người dùng bấm "Đổi số", nhập lại mật khẩu (hoặc mã 2FA), rồi làm lại luồng 1 với số mới.</li>
+<li>Số cũ chỉ bị thay khi số mới đã xác minh xong. Máy chủ gửi email "Số điện thoại của bạn vừa được đổi" kèm nút "Không phải tôi" (A3).</li>
+</ol>
+<p><b>Luồng 3 (chỉ khi luật bắt buộc). Tài khoản chưa xác minh số</b></p>
+<ol>
+<li>Tài khoản mới: sau khi xác minh email (và khai ngày sinh), app đưa tới màn xác minh số trước khi vào bảng tin.</li>
+<li>Tài khoản cũ: có thời gian ân hạn (đề xuất 30 ngày, có banner nhắc). Hết ân hạn: vẫn xem được nội dung nhưng không đăng bài, bình luận, nhắn tin cho đến khi xác minh — máy chủ trả 403 { code: "PHONE_VERIFICATION_REQUIRED" }, app đưa tới màn xác minh.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<!--FLOW:a5-xac-thuc-sdt-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Giới hạn gửi SMS</b> (đề xuất): 1 tin mỗi 60 giây; 3 tin mỗi giờ cho một số; 5 tin mỗi ngày cho một tài khoản; 20 tin mỗi giờ cho một IP; tổng cả hệ thống quá ngân sách ngày (ví dụ 2.000 tin) thì dừng gửi và báo quản trị viên. Lý do: kẻ gian hay lợi dụng chức năng gửi SMS để gửi tin hàng loạt (lừa đảo "SMS pumping"), chủ app phải trả tiền.</li>
+<li><b>Chỉ nhận số di động Việt Nam</b> ở giai đoạn đầu (+84, đầu số 03, 05, 07, 08, 09). Số nước ngoài: chờ luật sư hướng dẫn.</li>
+<li><b>Một số chỉ xác minh cho một tài khoản</b> (đề xuất; chủ dự án quyết). Số đã thuộc tài khoản khác thì báo "Số này đã được dùng"; nếu người dùng nói số là của mình (nhà mạng cấp lại số cũ của người khác), cho xác minh và gỡ số khỏi tài khoản cũ, gửi email báo tài khoản cũ.</li>
+<li><b>Không dùng SMS để đăng nhập hay làm 2FA</b>: SIM có thể bị chiếm (kẻ gian làm lại SIM). Số điện thoại chỉ để xác thực danh tính theo luật.</li>
+<li><b>Riêng tư</b>: số điện thoại không hiện trên hồ sơ công khai, không dùng để gợi ý kết bạn nếu chưa hỏi ý người dùng. Trong app chỉ hiện dạng che (+84 91* *** 678). Đây là dữ liệu cá nhân theo quy định bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP và văn bản mới hơn nếu có) — luật sư xác nhận cách lưu và thời gian lưu.</li>
+<li><b>SMS không tới</b>: nhà mạng chặn, máy hết sóng. Nút "Gửi lại" sau 60 giây; sau 3 lần vẫn không tới thì hiện hướng dẫn liên hệ hỗ trợ. Máy chủ ghi trạng thái nhà cung cấp trả về để tra lỗi.</li>
+<li><b>Tài khoản bị khóa</b>: không gửi SMS.</li>
+<li><b>Xóa tài khoản</b> (E2): xóa số điện thoại, nhật ký gửi SMS giữ ở dạng đã băm số (để chống lạm dụng) trong thời gian luật cho phép.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ là <b>đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>User: thêm trường</td><td>phoneNumber (String?, unique, dạng +84…), phoneVerifiedAt (DateTime?).</td></tr>
+<tr><td>AuthTokenPurpose: thêm giá trị</td><td>PHONE_VERIFICATION. AuthToken thêm trường target (String?) chứa số đang xác minh; bản băm mã gồm cả số điện thoại để mã không dùng được cho số khác.</td></tr>
+<tr><td>Bảng mới SmsLog</td><td>id, phoneHash, userId?, ip, provider, providerMessageId?, status (SENT, FAILED, DELIVERED), costVnd?, createdAt. Dùng để đếm giới hạn theo số/IP, đối soát chi phí và tra lỗi.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint (đề xuất)</th><th>Việc làm</th></tr>
+<tr><td>POST /users/me/phone { phoneNumber, currentPassword? }</td><td>Kiểm tra, gửi mã SMS. Trả { resendAfterSeconds: 60 }. currentPassword bắt buộc khi đổi số đã xác minh.</td></tr>
+<tr><td>POST /users/me/phone/verify { phoneNumber, code }</td><td>Xác minh mã, lưu số.</td></tr>
+<tr><td>GET /users/me</td><td>Thêm phoneNumberMasked và phoneVerified.</td></tr>
+<tr><td>Các endpoint đăng bài, bình luận, nhắn tin (chỉ khi luật bắt buộc)</td><td>Trả 403 { code: "PHONE_VERIFICATION_REQUIRED" } khi tài khoản chưa xác minh số và đã hết ân hạn.</td></tr>
+</table>
+<p>Biến môi trường mới (tùy nhà cung cấp): SMS_PROVIDER, SMS_API_KEY, SMS_BRANDNAME, SMS_DAILY_BUDGET.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Không xin quyền đọc SMS</b>. Google Play hạn chế quyền READ_SMS và hầu như không duyệt cho mục đích này. Thay vào đó dùng tự điền mã có sẵn của hệ điều hành: ô nhập mã đặt textContentType="oneTimeCode" (iOS gợi ý mã ngay trên bàn phím) và autoComplete="sms-otp" (Android gợi ý mã) — đều là thuộc tính có sẵn của TextInput, không cần thư viện, không cần sửa app.json.</li>
+<li>Ô nhập số: keyboardType="phone-pad", textContentType="telephoneNumber", autoComplete="tel".</li>
+<li>Không cần thư viện mobile mới. Ở backend gọi API nhà cung cấp bằng fetch có sẵn; chỉ thêm SDK của nhà cung cấp nếu thật cần.</li>
+<li><b>Dịch vụ ngoài và chi phí</b>:
+  <ul>
+  <li>Nhà cung cấp SMS trong nước (ví dụ eSMS, SpeedSMS, Stringee, VNPT, Viettel qua đại lý): phải đăng ký <b>tên thương hiệu</b> (brandname) với từng nhà mạng, cần giấy tờ doanh nghiệp và mẫu nội dung tin; thường mất 1–4 tuần. Giá thường từ vài trăm đến khoảng 1.000 đồng một tin tùy nhà mạng và gói — <b>cần lấy báo giá</b>.</li>
+  <li>Nhà cung cấp quốc tế (ví dụ Twilio Verify): tích hợp nhanh hơn nhưng giá gửi về Việt Nam thường cao hơn nhiều và tin có thể bị nhà mạng lọc nếu không có brandname — cần báo giá và thử thực tế.</li>
+  <li>Phương án rẻ hơn cần luật sư xem: gửi mã qua Zalo (Zalo ZNS) — người dùng nhận mã trong Zalo gắn với số điện thoại; cần tài khoản Zalo OA đã xác thực. Chưa chắc phương án này đáp ứng yêu cầu "xác thực bằng số điện thoại" của Nghị định.</li>
+  <li>Ước tính ví dụ (đề xuất, để lập ngân sách): 10.000 người dùng mới × khoảng 1,3 tin mỗi người (tính cả gửi lại) × 800 đồng ≈ 10,4 triệu đồng.</li>
+  </ul>
+</li>
+<li><b>Web</b>: chưa có web client; không ảnh hưởng.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Nhận được SMS thật trên số Viettel, Vinaphone, Mobifone (ít nhất 3 nhà mạng lớn); nhập mã thành công.</li>
+<li>iPhone gợi ý mã từ SMS trên bàn phím; Android gợi ý mã (trên máy có dịch vụ Google). Báo cáo ghi rõ đã thử trên máy nào.</li>
+<li>Gửi lần 4 trong 1 giờ cho cùng số bị từ chối; vượt ngân sách ngày thì dừng gửi và quản trị viên được báo.</li>
+<li>Số đã thuộc tài khoản khác bị từ chối; mã sai 5 lần bị hủy; mã hết hạn sau 5 phút.</li>
+<li>Đổi số cần mật khẩu, có email báo.</li>
+<li>Nếu bắt buộc: tài khoản chưa xác minh không đăng bài/bình luận/nhắn tin được sau ân hạn, app dẫn tới màn xác minh.</li>
+<li>Test tự động: chuẩn hóa số, giới hạn gửi, ràng buộc mã với số; nhà cung cấp SMS được thay bằng bản giả trong test.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 3 ngày (chuẩn hóa số, gửi/kiểm mã, tích hợp một nhà cung cấp, giới hạn và ngân sách, chặn hành động khi bắt buộc). Mobile 2 ngày (màn nhập số, màn nhập mã, mục trong Cài đặt, xử lý PHONE_VERIFICATION_REQUIRED). Kiểm thử 1 ngày (cần SIM thật của nhiều nhà mạng).</li>
+<li>Thời gian chờ ngoài code: đăng ký brandname 1–4 tuần; ý kiến luật sư.</li>
+<li>Phụ thuộc: không phụ thuộc mã nào. Liên quan A3 (email báo đổi số), E2 (xóa tài khoản).</li>
+<li>Rủi ro: chi phí SMS tăng do lạm dụng; tin bị chậm hoặc bị chặn; yêu cầu pháp lý thay đổi; người dùng ngại cho số điện thoại làm giảm số đăng ký.</li>
+</ul>

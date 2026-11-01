@@ -1,0 +1,151 @@
+<h3>A1. Xác thực hai lớp (2FA)</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ2 · Ước lượng: 10 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Hiện nay ai biết mật khẩu (hoặc chiếm được tài khoản Google) là vào được tài khoản. Xác thực hai lớp (2FA) bắt thêm một bước: sau mật khẩu phải nhập mã 6 số lấy từ điện thoại của chủ tài khoản. Kẻ gian có mật khẩu bị lộ vẫn không vào được. Người được lợi: mọi người dùng muốn bảo vệ tài khoản, nhất là tài khoản có nhiều người theo dõi; chủ dự án cũng có thêm điểm khác biệt về an toàn.</p>
+<p>Cách chính là <b>TOTP</b> (mã 6 số tự đổi mỗi 30 giây trong ứng dụng xác thực như Google Authenticator, Microsoft Authenticator, 1Password). Kèm theo là <b>10 mã dự phòng</b> (dùng mỗi mã một lần khi mất điện thoại) và <b>mã qua email</b> làm đường dự phòng thứ hai. Không dùng SMS làm 2FA vì dễ bị chiếm SIM (xem A5).</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li>Chưa có 2FA. Không có trường, bảng hay endpoint nào liên quan trong <i>apps/api/prisma/schema.prisma</i> và <i>apps/api/src/modules/auth</i>.</li>
+<li>Đăng nhập (<i>auth.service.ts</i>, hàm login và loginWithGoogle) kiểm tra mật khẩu hoặc token Google, rồi kiểm tra email đã xác minh, tài khoản bị khóa (bannedAt), khóa vì tuổi (ageLockedAt), sau đó cấp ngay một JWT (token đăng nhập) sống 30 ngày. Không có bước trung gian nào để chen bước thứ hai.</li>
+<li>Đã có sẵn cơ chế mã 6 số dùng lại được: bảng <i>AuthToken</i> (trường tokenHash, purpose, attemptCount, expiresAt, usedAt) với hai mục đích EMAIL_VERIFICATION và PASSWORD_RESET. Mã được băm bằng HMAC-SHA256 với khóa <i>OTP_HASH_SECRET</i>, hạn 5 phút, sai tối đa 5 lần, gửi tối đa 3 lần mỗi giờ, so sánh bằng timingSafeEqual. Mã OTP email cho 2FA nên đi theo đúng khuôn này.</li>
+<li>Gửi email qua <i>apps/api/src/modules/mail/mail.service.ts</i> (nodemailer, SMTP), đã có mẫu thư mã xác minh và mã đặt lại mật khẩu kèm câu cảnh báo không chia sẻ mã.</li>
+<li>Mobile: các màn đăng nhập ở <i>apps/mobile/src/features/auth/screens</i> (LoginScreen, VerifyCodeScreen…), token lưu bằng expo-secure-store trong <i>services/authTokenStorage.ts</i>. Màn Cài đặt (<i>features/settings/screens/SettingsScreen.tsx</i>) có nhóm Tài khoản, Quyền riêng tư, Giới thiệu, Phiên đăng nhập; chưa có mục Bảo mật.</li>
+<li>Trang quản trị (<i>apps/api/src/modules/admin</i>) có khóa/mở khóa tài khoản, chưa có xử lý yêu cầu khôi phục 2FA.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1. Bật 2FA</b></p>
+<ol>
+<li>Người dùng vào Cài đặt, mục mới <b>Bảo mật</b>, bấm <b>Bật xác thực hai lớp</b>.</li>
+<li>App hỏi lại mật khẩu. Tài khoản chỉ có Google/Apple (không có mật khẩu) thì máy chủ yêu cầu phiên đăng nhập tạo trong vòng 10 phút; nếu cũ hơn, app bảo đăng nhập lại bằng Google/Apple.</li>
+<li>Máy chủ kiểm tra mật khẩu (lần sai được tính vào bộ đếm chống dò mật khẩu A4). Đúng thì tạo một khóa bí mật ngẫu nhiên 20 byte, mã hóa (AES-256-GCM) rồi lưu ở trạng thái "chờ xác nhận". Chưa bật 2FA ở bước này.</li>
+<li>App hiện ba thứ: nút <b>Mở ứng dụng xác thực</b> (mở đường link otpauth:// để ứng dụng xác thực trên cùng điện thoại tự thêm tài khoản), <b>mã QR</b> (khi ứng dụng xác thực nằm trên máy khác) và <b>khóa dạng chữ</b> có nút sao chép (nhập tay).</li>
+<li>Người dùng thêm tài khoản vào ứng dụng xác thực, nhập mã 6 số đang hiện.</li>
+<li>Máy chủ kiểm tra mã (cho phép lệch một bước 30 giây trước/sau để bù đồng hồ lệch). Sai thì báo, cho nhập lại; sai 5 lần thì hủy khóa chờ, người dùng phải bắt đầu lại.</li>
+<li>Đúng: máy chủ ghi thời điểm bật 2FA, tạo 10 mã dự phòng (dạng xxxx-xxxx), chỉ lưu bản băm, gửi email "Bạn vừa bật xác thực hai lớp".</li>
+<li>App hiện 10 mã dự phòng <b>một lần duy nhất</b>, có nút sao chép và nút lưu ra tệp/chia sẻ. Người dùng phải bấm "Tôi đã lưu mã" mới đóng được màn.</li>
+<li>App hỏi "Đăng xuất khỏi các thiết bị khác?". Chọn Có thì máy chủ thu hồi mọi phiên khác (A2).</li>
+</ol>
+<p><b>Luồng 2. Đăng nhập khi đã bật 2FA</b></p>
+<ol>
+<li>Người dùng đăng nhập như thường: email + mật khẩu, Google hoặc Apple (A6).</li>
+<li>Máy chủ kiểm tra bước 1 như hiện nay (và chống dò mật khẩu A4). Nếu tài khoản chưa bật 2FA thì cấp phiên ngay như cũ.</li>
+<li>Nếu đã bật 2FA: máy chủ <b>không</b> cấp token mà tạo một <b>phiếu thử thách</b> (chuỗi ngẫu nhiên, hạn 10 phút, lưu bản băm) và trả về cho app kèm danh sách cách xác minh được phép (ứng dụng xác thực, mã dự phòng, email) và email đã che bớt (ví dụ n***@gmail.com).</li>
+<li>App hiện màn "Nhập mã 6 số từ ứng dụng xác thực", có liên kết "Dùng cách khác".</li>
+<li>Người dùng nhập mã. Máy chủ kiểm tra phiếu còn hạn và mã đúng. Mã đã dùng trong cùng khung 30 giây bị từ chối (chống dùng lại mã vừa bị nhìn trộm).</li>
+<li>Sai: báo sai, cho nhập lại. Sai 5 lần trên một phiếu thì hủy phiếu, người dùng đăng nhập lại từ đầu (và lần sai được tính vào A4).</li>
+<li>Đúng: máy chủ ghi bước mã đã dùng, xóa phiếu, tạo phiên (A2), xét thiết bị lạ để cảnh báo (A3). App lưu token và vào bảng tin.</li>
+</ol>
+<p><b>Luồng 3. Mất điện thoại: dùng mã dự phòng hoặc mã email</b></p>
+<ol>
+<li>Ở màn nhập mã, người dùng bấm "Dùng cách khác". App hiện ba lựa chọn: mã dự phòng, gửi mã qua email, "Tôi mất cả hai".</li>
+<li><b>Mã dự phòng</b>: nhập một mã trong 10 mã đã lưu. Máy chủ so bản băm, mã đúng thì đánh dấu đã dùng (không dùng lại được) và cho đăng nhập.</li>
+<li><b>Mã email</b>: app gọi máy chủ gửi mã 6 số tới email tài khoản (hạn 5 phút, tối đa 3 lần mỗi giờ, sai tối đa 5 lần — giống mã xác minh email hiện có). Người dùng nhập mã, đúng thì cho đăng nhập.</li>
+<li>Sau khi vào bằng cách dự phòng, máy chủ gửi email "Bạn vừa đăng nhập bằng mã dự phòng / mã email" (có nút "Không phải tôi", A3). App hiện lời nhắc: "Bạn còn N mã dự phòng. Hãy cài lại xác thực hai lớp trên điện thoại mới".</li>
+<li>Người dùng vào Bảo mật, bấm <b>Đặt lại ứng dụng xác thực</b>: làm lại luồng 1 với khóa mới; khóa cũ và 10 mã dự phòng cũ hết hiệu lực ngay khi khóa mới được xác nhận.</li>
+</ol>
+<p><b>Luồng 4. Mất cả ứng dụng, mã dự phòng và email: khôi phục qua hỗ trợ</b></p>
+<ol>
+<li>Người dùng chọn "Tôi mất cả hai", điền form: email tài khoản, mô tả, cách liên hệ khác. Máy chủ luôn trả cùng một câu "Đã nhận yêu cầu" dù email có tồn tại hay không.</li>
+<li>Máy chủ lưu yêu cầu và gửi email + thông báo đẩy tới mọi thiết bị đang đăng nhập của tài khoản: "Có người yêu cầu gỡ xác thực hai lớp. Nếu không phải bạn, bấm Hủy".</li>
+<li>Quản trị viên xem yêu cầu trong trang quản trị, đối chiếu thông tin (cách xác minh do chủ dự án quyết, xem câu hỏi mở). Không xác minh được thì từ chối, gửi email lý do.</li>
+<li>Duyệt thì bắt đầu <b>thời gian chờ 7 ngày</b>. Trong 7 ngày đó, chủ tài khoản thật (nếu còn đăng nhập ở đâu đó hoặc còn đọc được email) bấm Hủy là yêu cầu bị đóng.</li>
+<li>Hết 7 ngày không ai hủy: máy chủ gỡ 2FA, xóa mã dự phòng, thu hồi mọi phiên, ghi nhật ký quản trị (C3) và gửi email thông báo. Người dùng đăng nhập bằng mật khẩu rồi bật lại 2FA.</li>
+</ol>
+<p><b>Luồng 5. Tắt 2FA</b></p>
+<ol>
+<li>Người dùng vào Bảo mật, bấm <b>Tắt xác thực hai lớp</b>.</li>
+<li>App hỏi mật khẩu (nếu tài khoản có mật khẩu) và mã 6 số hiện tại hoặc một mã dự phòng.</li>
+<li>Máy chủ kiểm tra cả hai. Sai mật khẩu tính vào A4; sai mã 5 lần trong 15 phút thì phải chờ 15 phút.</li>
+<li>Đúng: xóa khóa bí mật và mã dự phòng, gửi email + thông báo đẩy "Xác thực hai lớp đã bị tắt" kèm nút "Không phải tôi". App hiện "Đã tắt".</li>
+</ol>
+<p><b>Luồng phụ. Tạo lại mã dự phòng</b>: trong Bảo mật có nút "Tạo mã dự phòng mới" (hỏi mã 6 số). 10 mã cũ hết hiệu lực, 10 mã mới hiện một lần.</p>
+
+<h4>d) Flowchart</h4>
+<p>Bật 2FA:</p>
+<!--FLOW:a1-bat-2fa-->
+<p>Đăng nhập khi đã bật 2FA:</p>
+<!--FLOW:a1-dang-nhap-2fa-->
+<p>Mất điện thoại, vào bằng mã dự phòng hoặc mã email:</p>
+<!--FLOW:a1-khoi-phuc-2fa-->
+<p>Mất mọi cách xác minh, khôi phục qua quản trị viên:</p>
+<!--FLOW:a1-ho-tro-khoi-phuc-->
+<p>Tắt 2FA:</p>
+<!--FLOW:a1-tat-2fa-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Mã TOTP</b> (đề xuất): 6 số, bước 30 giây, thuật toán SHA-1 (mặc định mà mọi ứng dụng xác thực hiểu), chấp nhận lệch ±1 bước. Mỗi bước chỉ dùng được một lần.</li>
+<li><b>Phiếu thử thách</b>: hạn 10 phút, sai tối đa 5 lần. Ngoài ra mỗi tài khoản sai mã 2FA quá 10 lần trong 1 giờ (cộng mọi phiếu) thì khóa bước 2FA 1 giờ và gửi email cảnh báo, vì kẻ gian đã biết mật khẩu.</li>
+<li><b>Mã dự phòng</b>: 10 mã, 8 ký tự chữ thường và số (bỏ các ký tự dễ nhầm như 0/o, 1/l), mỗi mã dùng một lần. Còn dưới 3 mã thì app nhắc tạo mã mới.</li>
+<li><b>Mã email</b>: 6 số, hạn 5 phút, sai tối đa 5 lần, gửi tối đa 3 lần/giờ — dùng lại đúng cách làm của mã xác minh email hiện có. Nút "Gửi lại" chỉ bấm được sau 60 giây.</li>
+<li><b>Khóa bí mật</b> lưu mã hóa bằng khóa riêng trong biến môi trường (đề xuất <i>TWO_FACTOR_ENC_KEY</i>), không lưu dạng gốc, không bao giờ trả lại cho app sau bước bật.</li>
+<li><b>Đặt lại mật khẩu qua "Quên mật khẩu" không gỡ 2FA</b>: sau khi đặt mật khẩu mới vẫn phải qua bước 2 khi đăng nhập.</li>
+<li><b>Đăng nhập Google/Apple</b> cũng phải qua bước 2 nếu tài khoản đã bật 2FA.</li>
+<li><b>Tài khoản bị khóa / khóa vì tuổi</b>: kiểm tra khóa trước khi tạo phiếu thử thách; tài khoản bị khóa không nhận phiếu và không nhận mã email.</li>
+<li><b>Lỗi mạng</b>: nếu app gửi mã xong mà mất mạng, người dùng nhập lại mã mới ở bước 30 giây kế tiếp; phiếu vẫn còn hạn 10 phút. Màn nhập mã giữ phiếu trong bộ nhớ, không lưu xuống máy.</li>
+<li><b>Email dự phòng làm yếu 2FA</b>: ai chiếm được cả mật khẩu và email thì vẫn vào được. Đây là đánh đổi để người dùng ít bị khóa ngoài; mỗi lần dùng mã email đều gửi cảnh báo. Chủ dự án có thể cho người dùng tự tắt đường email trong Bảo mật (xem câu hỏi mở).</li>
+<li><b>Lạm dụng khôi phục qua hỗ trợ</b>: thời gian chờ 7 ngày, thông báo tới mọi thiết bị, nhật ký quản trị. Mỗi tài khoản chỉ có 1 yêu cầu đang mở; mỗi IP tối đa 3 yêu cầu/ngày.</li>
+<li><b>Người bị chặn</b> không liên quan tới tính năng này.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ phần dưới là <b>đề xuất</b>, phải ghi vào <i>docs/api-contract.md</i> và thống nhất với người làm backend trước khi code (RULE.md: không tự đặt API contract).</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>User: thêm trường</td><td>twoFactorSecretEnc (String?, khóa đã mã hóa), twoFactorEnabledAt (DateTime?, null = chưa bật; có khóa mà chưa có ngày = đang chờ xác nhận), twoFactorLastStep (Int?, bước 30 giây đã dùng gần nhất), twoFactorEmailFallback (Boolean, mặc định true).</td></tr>
+<tr><td>Bảng mới TwoFactorBackupCode</td><td>id, userId, codeHash (unique), usedAt?, createdAt. Xóa theo User (onDelete: Cascade).</td></tr>
+<tr><td>AuthTokenPurpose: thêm giá trị</td><td>TWO_FACTOR_CHALLENGE (phiếu thử thách, hạn 10 phút, attemptCount đếm lần sai) và TWO_FACTOR_EMAIL (mã email 6 số).</td></tr>
+<tr><td>Bảng mới TwoFactorRecoveryRequest</td><td>id, userId, contact, note, status (PENDING, APPROVED, REJECTED, CANCELLED, DONE), reviewedById?, executeAfter?, createdAt.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint (đề xuất)</th><th>Việc làm</th></tr>
+<tr><td>POST /auth/2fa/setup { currentPassword? }</td><td>Tạo khóa chờ xác nhận, trả { secret, otpauthUrl }.</td></tr>
+<tr><td>POST /auth/2fa/enable { code }</td><td>Xác nhận mã, bật 2FA, trả { backupCodes: [10 mã] }.</td></tr>
+<tr><td>POST /auth/2fa/disable { currentPassword?, code }</td><td>Tắt 2FA (code là mã 6 số hoặc mã dự phòng).</td></tr>
+<tr><td>POST /auth/2fa/backup-codes { code }</td><td>Tạo 10 mã mới, hủy mã cũ.</td></tr>
+<tr><td>POST /auth/login, /auth/google, /auth/apple</td><td>Khi đã bật 2FA trả 200 { data: { twoFactorRequired: true, challengeToken, methods: ["totp","backup","email"], emailHint } } thay cho accessToken. App cũ không hiểu trường này nên cần bắt cập nhật app trước khi bật tính năng (xem g).</td></tr>
+<tr><td>POST /auth/2fa/verify { challengeToken, method, code }</td><td>Kiểm tra mã; đúng thì trả giống đăng nhập thành công (access + refresh token theo A2).</td></tr>
+<tr><td>POST /auth/2fa/email { challengeToken }</td><td>Gửi mã 6 số qua email.</td></tr>
+<tr><td>POST /auth/2fa/recovery-request { email, note, contact }</td><td>Tạo yêu cầu khôi phục, luôn trả cùng một thông báo.</td></tr>
+<tr><td>POST /auth/2fa/recovery-request/cancel { token }</td><td>Chủ tài khoản hủy yêu cầu (từ link trong email hoặc trong app).</td></tr>
+<tr><td>GET /admin/2fa-recovery, POST /admin/2fa-recovery/:id/approve | reject</td><td>Quản trị viên xử lý; ghi nhật ký (C3).</td></tr>
+<tr><td>GET /users/me</td><td>Thêm twoFactorEnabled (boolean) và backupCodesLeft (số).</td></tr>
+</table>
+<p>Mã lỗi đề xuất: 401 { code: "TWO_FACTOR_INVALID" }, 401 { code: "TWO_FACTOR_CHALLENGE_EXPIRED" }, 429 { code: "TWO_FACTOR_LOCKED", retryAfterSeconds }. Lưu ý: sai mã khi đang đăng nhập dùng 401 được (chưa có phiên), nhưng sai mã khi bật/tắt 2FA trong app phải trả <b>400</b>, vì app hiện coi mọi 401 là hết phiên và tự đăng xuất (giống quy ước của PATCH /auth/password).</p>
+<p>Cách tính TOTP: dùng node:crypto (HMAC-SHA1) có sẵn, cộng một hàm mã hóa base32 nhỏ; không bắt buộc thêm thư viện. Nếu muốn dùng thư viện thì otplib (chỉ ở backend), cần chủ dự án đồng ý.</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Không cần quyền thiết bị nào</b>, không cần sửa app.json.</li>
+<li><b>Mở ứng dụng xác thực</b>: dùng Linking.openURL với đường link otpauth:// — có trên cả Android và iOS. Nếu máy chưa cài ứng dụng xác thực, lệnh mở báo lỗi; app bắt lỗi và hiện hướng dẫn cài (Google Authenticator có trên cả Google Play và App Store).</li>
+<li><b>Mã QR</b>: cần một thư viện vẽ QR chạy được trên cả hai nền tảng. Dự án đã có react-native-svg; ví dụ react-native-qrcode-svg (JavaScript thuần, dùng react-native-svg) — phải kiểm tra tương thích Expo SDK 57 và cài bằng expo install. Nếu chủ dự án không muốn thêm thư viện, có thể bỏ QR, chỉ giữ nút mở ứng dụng và khóa dạng chữ (đa số người dùng cài ứng dụng xác thực trên chính điện thoại đó).</li>
+<li><b>Sao chép khóa và mã dự phòng</b>: expo-clipboard đã có trong dự án. Lưu mã dự phòng ra tệp/chia sẻ: dùng Share của React Native (có trên cả hai nền tảng).</li>
+<li><b>Ô nhập mã</b>: keyboardType="number-pad", textContentType="oneTimeCode" (iOS gợi ý mã) và autoComplete="one-time-code" (Android) — đều là thuộc tính có sẵn của TextInput.</li>
+<li><b>Bàn phím và vùng an toàn</b>: màn nhập mã dùng AuthScreenContainer hiện có (cần kiểm tra đã có KeyboardAvoidingView đúng cho từng nền tảng).</li>
+<li><b>Bản app cũ</b>: app đang chạy không hiểu twoFactorRequired. Phải phát hành bản app mới có màn nhập mã trước, rồi mới mở cho người dùng bật 2FA; hoặc máy chủ trả lỗi rõ ràng "Hãy cập nhật ứng dụng" cho app cũ khi tài khoản đã bật 2FA.</li>
+<li><b>Web</b>: dự án chưa có web client; trang quản trị là trang HTML do API phục vụ (admin.html). Không ảnh hưởng.</li>
+<li><b>Chi phí</b>: không phát sinh dịch vụ trả phí; email dùng SMTP hiện có.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Bật 2FA bằng Google Authenticator thành công trên Android và trên iPhone (cả trường hợp ứng dụng xác thực trên cùng máy và trên máy khác qua QR/khóa chữ).</li>
+<li>Đăng nhập bằng mật khẩu, Google (và Apple khi có A6) đều bị hỏi mã khi đã bật 2FA; mã sai 5 lần thì phiếu bị hủy.</li>
+<li>Mã đã dùng không dùng lại được trong cùng khung 30 giây; mã dự phòng đã dùng bị từ chối.</li>
+<li>Mã email đến được hộp thư, hết hạn sau 5 phút, gửi lần thứ 4 trong 1 giờ bị từ chối.</li>
+<li>Tắt 2FA cần đúng cả mật khẩu và mã; email + thông báo đẩy được gửi.</li>
+<li>Quản trị viên duyệt yêu cầu khôi phục, chủ tài khoản hủy được trong 7 ngày, hết 7 ngày thì 2FA bị gỡ và có nhật ký.</li>
+<li>Khóa bí mật trong cơ sở dữ liệu là dạng đã mã hóa; mã dự phòng chỉ có bản băm.</li>
+<li>Test tự động ở backend: tính TOTP theo bộ số mẫu của RFC 6238, chống dùng lại bước, hết hạn phiếu, đếm lần sai, mã dự phòng dùng một lần.</li>
+<li>Báo cáo ghi rõ đã chạy trên nền tảng nào (ví dụ "Android emulator: có, iPhone: chưa chạy").</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 5 ngày (TOTP, mã hóa khóa, mã dự phòng, phiếu thử thách trong 3 đường đăng nhập, mã email, tắt 2FA, yêu cầu khôi phục + trang quản trị). Mobile 3 ngày (mục Bảo mật, màn bật 2FA, màn mã dự phòng, màn nhập mã khi đăng nhập, màn "Dùng cách khác", màn tắt 2FA). Kiểm thử 2 ngày.</li>
+<li>Phụ thuộc: <b>A2</b> (phiên và refresh token — để "đăng xuất thiết bị khác" và thu hồi phiên khi gỡ 2FA), <b>A4</b> (đếm lần sai chung), <b>A3</b> (nút "Không phải tôi" trong email), <b>C3</b> (nhật ký quản trị cho luồng khôi phục). Có thể làm A1 trước A3/C3 rồi bổ sung sau.</li>
+<li>Rủi ro: người dùng mất cả mã dự phòng lẫn email gây tải cho bộ phận hỗ trợ; xác minh danh tính qua hỗ trợ dễ bị lừa (social engineering) nếu quy trình lỏng; app cũ không hiểu phản hồi mới.</li>
+</ul>

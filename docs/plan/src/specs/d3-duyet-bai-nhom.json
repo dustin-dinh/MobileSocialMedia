@@ -1,0 +1,28 @@
+{"id":"d3-duyet-bai-nhom","title":"Đăng bài trong nhóm và duyệt bài",
+"lanes":[{"name":"Thành viên"},{"name":"Máy chủ","cols":2},{"name":"Quản trị nhóm"}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Viết bài trong nhóm"},
+ {"id":"mem","type":"decision","lane":1,"row":0,"label":"Được đăng trong nhóm?"},
+ {"id":"e1","type":"end","lane":1,"col":1,"row":0,"label":"Lỗi 403, app báo lý do"},
+ {"id":"scan","type":"process","lane":1,"row":1,"label":"Quét chữ và ảnh bằng bộ lọc chung"},
+ {"id":"flag","type":"decision","lane":1,"row":2,"label":"Bộ lọc gắn cờ?"},
+ {"id":"c1","type":"sub","lane":1,"col":1,"row":2,"label":"Hàng đợi kiểm duyệt app (C1)"},
+ {"id":"appr","type":"decision","lane":1,"row":3,"label":"Nhóm bật duyệt bài?"},
+ {"id":"pend","type":"data","lane":1,"col":1,"row":3,"label":"Ghi bài PENDING"},
+ {"id":"queue","type":"io","lane":2,"row":4,"label":"Xem hàng chờ duyệt bài"},
+ {"id":"ok","type":"decision","lane":2,"row":5,"label":"Duyệt bài?"},
+ {"id":"pub","type":"data","lane":1,"row":6,"label":"Bài PUBLISHED trong bảng tin nhóm"},
+ {"id":"rej","type":"end","lane":2,"row":6,"label":"Từ chối, báo người đăng"},
+ {"id":"end","type":"end","lane":0,"row":7,"label":"Bài hiện trong nhóm"}
+],
+"edges":[
+ {"from":"s","to":"mem"},
+ {"from":"mem","to":"e1","label":"Không"},{"from":"mem","to":"scan","label":"Có"},
+ {"from":"scan","to":"flag"},
+ {"from":"flag","to":"c1","label":"Có"},{"from":"flag","to":"appr","label":"Không"},
+ {"from":"appr","to":"pend","label":"Có"},{"from":"appr","to":"pub","label":"Không"},
+ {"from":"pend","to":"queue"},{"from":"queue","to":"ok"},
+ {"from":"ok","to":"pub","label":"Có","exit":"left","entry":"right","via":[[2,5],[2,6]]},
+ {"from":"ok","to":"rej","label":"Không"},
+ {"from":"pub","to":"end"}
+]}

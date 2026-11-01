@@ -12,6 +12,8 @@ node_modules/
 /apps/api/node_modules/
 /apps/api/dist/
 /apps/api/src/generated/
+# Image moderation model (~88 MB), fetched by apps/api/scripts/download-moderation-model.cjs
+/apps/api/models/
 
 # Generated native projects and local Android artifacts
 /apps/mobile/android/

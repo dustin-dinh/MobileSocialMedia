@@ -1,0 +1,157 @@
+{
+ "id": "c3-quan-ly-nhan-vien",
+ "title": "Cấp hoặc đổi vai trò nhân viên",
+ "lanes": [
+  {
+   "name": "Quản trị viên"
+  },
+  {
+   "name": "Máy chủ",
+   "cols": 2
+  },
+  {
+   "name": "Nhân viên"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "s",
+   "type": "start",
+   "lane": 0,
+   "row": 0,
+   "label": "Chọn tài khoản, chọn vai trò"
+  },
+  {
+   "id": "me",
+   "type": "decision",
+   "lane": 1,
+   "row": 0,
+   "label": "Là QTV, vừa nhập 2FA?"
+  },
+  {
+   "id": "deny",
+   "type": "end",
+   "lane": 1,
+   "col": 1,
+   "row": 0,
+   "label": "Từ chối 403, ghi nhật ký"
+  },
+  {
+   "id": "t2",
+   "type": "decision",
+   "lane": 1,
+   "row": 1,
+   "label": "Tài khoản đích đã bật 2FA?"
+  },
+  {
+   "id": "wait",
+   "type": "process",
+   "lane": 1,
+   "col": 1,
+   "row": 1,
+   "label": "Giữ yêu cầu, chờ bật 2FA"
+  },
+  {
+   "id": "ask",
+   "type": "io",
+   "lane": 2,
+   "row": 1,
+   "label": "Email: hãy bật 2FA"
+  },
+  {
+   "id": "last",
+   "type": "decision",
+   "lane": 1,
+   "row": 2,
+   "label": "Hạ quyền QTV cuối cùng?"
+  },
+  {
+   "id": "keep",
+   "type": "end",
+   "lane": 1,
+   "col": 1,
+   "row": 2,
+   "label": "Từ chối: phải còn 1 QTV"
+  },
+  {
+   "id": "chg",
+   "type": "process",
+   "lane": 1,
+   "row": 3,
+   "label": "Đổi vai trò, thu hồi phiên cũ"
+  },
+  {
+   "id": "log",
+   "type": "data",
+   "lane": 1,
+   "row": 4,
+   "label": "Ghi nhật ký thay đổi"
+  },
+  {
+   "id": "mail",
+   "type": "io",
+   "lane": 2,
+   "row": 5,
+   "label": "Email báo đổi quyền"
+  },
+  {
+   "id": "e",
+   "type": "end",
+   "lane": 2,
+   "row": 6,
+   "label": "Đăng nhập lại với quyền mới"
+  }
+ ],
+ "edges": [
+  {
+   "from": "s",
+   "to": "me"
+  },
+  {
+   "from": "me",
+   "to": "deny",
+   "label": "Không"
+  },
+  {
+   "from": "me",
+   "to": "t2",
+   "label": "Có"
+  },
+  {
+   "from": "t2",
+   "to": "wait",
+   "label": "Không"
+  },
+  {
+   "from": "wait",
+   "to": "ask"
+  },
+  {
+   "from": "t2",
+   "to": "last",
+   "label": "Có"
+  },
+  {
+   "from": "last",
+   "to": "keep",
+   "label": "Có"
+  },
+  {
+   "from": "last",
+   "to": "chg",
+   "label": "Không"
+  },
+  {
+   "from": "chg",
+   "to": "log"
+  },
+  {
+   "from": "log",
+   "to": "mail"
+  },
+  {
+   "from": "mail",
+   "to": "e"
+  }
+ ]
+}

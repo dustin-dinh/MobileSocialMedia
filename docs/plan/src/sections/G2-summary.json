@@ -1,0 +1,18 @@
+[
+ {"id": "B1", "name": "Tin nhắn chờ và quyền ai được nhắn tin (nâng cấp)", "phase": 2, "be_days": 4, "mb_days": 3, "qa_days": 2,
+  "depends": ["B3", "D8"], "flows": ["b1-gui-tin-dau-nguoi-la", "b1-xu-ly-tin-nhan-cho"],
+  "new_services": [],
+  "risks": ["Lọc nhầm tin thật vào thư mục Đã lọc", "Đổi mặc định quyền nhắn tin làm khó kết bạn mới", "Sửa lỗi đẩy thông báo cho tin chờ đã xóa và lộ nội dung tin chờ trên màn hình khóa"]},
+ {"id": "B2", "name": "Nhắn ẩn danh có giới hạn (nâng cấp)", "phase": 2, "be_days": 5, "mb_days": 3, "qa_days": 2,
+  "depends": ["B1", "B3", "C1", "C2", "C3"], "flows": ["b2-bat-nhan-an-danh", "b2-gui-tin-an-danh", "b2-bao-cao-tuoc-quyen", "b2-tiet-lo-danh-tinh"],
+  "new_services": [],
+  "risks": ["Hạn mức quá chặt hoặc quá lỏng", "App Review hỏi kỹ ứng dụng có nhắn ẩn danh", "Nghĩa vụ xác thực tài khoản theo Nghị định 147/2024 cần luật sư xác nhận", "Mục tự tạo trong hàng chờ cần tài khoản hệ thống nếu C1 chưa có"]},
+ {"id": "B3", "name": "Cảnh báo lừa đảo (tin nhắn, đường link, hồ sơ giả mạo)", "phase": 2, "be_days": 7, "mb_days": 4, "qa_days": 2,
+  "depends": ["B1", "C1", "C2"], "flows": ["b3-phan-tich-tin-nhan", "b3-kiem-tra-link", "b3-canh-bao-gia-mao", "b3-bao-cao-lua-dao"],
+  "new_services": ["Google Cloud Web Risk API (trả phí theo lượt gọi sau hạn mức miễn phí; cần kiểm tra bảng giá)"],
+  "risks": ["Cảnh báo nhầm với người bán hàng online", "Kẻ gian đổi cách viết để lách danh sách cụm từ", "Link gửi sang Google phải ghi trong chính sách quyền riêng tư"]},
+ {"id": "B4", "name": "Giới hạn tạm thời khi bị quấy rối hàng loạt", "phase": 2, "be_days": 4, "mb_days": 3, "qa_days": 2,
+  "depends": ["B1", "B2", "B7", "B8", "D8"], "flows": ["b4-goi-y-gioi-han", "b4-ap-dung-gioi-han"],
+  "new_services": ["@nestjs/schedule (thư viện backend, chỉ khi muốn đẩy thông báo nhắc hết hạn; có thể dùng chung với D8)"],
+  "risks": ["Ngưỡng đột biến tuyệt đối không hợp tài khoản rất lớn", "Truy vấn đếm sau mỗi bình luận cần kiểm tra hiệu năng", "Phải thống nhất cờ ẩn bình luận với B7 và B8"]}
+]

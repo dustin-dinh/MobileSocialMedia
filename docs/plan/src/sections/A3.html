@@ -1,0 +1,103 @@
+<h3>A3. Cảnh báo đăng nhập lạ ("Không phải tôi")</h3>
+<p><i>Nhóm: Bảo mật tài khoản · Giai đoạn: GĐ2 · Ước lượng: 6 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Khi tài khoản được đăng nhập từ một thiết bị mới hoặc một nơi lạ, chủ tài khoản phải biết ngay và có một nút để chặn kẻ gian chỉ bằng một lần bấm: <b>"Không phải tôi"</b>. Người dùng bị lộ mật khẩu phát hiện sớm, trước khi kẻ gian kịp đổi mật khẩu, nhắn tin lừa bạn bè hay xóa dữ liệu.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li>Chưa có cảnh báo đăng nhập nào. Máy chủ không lưu thiết bị, IP hay vị trí của lần đăng nhập (không có trường nào như vậy trong <i>apps/api/prisma/schema.prisma</i>).</li>
+<li>Đã có kênh gửi: email qua <i>apps/api/src/modules/mail/mail.service.ts</i>; thông báo trong app + Socket.IO + push qua <i>notifications.service.ts</i> (hàm notify lưu thông báo, đẩy realtime và gửi push; hàm pushToUser gửi qua dịch vụ Expo Push tới mọi thiết bị của người dùng).</li>
+<li>Bảng <i>Notification</i> có trường type dạng chuỗi tự do (thêm loại mới không cần đổi enum) nhưng <b>actorId bắt buộc</b>; thông báo bảo mật không có "người gây ra", nên phải dùng chính người dùng làm actor hoặc cho actorId được để trống (cần thống nhất).</li>
+<li>Không có trang web công khai nào ngoài trang quản trị <i>admin.html</i> do API phục vụ; link trong email hiện chỉ chứa mã OTP, chưa có link hành động.</li>
+<li>Phụ thuộc vào A2: thông tin thiết bị và khả năng thu hồi một phiên chỉ có sau A2.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1. Phát hiện và gửi cảnh báo</b></p>
+<ol>
+<li>Một lần đăng nhập thành công (sau cả bước 2FA nếu có) tạo phiên mới (A2) kèm mã thiết bị, tên máy, IP, thành phố/quốc gia.</li>
+<li>Máy chủ xét <b>thiết bị đã quen chưa</b>: mã thiết bị này từng có phiên hợp lệ của tài khoản trong 180 ngày qua (không tính phiên bị thu hồi vì "Không phải tôi" hoặc vì token bị đánh cắp). Quen thì không cảnh báo.</li>
+<li>Thiết bị mới thì xét <b>nơi đăng nhập</b>: cùng quốc gia với các phiên trong 90 ngày qua là <b>mức thường</b>; quốc gia khác (hoặc không xác định được vị trí) là <b>mức cao</b>.</li>
+<li>Mức thường: thông báo trong app và push tới các thiết bị khác của tài khoản: "Tài khoản vừa đăng nhập trên Samsung Galaxy S23 ở Hà Nội lúc 21:04".</li>
+<li>Mức cao: như trên, cộng thêm email có nút <b>"Không phải tôi"</b> và nút "Đúng là tôi".</li>
+<li>Máy chủ ghi sự kiện bảo mật, tạo link hành động dùng một lần, hạn 7 ngày.</li>
+<li>Chủ tài khoản bấm "Đúng là tôi": máy chủ ghi xác nhận, thiết bị đó được coi là quen. Không bấm gì: không có gì xảy ra.</li>
+</ol>
+<p><b>Luồng 2. Bấm "Không phải tôi"</b></p>
+<ol>
+<li>Chủ tài khoản bấm "Không phải tôi" trong email hoặc trong thông báo của app.</li>
+<li>Mở trang xác nhận (trang web do API phục vụ nếu từ email; hộp xác nhận trong app nếu từ app). Trang chỉ hiển thị, <b>chưa làm gì</b> — để các trình quét link của dịch vụ email không tự kích hoạt. Người dùng phải bấm "Xác nhận".</li>
+<li>Máy chủ kiểm tra yêu cầu hợp lệ: link còn hạn và chưa dùng (từ email); hoặc phiên lạ được tạo <b>sau</b> phiên đang bấm (từ app — để kẻ gian đang giữ một phiên không dùng nút này đá chủ thật ra).</li>
+<li><b>Từ email</b> (người bấm có thể không còn vào được app): thu hồi <b>mọi</b> phiên, đánh dấu tài khoản "phải đặt lại mật khẩu" (đăng nhập bằng mật khẩu cũ bị từ chối), gửi mã đặt lại mật khẩu qua email như luồng Quên mật khẩu hiện có.</li>
+<li><b>Từ app</b>: thu hồi phiên lạ (và các phiên tạo sau nó), mở màn Đổi mật khẩu, gợi ý bật 2FA.</li>
+<li>Máy chủ ghi sự kiện. Nếu nhiều tài khoản bấm "Không phải tôi" với phiên đến từ cùng một IP trong 24 giờ (đề xuất: từ 3 tài khoản), báo cho quản trị viên vì có thể là một đợt dò mật khẩu hàng loạt.</li>
+<li>Người dùng đặt mật khẩu mới, bật 2FA (A1).</li>
+</ol>
+<p><b>Các sự kiện khác cũng gửi cảnh báo</b> (cùng mẫu thư, cùng nút "Không phải tôi"): đổi mật khẩu (A2), tắt 2FA hoặc đăng nhập bằng mã dự phòng/mã email (A1), refresh token bị dùng lại (A2), tài khoản bị khóa tạm vì sai mật khẩu nhiều lần (A4).</p>
+
+<h4>d) Flowchart</h4>
+<p>Phát hiện đăng nhập lạ:</p>
+<!--FLOW:a3-phat-hien-dang-nhap-la-->
+<p>Xử lý "Không phải tôi":</p>
+<!--FLOW:a3-khong-phai-toi-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<ul>
+<li><b>Con số đề xuất</b>: thiết bị quen = có phiên hợp lệ trong 180 ngày; nơi quen = quốc gia xuất hiện trong 90 ngày; link hành động hạn 7 ngày, dùng một lần.</li>
+<li><b>Chống spam cảnh báo</b>: tối đa 1 email cảnh báo đăng nhập mỗi thiết bị mới; tối đa 5 email cảnh báo mỗi tài khoản mỗi ngày (các lần sau chỉ thông báo trong app).</li>
+<li><b>Lần đăng nhập đầu tiên</b> của tài khoản (mới đăng ký) không cảnh báo.</li>
+<li><b>Vị trí theo IP không chính xác</b>: mạng di động Việt Nam hay hiện sai thành phố, VPN hiện quốc gia khác. Vì vậy chỉ dùng <b>quốc gia</b> để nâng mức cảnh báo, còn thành phố chỉ để hiển thị và ghi "khoảng".</li>
+<li><b>Cài lại app</b>: Android tạo mã thiết bị mới sau khi gỡ app, nên người dùng có thể nhận cảnh báo "thiết bị mới" cho chính máy mình. Chấp nhận được; nội dung cảnh báo nói rõ tên máy để người dùng nhận ra.</li>
+<li><b>Tài khoản đang bị khóa</b>: không gửi cảnh báo đăng nhập (không đăng nhập được), nhưng nút "Không phải tôi" trong email cũ vẫn dùng được để thu hồi phiên và buộc đặt lại mật khẩu.</li>
+<li><b>Link hết hạn hoặc đã dùng</b>: trang báo "Link không còn hiệu lực" và hướng dẫn vào app hoặc dùng Quên mật khẩu.</li>
+<li><b>Lạm dụng</b>: endpoint xác nhận giới hạn 10 lần/giờ/IP; link chứa chuỗi ngẫu nhiên 32 byte, máy chủ chỉ lưu bản băm.</li>
+<li>Nội dung email có câu cảnh báo chống lừa đảo giống thư OTP hiện có ("không bao giờ yêu cầu bạn cung cấp mã").</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Toàn bộ là <b>đề xuất</b>, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Thay đổi dữ liệu (Prisma)</th><th>Nội dung</th></tr>
+<tr><td>Bảng mới SecurityEvent</td><td>id, userId, type (NEW_DEVICE_LOGIN, PASSWORD_CHANGED, TWO_FACTOR_DISABLED, TWO_FACTOR_FALLBACK_USED, REFRESH_REUSED, LOGIN_LOCKED), level (LOW, HIGH), sessionId?, ip?, city?, country?, deviceName?, actionTokenHash? (unique), actionExpiresAt?, resolvedAt?, resolution? (CONFIRMED, NOT_ME), createdAt. Chỉ mục (userId, createdAt).</td></tr>
+<tr><td>User: thêm trường</td><td>passwordResetRequiredAt (DateTime?) — đăng nhập bằng mật khẩu trả 401 { code: "PASSWORD_RESET_REQUIRED" } cho tới khi đặt lại.</td></tr>
+<tr><td>Session (từ A2)</td><td>Dùng các trường deviceId, deviceName, ip, city, country.</td></tr>
+<tr><td>Notification</td><td>Loại mới type = "SECURITY_ALERT", kèm mã SecurityEvent (thêm trường securityEventId? hoặc dùng bảng riêng — cần thống nhất vì actorId đang bắt buộc).</td></tr>
+</table>
+<table>
+<tr><th>Endpoint (đề xuất)</th><th>Việc làm</th></tr>
+<tr><td>GET /auth/security-events</td><td>Lịch sử sự kiện bảo mật 30 ngày của chính mình (hiện trong mục Bảo mật).</td></tr>
+<tr><td>POST /auth/security-events/:id/confirm</td><td>"Đúng là tôi".</td></tr>
+<tr><td>POST /auth/security-events/:id/not-me</td><td>"Không phải tôi" từ trong app; thu hồi phiên lạ nếu nó mới hơn phiên đang bấm.</td></tr>
+<tr><td>GET /security/not-me?token=…</td><td>Trang HTML xác nhận (không thay đổi gì).</td></tr>
+<tr><td>POST /security/not-me { token }</td><td>Thực hiện: thu hồi mọi phiên, buộc đặt lại mật khẩu, gửi mã đặt lại.</td></tr>
+<tr><td>POST /auth/login</td><td>Thêm lỗi 401 { code: "PASSWORD_RESET_REQUIRED" }; app chuyển sang màn Quên mật khẩu.</td></tr>
+</table>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Không cần quyền vị trí</b>: vị trí suy từ IP ở máy chủ (cơ sở dữ liệu IP offline như GeoLite2, xem A2).</li>
+<li><b>Thông báo đẩy</b>: dùng pushToUser hiện có qua Expo Push (APNs cho iOS, FCM cho Android). Nếu người dùng tắt quyền thông báo, vẫn còn email và thông báo trong app. Bấm vào push mở thẳng màn chi tiết cảnh báo (deep link scheme mobilesocial:// đã khai trong app.json; cần kiểm tra xử lý mở từ push trên cả hai nền tảng).</li>
+<li><b>Trang "Không phải tôi"</b> là trang web do API phục vụ (giống admin.html), mở được trong mọi trình duyệt trên điện thoại hay máy tính; phải chạy qua HTTPS ở bản thật.</li>
+<li><b>Hộp xác nhận trong app</b> dùng ConfirmModal sẵn có trong Cài đặt — chạy trên cả hai nền tảng.</li>
+<li><b>Chi phí</b>: không có dịch vụ trả phí bắt buộc. Nếu chọn dịch vụ tra IP trực tuyến thay vì cơ sở dữ liệu offline thì có phí theo lượt (không khuyến nghị).</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Đăng nhập trên một máy mới (Android) khi đang có phiên trên iPhone: iPhone nhận push và thông báo trong app có đúng tên máy, nơi, giờ. Đổi chiều lại (iPhone mới, Android cũ) cũng đúng.</li>
+<li>Giả lập IP nước ngoài: email cảnh báo mức cao được gửi, nút "Không phải tôi" mở trang xác nhận; chỉ mở link (không bấm Xác nhận) không làm thay đổi gì.</li>
+<li>Bấm Xác nhận: mọi phiên bị thu hồi, đăng nhập bằng mật khẩu cũ bị từ chối với PASSWORD_RESET_REQUIRED, đặt lại mật khẩu xong thì đăng nhập được.</li>
+<li>Từ app: phiên lạ mới hơn bị thu hồi; phiên cũ hơn không thu hồi được bằng nút này.</li>
+<li>Link dùng lần hai hoặc quá 7 ngày bị từ chối.</li>
+<li>Thiết bị quen đăng nhập lại không sinh cảnh báo.</li>
+<li>Test tự động: quy tắc thiết bị quen/nơi quen, giới hạn email mỗi ngày, link dùng một lần.</li>
+<li>Báo cáo ghi rõ nền tảng đã chạy.</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<ul>
+<li>Backend 3 ngày (quy tắc phát hiện, SecurityEvent, mẫu email, trang xác nhận, thu hồi + buộc đặt lại mật khẩu, báo quản trị viên). Mobile 2 ngày (loại thông báo mới, màn chi tiết cảnh báo với hai nút, xử lý PASSWORD_RESET_REQUIRED, lịch sử bảo mật). Kiểm thử 1 ngày.</li>
+<li>Phụ thuộc: <b>A2</b> (bắt buộc — phiên, thiết bị, thu hồi). Liên quan A1, A4 (dùng chung mẫu cảnh báo), D8 (thông báo đẩy hoàn chỉnh, cài đặt thông báo — cảnh báo bảo mật không được để người dùng tắt hẳn).</li>
+<li>Rủi ro: cảnh báo sai (vị trí IP lệch) làm người dùng hoảng; email bị vào thư rác (cần SPF/DKIM cho tên miền gửi thư — cần kiểm tra cấu hình SMTP hiện tại).</li>
+</ul>

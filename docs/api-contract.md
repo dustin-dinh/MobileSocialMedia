@@ -428,6 +428,8 @@ Realtime events arrive on the existing Socket.IO namespace `/notifications`: `me
 
 Message: `{ id, conversationId, senderId, content, imageUrl, createdAt }`.
 
+`imageUrl` (since 2026-10-17) is a **signed URL to a private bucket, valid for 1 hour**, in every response and socket event that carries a message. It changes on every load, so clients must cache the image by message id, not by URL, and reload the conversation to get a fresh URL after an hour.
+
 ### Stories
 
 | Endpoint | Notes |
@@ -449,3 +451,65 @@ Message: `{ id, conversationId, senderId, content, imageUrl, createdAt }`.
 | `POST /admin/reports/:id/resolve` `{ action }` | `DISMISS`, `REMOVE_CONTENT` (post or comment) or `BAN_USER` (the reported user or the content's author). Closes every open report on the same target. |
 | `GET /admin/users?q=&page=&limit=` | Search by username, display name or email. |
 | `POST` / `DELETE /admin/users/:id/ban` | Suspends or restores an account. Administrators cannot be suspended. |
+
+## Safety features added on 2026-10-17
+
+Details and rules: [docs/moderation/MODERATION_PLAN.md](moderation/MODERATION_PLAN.md). Error bodies of the new refusals carry a machine-readable `code`.
+
+### Age (18+)
+
+| Endpoint | Notes |
+|---|---|
+| `POST /auth/register` | New required field `birthDate` (`YYYY-MM-DD`). Under 18: `403 { code: "AGE_RESTRICTED" }`. Impossible date: `400`. |
+| `GET /users/me`, login `user` | New `birthDate` (`YYYY-MM-DD` or `null`) and `allowAnonymousMessages`. `null` birth date: the app asks for it before anything else. |
+| `PATCH /users/me/birth-date` | `{ birthDate }`, once (`409` when already set). Returns the user plus `ageLocked`. Under 18 locks the account. |
+| Any request / login of a locked account | `401 { code: "AGE_RESTRICTED" }`. |
+| `PATCH /users/me` | New optional `allowAnonymousMessages: boolean`. |
+| `GET /users/:id` | New `acceptsAnonymousMessages`. |
+
+### Conversations
+
+Conversation object (list, open, `meta.conversation` of the message list, socket events) gains:
+
+`{ status: "ACCEPTED" | "PENDING", isRequest, anonymous: null | { role: "SENDER" | "RECIPIENT", revealed }, closed, canSendImages }`
+
+Message object gains `sensitive` (blur the image for the recipient), `storyId` (reply to a story) and `warning` (scam wording, from a stranger or an anonymous sender).
+
+For the recipient of an anonymous conversation, until the sender reveals themselves, the sender's id is `"anonymous"` and the peer is `{ id: "anonymous", username: "nguoi_an_danh", displayName: "Người ẩn danh", avatarUrl: null }` in every response, socket event and push.
+
+| Endpoint | Notes |
+|---|---|
+| `POST /conversations` | A new conversation is `PENDING` (a request) when the other person does not follow the opener. |
+| `POST /conversations/anonymous` | `{ userId }`. Refusals: `ANONYMOUS_NOT_ACCEPTED`, `ANONYMOUS_FOLLOW_REQUIRED`, `ANONYMOUS_NOT_ELIGIBLE` (email not verified / account younger than 7 days), `ANONYMOUS_SUSPENDED`, `ANONYMOUS_DAILY_LIMIT` (429), `CONVERSATION_CLOSED`. |
+| `GET /conversations/unread-count` | `{ count, requests }`: `count` excludes requests. |
+| `GET /conversations/:id/messages` | `meta.conversation` added; `meta.peerReadAt` is `null` for the opener of a pending conversation. |
+| `POST /conversations/:id/messages` | New refusals: `IMAGES_NOT_ALLOWED` (anonymous, or pending opener), `CONTACT_INFO_BLOCKED` with `contact: LINK \| PHONE \| BANK_ACCOUNT`, `REQUEST_LIMIT` (429, 3 messages while pending), `CONVERSATION_CLOSED`, `ANONYMOUS_SUSPENDED`. A reply from the recipient accepts a pending conversation. |
+| `POST /conversations/:id/accept` | Recipient accepts a request. |
+| `POST /conversations/:id/decline` | Recipient removes a request; the opener still sees it as pending. |
+| `POST /conversations/:id/close` | Recipient of an anonymous conversation blocks that sender for good. |
+| `POST /conversations/:id/reveal` | Anonymous sender reveals themselves (cannot be undone). Emits `conversation:updated` to both. |
+| Socket `message:new` | Payload adds `conversation` (as seen by the receiver of the event). |
+
+### Stories
+
+| Endpoint | Notes |
+|---|---|
+| `POST /stories` | New optional `allowAnonymous` (default `false`). |
+| `GET /stories/feed` | Own stories: `reactionsCount` (no `viewsCount` any more). Others' stories: `allowAnonymous`, `myReaction: { type, isAnonymous } \| null`. |
+| `GET /stories/:id/viewers` | **Removed** (owners no longer see viewers). |
+| `GET /stories/:id/reactions` | Owner only. `[{ type, isAnonymous, createdAt, user }]`, `user` is `null` when anonymous. |
+| `POST /stories/:id/reactions` | `{ type, anonymous? }` (post reaction types). Anonymous only when the story allows it (`403`). |
+| `DELETE /stories/:id/reactions` | Remove your reaction. |
+| `POST /stories/:id/reply` | `{ content, anonymous? }` → `{ conversationId, message }`. Anonymous replies open an anonymous conversation (same rules as above). |
+
+### Reports and administration
+
+| Endpoint | Notes |
+|---|---|
+| `POST /reports` | New `targetType: "CONVERSATION"` (`targetId` = conversation id) and reason `SCAM`. Stores a snapshot of the last 50 messages. Reporting an anonymous conversation closes it and suspends the sender's anonymous messaging. |
+| `GET /admin/reports` | Conversation reports carry `target: { conversationId, kind, reportedUserId, anonymous, messages, author }` with the real identity. |
+| `POST /admin/reports/:id/resolve` | `DISMISS` on an anonymous conversation report restores anonymous messaging unless 3 different people reported that user in 30 days. |
+| `GET /admin/users` | Adds `ageLockedAt`, `anonymousSuspendedAt`, `birthDate`. |
+| `DELETE /admin/users/:id/age-lock` | Unlock and clear the birth date so it can be declared again. |
+| `POST` / `DELETE /admin/users/:id/anonymous` | Restore / suspend anonymous messaging. |
+| `GET /admin/stats` | Adds `imageModeration: "ready" \| "unavailable"`. |

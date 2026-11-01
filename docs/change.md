@@ -1668,3 +1668,177 @@ Build the "small" and "medium" items from the feature comparison, to the level o
 - `apps/api/prisma/`, `apps/api/src/modules/{admin,messages,stories,auth,follows,likes,notifications,posts,reels,search,users}/`, `apps/api/src/app.module.ts`, `apps/api/nest-cli.json`, `apps/api/scripts/{make-admin,social-smoke,reels-smoke}.cjs`
 - `apps/mobile/src/features/{messages,stories,feed,profile,settings,search,notifications,reel,auth}/`, `apps/mobile/src/components/common/{UserRow,UserListScreen}.tsx`, `apps/mobile/src/navigation/`, `apps/mobile/src/services/followApi.ts`, `apps/mobile/__tests__/live/liveApi.test.ts`
 - `README.md`, `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`
+
+## 2026-10-17 - Private chat images; share links hidden
+
+### Task
+
+Owner decisions 1 and 7 of 2026-10-17: fix chat images being publicly readable, and hide "copy link" while keeping it usable later.
+
+### Changed
+
+- API: chat images go to a private bucket (`S3_PRIVATE_BUCKET`, default `<S3_BUCKET>-private`, created on startup) and are returned as 1-hour signed URLs in responses and socket events (`resolveMediaUrls` is now async). See DEC-024.
+- API: deleting an account also removes its story files, cover photo, post thumbnails and the images of its conversations.
+- Mobile: chat images cached by message id (`cacheKey`), because the signed URL changes each load.
+- Mobile: `SHARE_LINKS_ENABLED` (`EXPO_PUBLIC_SHARE_LINKS_ENABLED`, off) hides "Sao chép liên kết" on posts and profiles; the system share sheet shares the post text only and is offered only for posts with text.
+- `apps/api/.env.example`, `docs/api-contract.md`, `docs/decisions.md` (DEC-024).
+
+### Checks
+
+- API `tsc --noEmit` clean; the dev server created `social-media-private` on restart.
+- Against the running API + MinIO with seeded `gaptest_*` accounts (removed afterwards): signed URL serves the exact bytes; the same object without a signature returns 403; the object is not in the public bucket; the sender response, the recipient history, the inbox preview and the `message:new` socket event all carry signed URLs; after deleting an account its chat image returns 404.
+- Shared database: 0 chat images were stored in the public bucket, so no migration was needed.
+- Mobile `tsc --noEmit` clean, `jest` 95 passed / 34 skipped, `verify-ui` unchanged (only rule H, as before).
+
+### Platforms run
+
+- Android: not run on a device for this change. iPhone: not run.
+
+### Files
+
+- `apps/api/src/modules/storage/`, `apps/api/src/modules/notifications/notifications.gateway.ts`, `apps/api/src/modules/messages/messages.service.ts`, `apps/api/src/modules/users/users.service.ts`, `apps/api/.env.example`
+- `apps/mobile/src/config/links.ts`, `apps/mobile/src/features/post/components/SharePostModal.tsx`, `apps/mobile/src/features/profile/components/ProfileView.tsx`, `apps/mobile/src/features/messages/screens/ChatScreen.tsx`
+- `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`
+
+## 2026-10-17 - Safety batch: 18+, message requests, anonymous messaging, blurred chat images, anonymous story reactions
+
+### Task
+
+Owner-approved plan of 2026-10-17 (phases 1-9), done in one pass. See DEC-025 and `docs/moderation/MODERATION_PLAN.md`.
+
+### Changed - backend
+
+- Migration `20261017090000_add_safety_features` (applied to the shared Supabase DB): `User.birthDate / ageLockedAt / allowAnonymousMessages / anonymousSuspendedAt`, `Conversation.kind / status / requesterId / revealedAt / closedAt` with the unique index moved to `(userAId, userBId, kind)`, `Message.sensitive / storyId`, `Story.allowAnonymous`, `Report.snapshot`, table `StoryReaction`.
+- New `moderation` module: `ImageModerationService` (ONNX NSFW model, `onnxruntime-node` + `sharp`), `text-safety.ts` (blocked contacts, scam phrases), `age.ts`. `scripts/download-moderation-model.cjs`; `apps/api/models/` is git-ignored.
+- Auth/users: birth date required at registration (18+), `PATCH /users/me/birth-date`, age lock checked at login and in `JwtStrategy`, `allowAnonymousMessages` on `PATCH /users/me`, `acceptsAnonymousMessages` on profiles.
+- Messages rewritten around requests and anonymous conversations: per-viewer masking (API, socket, push), accept / decline / close / reveal, image and contact restrictions, 3-message request limit, 10 anonymous conversations per day, sensitive-image flag, scam warning flag, story replies.
+- Stories: `allowAnonymous`, reactions (named or anonymous), reply endpoint, viewer list removed, grouped reaction push.
+- Reports: `CONVERSATION` target and `SCAM` reason with a 50-message snapshot; anonymous reports close the conversation and suspend anonymous messaging.
+- Admin: conversation reports with real identity and snapshot (sensitive images blurred for the reviewer), age unlock, restore / suspend anonymous messaging, image-checker warning on the dashboard.
+- `scripts/safety-smoke.cjs` (76 checks); `social-smoke.cjs` story checks updated for the removed viewer list.
+
+### Changed - mobile
+
+- Registration: date of birth field (DD/MM/YYYY, no new dependency); `BirthDateScreen` gate for accounts without a birth date; age-locked screen.
+- Messages: inbox split into "Tin nhắn" / "Tin nhắn chờ"; request bar (accept / delete / report); anonymous conversations with mask avatar, notices, reveal and block; text-only composer where required; blurred sensitive images with tap to view; scam warning under messages; story-reply label; Vietnamese messages for every refusal code; menu with report and block.
+- Stories: reaction bar and reply box (anonymous switch when allowed) in the viewer; "N cảm xúc" and `StoryReactionsScreen` for owners (viewer screen removed); "allow anonymous interactions" choice when posting.
+- Profile: "Nhắn ẩn danh" for people who accept it. Settings: "Nhận tin nhắn ẩn danh" opens `AnonymousMessagesScreen` (risks, safeguards, confirm).
+- Report: `CONVERSATION` target and "Lừa đảo" reason. New icons (Lucide): Cake, Inbox, Mask, Reply, ShieldCheck, ShieldWarning, TriangleWarning.
+- Tests: `birthDate.test.ts`, regression registration tests updated, live `safetyLive.test.ts`.
+
+### Checks
+
+- API `tsc --noEmit` clean. Against the running API + MinIO + shared DB: `safety-smoke` 76/76, `social-smoke` 73/73, `api-smoke` 72/72, `reels-smoke` 28/28 (api-smoke and reels-smoke needed a pause for the login rate limit). Migration diff after apply: empty.
+- Model check: six ordinary photos and flat colours score 0.006-0.19 (threshold 0.7).
+- Mobile `tsc --noEmit` clean, `jest` 100 passed / 39 skipped (live), live suites `liveApi` 20/20, `gapLive` 14/14, `safetyLive` 5/5 (each on freshly seeded accounts). `verify-ui` unchanged (only rule H). `expo export` builds Android and iOS bundles.
+
+### Platforms run
+
+- **Android (BlueStacks, Expo Go), real API:** registration birth-date field and under-18 error; birth-date gate (invalid date, confirm, continue); inbox folders and request count; request chat with accept / delete / report bar, scam warning and report sheet; anonymous chat (mask, notices, menu, reply accepting it); blurred image cover; story viewer reaction bar, anonymous switch and anonymous reaction (confirmed on the server); own story "2 cảm xúc" and the reactions list with "Người ẩn danh"; Settings switch and the anonymous-messages screen.
+- **Not seen on a device:** "allow anonymous" sheet after picking a story (the system picker did not accept automated taps), revealing identity from the sender side, "Nhắn ẩn danh" on a profile, locked-account screen, admin page in a browser (covered by the API smoke test).
+- **iPhone: not run.**
+
+### Incidents
+
+- A bug in a first version of `safety-smoke.cjs` (helper calling itself) opened database connections in a loop and exhausted the shared Supabase pooler for a few minutes (`EMAXCONN`). Fixed before any further run.
+- Found during the test: `import sharp from` compiled to `undefined` (sharp 0.35 ships ESM typings); every image fell back to "blurred". Fixed with a typed `require`.
+- Pre-existing, not fixed: signing out in Expo Go shows a red LogBox for the missing Google Sign-In native module (the error is caught; dev-only overlay).
+
+### Files
+
+- `apps/api/prisma/`, `apps/api/src/modules/{moderation,messages,stories,reports,admin,auth,users}/`, `apps/api/src/app.module.ts`, `apps/api/scripts/{download-moderation-model,safety-smoke,social-smoke}.cjs`, `apps/api/package.json`, `apps/api/pnpm-lock.yaml`, `apps/api/pnpm-workspace.yaml`, `apps/api/.env.example`, `.gitignore`
+- `apps/mobile/src/features/{auth,messages,stories,settings,profile,report,notifications}/`, `apps/mobile/src/components/icons/ClayIcon.tsx`, `apps/mobile/src/navigation/`, `apps/mobile/__tests__/`
+- `README.md`, `docs/moderation/MODERATION_PLAN.md`, `docs/api-contract.md`, `docs/decisions.md`, `docs/change.md`
+
+## 2026-10-31 - Feature report (PDF) with overview use case diagram
+
+### Task
+
+Owner asked for a PDF report of the features that exist now, grouped into large modules and their sub-modules, in black Times New Roman (13 pt body, larger Roman-numeral headings, larger title), with an overview use case diagram drawn with the draw.io skill.
+
+### Changed
+
+- New `docs/report/bao-cao-tinh-nang.pdf` (9 pages): I. overview, II. use case diagram, III. 13 functional modules with sub-modules, IV. supporting backend modules, V. test status and open work.
+- New `docs/report/usecase-tong-quan.drawio`: editable source of the diagram (actors Khách, Người dùng, Quản trị viên with generalization; 18 use cases).
+- New `docs/report/bao-cao-tinh-nang.template.html`: report text; the `<!--DIAGRAM-->` marker is replaced by the diagram rendered to SVG (draw.io viewer, headless Edge), then printed to PDF with headless Edge.
+- No application code changed.
+
+### Checks
+
+- Content taken from the code (controllers, Prisma schema, mobile screens) and the entries above; 98 API routes, 22 tables, 32 mobile screens counted from the code.
+- Diagram: `validate.py` 0 errors, 0 crossings (18 overlap warnings are the use cases inside the system boundary). PDF pages rendered and checked by eye; fonts embedded are Times New Roman only.
+
+### Platforms run
+
+- Not applicable (documentation only; the app was not run for this report).
+
+### Files
+
+- `docs/report/bao-cao-tinh-nang.pdf`, `docs/report/bao-cao-tinh-nang.template.html`, `docs/report/usecase-tong-quan.drawio`, `docs/change.md`
+
+## 2026-10-31 - Trial: run the mobile app on the web (Expo web)
+
+### Task
+
+Owner asked to try the app as a web app locally (goal: web + app like Threads).
+
+### Changed
+
+- Mobile: `react-dom`, `react-native-web`, `@expo/metro-runtime` added with `expo install` (Expo web support).
+- Mobile `src/config/api.ts`: on web the dev API URL is `http://<page host>:3000/api` (web has no `SourceCode` native module, so the URL was undefined).
+- API `main.ts`: `app.enableCors()` so the browser can call the API from another origin (Bearer tokens, no cookies). Open to every origin for now; restrict to a list of origins before a real web deploy.
+
+### Checks
+
+- Mobile `tsc --noEmit` clean, `jest` 100 passed / 39 skipped (one earlier run had 1 failure that did not repeat). API `tsc --noEmit` clean.
+- `expo start --web` bundles; the home feed renders in headless Edge at 1280x800 with mock data (`EXPO_PUBLIC_USE_MOCK=true`).
+- Not checked with the real API: the backend could not start because Supabase answers "tenant/user not found" for the project in `DATABASE_URL` (likely paused; `.env` unchanged since 2026-10-12).
+
+### Platforms run
+
+- Web (Edge, mock data): home feed only. Android and iPhone: not run for this change (only the web branch of `api.ts` is new).
+
+### Known web gaps (not fixed)
+
+- `expo-secure-store`, `expo-file-system`, `expo-video-thumbnails` and Google Sign-In have no web implementation (token storage, video poster, file reads, Google login).
+- The layout is the phone layout stretched to the window (bottom tab bar, full-width cards).
+
+### Files
+
+- `apps/mobile/package.json`, `apps/mobile/pnpm-lock.yaml`, `apps/mobile/src/config/api.ts`, `apps/api/src/main.ts`, `docs/change.md`
+
+## 2026-10-31 - Feature integration plan (PDF) with 75 flowcharts
+
+### Task
+
+Owner asked for a plan to bring the product to about 60% of Facebook / small social apps, with 2FA and the safety features done thoroughly, each feature described in words and with detailed flowcharts drawn with the draw.io skill. Owner also asked to run independent work on parallel agents.
+
+### Changed
+
+- New `docs/plan/ke-hoach-tinh-nang.pdf` (288 pages, Times New Roman, bookmarks and a linked table of contents): I. goals and how to read; II. what "perfect" means (scope and a shared definition of done); III. gap table against Facebook; IV. 30 features (A1–A6 account security, B1–B8 safety, C1–C3 moderation, D1–D9 social, E1–E4 privacy) in four phases, with a roadmap and a layered-safety overview; V. one spec per feature (purpose, current state from the code, step-by-step behaviour, flowcharts, rules and limits, proposed data/API, Android/iOS/web, done criteria, estimate); VI. legal, store rules, bugs found in the current code, shared technical decisions, risks, external services and costs; VII. 30 questions for the owner, each with a proposal.
+- New `docs/plan/flows/*.drawio`: 75 editable flowcharts (73 feature flows + 2 overview).
+- New `docs/plan/src/`: sources to rebuild the PDF: `sections/` (feature HTML + per-group summaries), `specs/` (flowchart JSON), `tools/flowgen.py` (spec -> swimlane .drawio on a grid; Graphviz is not installed), `tools/render.py` (draw.io viewer in headless Edge -> SVG/PNG), `tools/build_plan.py` (assemble + print to PDF), `risks.html`, `questions.html`, `BRIEF.md` (the brief given to the seven writing agents).
+- New `docs/plan/ke-hoach-tinh-nang.template.html`: the frame of the document.
+- No application code changed. All endpoints and tables in the plan are proposals; nothing was added to `docs/api-contract.md` or `docs/decisions.md`.
+
+### How to rebuild
+
+From `docs/plan/src`: `python tools/flowgen.py specs/<id>.json ../flows/<id>.drawio`, then `python tools/render.py ../flows/<id>.drawio render` for every flow, then `python tools/build_plan.py ../ke-hoach-tinh-nang.template.html plan.html ../ke-hoach-tinh-nang.pdf`. Rendering loads the draw.io viewer from viewer.diagrams.net.
+
+### Checks
+
+- Every flowchart: generator 0 errors; drawio-skill `validate.py` 0 errors, 0 crossings, 0 edges through nodes, 0 overlaps; each PNG looked at. Field names reconciled across features (comment filter fields in B4/B7/B8 vs C1).
+- PDF: 75 figures, 30 features, fonts Times New Roman (plus symbol glyphs only where E4 lists tick-like characters to ban), no figure separated from its lead-in line.
+- Estimates add up to 364 working days (GĐ1 71.5, GĐ2 104, GĐ3 116.5, GĐ4 72).
+
+### Platforms run
+
+- Not applicable (planning document; the app was not run).
+
+### Found in the current code while planning (not fixed)
+
+- Listed in section VI.3 of the PDF (12 items), e.g. request-message text shown in push on the lock screen, pushes after a request was deleted, banned users' posts still visible, admin can read anonymous senders' identity without a log, account deletion removing the other person's conversation and the deleted user's reports.
+
+### Files
+
+- `docs/plan/ke-hoach-tinh-nang.pdf`, `docs/plan/ke-hoach-tinh-nang.template.html`, `docs/plan/flows/`, `docs/plan/src/`, `docs/change.md`

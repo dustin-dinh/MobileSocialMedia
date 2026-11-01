@@ -1,0 +1,28 @@
+{"id":"b5-quet-video-story","title":"Quét video bài viết và story (tệp tải thẳng lên kho)",
+"lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Chọn video / story, bấm Đăng"},
+ {"id":"up","type":"process","lane":1,"row":0,"label":"Tạo ảnh bìa, tải tệp lên kho"},
+ {"id":"chk","type":"process","lane":2,"row":0,"label":"Kiểm tra loại, dung lượng (đã có)"},
+ {"id":"pend","type":"data","lane":2,"row":1,"label":"Lưu, trạng thái 'đang xử lý'"},
+ {"id":"wait","type":"io","lane":1,"row":1,"label":"Tác giả thấy 'Đang xử lý'"},
+ {"id":"frames","type":"process","lane":2,"row":2,"label":"Lấy ảnh bìa + 3–5 khung hình"},
+ {"id":"ok","type":"decision","lane":2,"row":3,"label":"Chấm được?"},
+ {"id":"fail","type":"process","lane":2,"col":1,"row":3,"label":"Lỗi 3 lần: xử lý như thiếu mô hình"},
+ {"id":"high","type":"decision","lane":2,"row":4,"label":"Khung nào ≥ 0,9?"},
+ {"id":"hold","type":"sub","lane":2,"col":1,"row":4,"label":"Giữ ẩn, chuyển hàng đợi C1"},
+ {"id":"mid","type":"decision","lane":2,"row":5,"label":"≥ 0,7 hoặc tự gắn?"},
+ {"id":"label","type":"process","lane":2,"col":1,"row":5,"label":"Gắn nhãn nhạy cảm"},
+ {"id":"pub","type":"data","lane":2,"row":6,"label":"Công khai, đã quét xong"},
+ {"id":"done","type":"end","lane":1,"row":6,"label":"Người khác thấy (mờ nếu có nhãn)"}
+],
+"edges":[
+ {"from":"s","to":"up"},{"from":"up","to":"chk"},{"from":"chk","to":"pend"},
+ {"from":"pend","to":"wait","exit":"left","entry":"right"},
+ {"from":"pend","to":"frames"},{"from":"frames","to":"ok"},
+ {"from":"ok","to":"fail","label":"Không"},{"from":"ok","to":"high","label":"Có"},
+ {"from":"high","to":"hold","label":"Có"},{"from":"high","to":"mid","label":"Không"},
+ {"from":"mid","to":"label","label":"Có"},{"from":"mid","to":"pub","label":"Không"},
+ {"from":"label","to":"pub","exit":"bottom","entry":"right","via":[[3,6]]},
+ {"from":"pub","to":"done","exit":"left","entry":"right"}
+]}

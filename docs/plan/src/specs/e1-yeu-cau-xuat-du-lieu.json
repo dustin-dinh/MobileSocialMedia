@@ -1,0 +1,26 @@
+{"id":"e1-yeu-cau-xuat-du-lieu","title":"Yêu cầu tải xuống dữ liệu của bạn","lanes":[{"name":"Người dùng"},{"name":"Ứng dụng"},{"name":"Máy chủ","cols":2}],
+"nodes":[
+ {"id":"s","type":"start","lane":0,"row":0,"label":"Bấm Yêu cầu tệp dữ liệu"},
+ {"id":"re","type":"io","lane":1,"row":0,"label":"Hỏi lại mật khẩu"},
+ {"id":"in","type":"process","lane":0,"row":1,"label":"Nhập mật khẩu hoặc đăng nhập Google"},
+ {"id":"send","type":"process","lane":1,"row":1,"label":"Gửi yêu cầu xuất dữ liệu"},
+ {"id":"pw","type":"decision","lane":2,"row":1,"label":"Xác nhận đúng?"},
+ {"id":"pwErr","type":"process","lane":2,"col":1,"row":1,"label":"Trả lỗi 400, đếm lần sai"},
+ {"id":"lim","type":"decision","lane":2,"row":2,"label":"Đã yêu cầu trong 24 giờ?"},
+ {"id":"limErr","type":"end","lane":2,"col":1,"row":2,"label":"Trả 429 kèm giờ thử lại"},
+ {"id":"mk","type":"data","lane":2,"row":3,"label":"Tạo DataExport: PENDING"},
+ {"id":"mail","type":"process","lane":2,"col":1,"row":3,"label":"Email báo có yêu cầu xuất"},
+ {"id":"q","type":"process","lane":2,"row":4,"label":"Đưa việc vào hàng đợi"},
+ {"id":"ack","type":"io","lane":1,"row":4,"label":"Hiện: Đang chuẩn bị tệp"},
+ {"id":"wait","type":"end","lane":0,"row":4,"label":"Chờ thông báo"},
+ {"id":"sub","type":"sub","lane":2,"row":5,"label":"Sơ đồ: tạo và tải tệp"}
+],
+"edges":[
+ {"from":"s","to":"re"},{"from":"re","to":"in"},{"from":"in","to":"send"},{"from":"send","to":"pw"},
+ {"from":"pw","to":"pwErr","label":"Không"},
+ {"from":"pwErr","to":"re","label":"Cho nhập lại","exit":"top","entry":"right","via":[[3,0]],"dashed":true},
+ {"from":"pw","to":"lim","label":"Có"},
+ {"from":"lim","to":"limErr","label":"Có"},{"from":"lim","to":"mk","label":"Không"},
+ {"from":"mk","to":"mail"},{"from":"mk","to":"q"},
+ {"from":"q","to":"ack"},{"from":"ack","to":"wait"},{"from":"q","to":"sub"}
+]}

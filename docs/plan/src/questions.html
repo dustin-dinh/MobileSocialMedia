@@ -1,0 +1,63 @@
+<p>Các câu hỏi dưới đây được gộp từ phần đặc tả của từng tính năng. Mỗi câu có sẵn một đề xuất, để chủ dự án chỉ cần đồng ý hoặc chọn cách khác. Quyết định nào ảnh hưởng tới người khác thì ghi vào <i>docs/decisions.md</i> trước khi bắt đầu giai đoạn có tính năng đó.</p>
+
+<h3>1. Cần quyết trước khi bắt đầu GĐ1</h3>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:42%">Câu hỏi</th><th>Đề xuất</th><th style="width:9%">Mục</th></tr>
+  <tr><td>1</td><td>Sửa 12 lỗi đang có (mục VI.3) ngay hay đợi làm cùng tính năng?</td><td>Sửa ngay, trước GĐ1; ưu tiên lỗi 1, 2, 3, 6 và 7 vì làm lộ nội dung hoặc mất dữ liệu của người khác.</td><td>VI.3</td></tr>
+  <tr><td>2</td><td>Nhật ký thao tác và bước "xem danh tính thật phải ghi lý do" đang nằm ở C3 (GĐ3), trong khi C1 (GĐ1) đã cho người duyệt xem danh tính thật.</td><td>Chuyển phần này lên làm cùng C1 (thêm khoảng 2 ngày).</td><td>C1, C3</td></tr>
+  <tr><td>3</td><td>Có làm Đăng nhập bằng Apple, hay ẩn nút Google trên iOS để khỏi bắt buộc?</td><td>Làm Đăng nhập bằng Apple; người dùng Apple đặt mật khẩu để đăng nhập trên Android.</td><td>A6</td></tr>
+  <tr><td>4</td><td>Thông báo đẩy của tin nhắn chờ và tin ẩn danh có hiện nội dung không?</td><td>Không. Chỉ hiện "Bạn có tin nhắn chờ mới".</td><td>B1, D8</td></tr>
+  <tr><td>5</td><td>Quét ảnh và video trước hay sau khi hiện cho người khác? Khi mô hình nhận diện ảnh hỏng thì làm gì?</td><td>Ảnh quét trước khi lưu (chậm thêm khoảng 3 giây); video và story ẩn với người khác cho tới khi quét xong. Mô hình hỏng thì xếp hàng quét lại, chỉ nội dung bị báo cáo mới vào hàng đợi người duyệt.</td><td>B5, C1</td></tr>
+  <tr><td>6</td><td>Xóa tài khoản: tin nhắn của người đã xóa xử lý thế nào? Phương án hiện tại xóa luôn cả cuộc trò chuyện của người kia.</td><td>Giữ cuộc trò chuyện, xóa chữ và ảnh của người đã xóa, hiện "Người dùng đã xóa". Áp dụng cả cho nhóm chat.</td><td>E2, D1</td></tr>
+  <tr><td>7</td><td>Ai trực kiểm duyệt, trong giờ nào, và thời hạn xử lý mục tiêu là bao lâu?</td><td>Đề xuất thời hạn 1 giờ / 4 giờ / 24 giờ / 72 giờ theo bốn mức nghiêm trọng; cần chỉ định người trực trước khi mở đăng ký công khai.</td><td>C1</td></tr>
+  <tr><td>8</td><td>Ai giữ tài khoản Apple Developer, dự án Firebase, dự án EAS và tên miền? Có máy iPhone để thử không?</td><td>Một người chịu trách nhiệm tất cả các tài khoản này; cần ít nhất một iPhone thật từ GĐ1.</td><td>A6, D8, E2</td></tr>
+  <tr><td>9</td><td>Năm quyết định kỹ thuật dùng chung ở mục VI.4 (việc nền, một bản API, xóa kiểu bia mộ, thông báo hệ thống, hàm quyền xem dùng chung).</td><td>Đồng ý cả năm, ghi vào <i>docs/decisions.md</i> và thống nhất với người phụ trách backend.</td><td>VI.4</td></tr>
+</table>
+
+<h3>2. Cần luật sư trả lời</h3>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:42%">Câu hỏi</th><th>Ảnh hưởng tới</th><th style="width:9%">Mục</th></tr>
+  <tr><td>10</td><td>Nghị định 147/2024 có áp dụng cho sản phẩm không: bắt buộc xác thực số điện thoại, giấy phép mạng xã hội, thời hạn gỡ nội dung, tài khoản cũ được bao lâu để bổ sung, người dùng nước ngoài?</td><td>A5 thuộc GĐ1 hay GĐ4; nhắn ẩn danh được làm tới đâu; thời hạn xử lý trong hàng đợi.</td><td>A5, B2, C1</td></tr>
+  <tr><td>11</td><td>Thời hạn lưu báo cáo, bằng chứng, nhật ký thao tác và lịch sử vi phạm. Đề xuất hiện tại: 12 tháng sau khi xử lý xong, nhật ký 2 năm.</td><td>Thiết kế xóa dữ liệu, dung lượng lưu trữ.</td><td>C1, C2, C3, E2</td></tr>
+  <tr><td>12</td><td>Có được thu và lưu ảnh giấy tờ tùy thân, dữ liệu khuôn mặt để xác minh tuổi và cấp dấu tick không; lưu bao lâu (đề xuất xóa sau 30 ngày)?</td><td>Cách xác minh tuổi khi kháng nghị và cách duyệt dấu tick.</td><td>B6, E4</td></tr>
+  <tr><td>13</td><td>Quy trình khi phát hiện nội dung xâm hại trẻ em: báo cơ quan nào, giữ hay xóa tệp, có cần công cụ đối chiếu như PhotoDNA không?</td><td>Hàng đợi kiểm duyệt mức nghiêm trọng nhất.</td><td>C1</td></tr>
+  <tr><td>14</td><td>Thời hạn phản hồi yêu cầu tải và xóa dữ liệu cá nhân theo quy định bảo vệ dữ liệu cá nhân hiện hành.</td><td>Thời gian chờ của E1 và E2.</td><td>E1, E2</td></tr>
+</table>
+
+<h3>3. Các con số cần duyệt</h3>
+<p>Tất cả là đề xuất; nên duyệt một lần trước GĐ tương ứng, rồi chỉnh theo số liệu thật sau khi có người dùng.</p>
+<table>
+  <tr><th style="width:22%">Mảng</th><th>Con số đề xuất</th><th style="width:12%">Mục</th></tr>
+  <tr><td>Phiên đăng nhập</td><td>Mã truy cập sống 15 phút; phiên hết hạn sau 60 ngày không dùng, tối đa 1 năm; phiên mới dưới 24 giờ không được đăng xuất phiên cũ nếu không nhập mật khẩu.</td><td>A2</td></tr>
+  <tr><td>Chống dò mật khẩu</td><td>Chờ tăng dần từ lần sai thứ 5, khóa 15 phút ở lần thứ 10; tối đa 50 lần sai mỗi giờ cho một địa chỉ IP.</td><td>A4</td></tr>
+  <tr><td>Tin nhắn chờ và ẩn danh</td><td>20 cuộc trò chuyện mới mỗi ngày (5 với tài khoản mới); 30 tin ẩn danh mỗi ngày; ngưỡng điểm lạm dụng 30 và 60.</td><td>B1, B2</td></tr>
+  <tr><td>Giới hạn tạm thời</td><td>Gợi ý bật khi có 20 bình luận từ 10 người lạ trong 60 phút.</td><td>B4</td></tr>
+  <tr><td>Làm mờ ảnh</td><td>Điểm 0,7 trở lên thì làm mờ, 0,9 trở lên thì giữ chờ duyệt. Cần đo trên một bộ ảnh mẫu trước khi chốt.</td><td>B5</td></tr>
+  <tr><td>Hàng đợi kiểm duyệt</td><td>Tự ẩn sau 1 báo cáo về an toàn trẻ em, 3 người khác nhau báo lừa đảo hoặc bạo lực, 5 người với lý do khác.</td><td>C1</td></tr>
+  <tr><td>Xử phạt</td><td>Điểm vi phạm 1 / 2 / 3 theo mức độ, hết hạn sau 90 ngày; cảnh cáo → hạn chế 7 ngày → khóa 7 ngày → khóa 30 ngày → khóa vĩnh viễn; kháng nghị trong 30 ngày.</td><td>C2</td></tr>
+  <tr><td>Tin nhắn nâng cao</td><td>Thu hồi trong 24 giờ; sửa trong 15 phút, tối đa 5 lần; giữ tin đã thu hồi 30 ngày để phục vụ báo cáo.</td><td>D2</td></tr>
+  <tr><td>Bảng tin</td><td>Độ mới ×4, mức thân với tác giả ×3, lượt tương tác ×1; bị đẩy xuống khi có 3 báo cáo đang mở, ẩn với người khác khi có 10.</td><td>D5</td></tr>
+  <tr><td>Bài viết và story</td><td>Tối đa 20 lần sửa, 20 người được gắn thẻ, 3 bài ghim; 500 bạn thân, 50 nhóm tin nổi bật mỗi nhóm 100 story.</td><td>D6, D7</td></tr>
+  <tr><td>Thông báo</td><td>Gộp các thông báo cùng một bài trong 15 phút.</td><td>D8</td></tr>
+</table>
+
+<h3>4. Lựa chọn sản phẩm (quyết trước giai đoạn tương ứng)</h3>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:42%">Câu hỏi</th><th>Đề xuất</th><th style="width:9%">Mục</th></tr>
+  <tr><td>15</td><td>Mã qua email có được dùng làm cách dự phòng cho 2FA không? Khi mất cả điện thoại lẫn mã dự phòng thì khôi phục thế nào?</td><td>Cho dùng nhưng cảnh báo là kém an toàn hơn; khôi phục qua quản trị viên xác minh, có thời gian chờ 7 ngày.</td><td>A1</td></tr>
+  <tr><td>16</td><td>Mặc định "Ai được nhắn tin cho tôi"; ai được gửi tin ẩn danh cho tôi?</td><td>Mặc định "Mọi người" (người lạ vào tin nhắn chờ); tin ẩn danh chỉ từ người đã theo dõi mình ít nhất 3 ngày.</td><td>B1, B2</td></tr>
+  <tr><td>17</td><td>Người gửi ẩn danh đã tự tiết lộ danh tính thì có được gửi ảnh không?</td><td>Có, vì cuộc trò chuyện lúc đó không còn ẩn danh.</td><td>B2</td></tr>
+  <tr><td>18</td><td>Có trả phí dịch vụ kiểm tra đường link (Google Web Risk) không?</td><td>Có, khi lên store; trước đó dùng danh sách tự soạn.</td><td>B3</td></tr>
+  <tr><td>19</td><td>Lấy khung hình video để quét: ở máy chủ bằng ffmpeg hay trên điện thoại?</td><td>Ở máy chủ bằng ffmpeg, vì điện thoại có thể bị làm giả kết quả.</td><td>B5</td></tr>
+  <tr><td>20</td><td>Cách xác minh tuổi khi người dùng kháng nghị bị khóa vì nghi dưới 18.</td><td>Chọn sau khi luật sư trả lời câu 12; tài liệu đã liệt kê năm cách và đánh đổi của từng cách.</td><td>B6</td></tr>
+  <tr><td>21</td><td>Người viết bình luận có được biết bình luận của mình đã bị ẩn không? Ai soạn danh sách từ cấm?</td><td>Không báo (giống Instagram). Danh sách từ do chủ dự án hoặc kiểm duyệt viên soạn và duyệt trước khi thử.</td><td>B7</td></tr>
+  <tr><td>22</td><td>Cách chuyển dữ liệu hội thoại sang nhiều người.</td><td>Thêm bảng thành viên dùng chung cho cả hội thoại 1-1 và nhóm.</td><td>D1</td></tr>
+  <tr><td>23</td><td>Bài trong nhóm cộng đồng có hiện trên bảng tin chính không? Có cho đăng ẩn danh trong nhóm không?</td><td>Bản đầu: không hiện trên bảng tin chính, không cho ẩn danh.</td><td>D3</td></tr>
+  <tr><td>24</td><td>Gọi điện: tự làm, dùng dịch vụ có sẵn, hay thử trước?</td><td>Thử gọi thoại giữa Android và iPhone trong 2–3 ngày, rồi mới chọn.</td><td>D4</td></tr>
+  <tr><td>25</td><td>Bảng tin có gợi ý bài công khai của người mình chưa theo dõi không? (đổi quyết định DEC-023)</td><td>Có công tắc, mặc định tắt.</td><td>D5</td></tr>
+  <tr><td>26</td><td>Có được trích dẫn bài chỉ dành cho bạn bè không? Gắn thẻ từ người lạ có cần duyệt không? Chủ bình chọn có thấy ai chọn gì không?</td><td>Chỉ trích dẫn bài công khai của tài khoản công khai; gắn thẻ từ người mình không theo dõi phải duyệt; bình chọn chỉ hiện số lượng.</td><td>D6</td></tr>
+  <tr><td>27</td><td>Lưu trữ story có bật mặc định không?</td><td>Có, chỉ chủ story xem được.</td><td>D7</td></tr>
+  <tr><td>28</td><td>Lịch sử tìm kiếm lưu ở đâu? Có thêm tiện ích PostgreSQL <i>unaccent</i> và <i>pg_trgm</i> (tìm không dấu, tìm nhanh) không?</td><td>Lưu trên máy; thêm cả hai tiện ích, cần người phụ trách backend đồng ý.</td><td>D9</td></tr>
+  <tr><td>29</td><td>Dấu tick có miễn phí không? Giấy tờ chụp bằng camera hay chọn từ thư viện ảnh?</td><td>Miễn phí; bản đầu chỉ chọn từ thư viện ảnh (khỏi xin thêm quyền camera).</td><td>E4</td></tr>
+  <tr><td>30</td><td>Tài khoản bị khóa có được yêu cầu tải dữ liệu của mình không?</td><td>Có, qua trang web với xác minh email, giống trang yêu cầu xóa.</td><td>E1</td></tr>
+</table>

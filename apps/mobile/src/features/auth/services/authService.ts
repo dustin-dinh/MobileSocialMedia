@@ -1,4 +1,5 @@
 import { httpClient } from '../../../services/httpClient';
+import { parseBirthDateInput } from '../birthDate';
 import type { LoginFormValues, RegisterFormValues } from '../validation';
 
 export type AuthUser = {
@@ -11,6 +12,10 @@ export type AuthUser = {
   hasPassword?: boolean;
   /** Null until the first-run setup has been completed or skipped. */
   onboardedAt?: string | null;
+  /** YYYY-MM-DD. Null on accounts that have not declared it yet: the app asks before anything else. */
+  birthDate?: string | null;
+  /** The user lets anonymous senders message them (Settings). */
+  allowAnonymousMessages?: boolean;
   email: string;
   id: string;
   isPrivate?: boolean;
@@ -30,7 +35,10 @@ type LoginResponse = {
   };
 };
 
-type RegisterRequest = Pick<RegisterFormValues, 'email' | 'password' | 'username'>;
+type RegisterRequest = Pick<RegisterFormValues, 'email' | 'password' | 'username'> & {
+  /** YYYY-MM-DD */
+  birthDate: string;
+};
 type LoginRequest = LoginFormValues;
 
 type GetCurrentUserOptions = {
@@ -131,6 +139,8 @@ export const authService = {
   },
   async register(values: RegisterFormValues): Promise<AuthUser> {
     const body: RegisterRequest = {
+      // validateRegister already rejected an unparsable date.
+      birthDate: parseBirthDateInput(values.birthDate) ?? '',
       email: values.email.trim().toLowerCase(),
       password: values.password,
       username: values.username.trim(),

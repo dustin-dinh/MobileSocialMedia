@@ -1,0 +1,167 @@
+<h3>D2. Tin nhắn nâng cao: thu hồi, sửa, trả lời trích dẫn, cảm xúc, đang soạn, gửi video, ghi âm</h3>
+<p><i>Nhóm: Mạng xã hội đầy đủ · Giai đoạn: GĐ3 · Ước lượng: 22–24 ngày công</i></p>
+
+<h4>a) Mục đích</h4>
+<p>Đưa phần nhắn tin lên mức người dùng quen ở Messenger, Zalo: gỡ tin gửi nhầm, sửa lỗi chính tả, trả lời đúng một tin, thả cảm xúc, biết người kia đang gõ, gửi video và tin nhắn thoại, và không mất tin khi mạng chập chờn. Mỗi phần nhỏ có thể làm và phát hành riêng.</p>
+
+<h4>b) Hiện trạng</h4>
+<ul>
+<li><b>Bảng Message</b> (<i>apps/api/prisma/schema.prisma</i>) chỉ có: <i>id</i> (do thiết bị sinh ra), <i>conversationId</i>, <i>senderId</i>, <i>content</i>, <i>imageUrl</i>, <i>createdAt</i>, <i>sensitive</i>, <i>storyId</i>. Không có trường sửa, thu hồi, trả lời, loại tin, video hay âm thanh. Không có bảng cảm xúc cho tin nhắn (cảm xúc chỉ có cho bài viết, bảng <i>Like</i>, và story, bảng <i>StoryReaction</i>).</li>
+<li><b>API</b> (<i>apps/api/src/modules/messages/messages.controller.ts</i>): chỉ có tạo và đọc tin; không có sửa, xóa hay thu hồi. Gửi tin nhận JSON hoặc multipart với trường <i>image</i> (JPEG/PNG/WebP, tối đa 5 MB), chữ tối đa 2000 ký tự. Ảnh đi qua API rồi lưu vào kho riêng tư bằng <i>StorageService.upload(..., { private: true })</i>, đọc bằng URL có chữ ký hạn 1 giờ (<i>media-url.ts</i>).</li>
+<li><b>Tải tệp lớn:</b> <i>StorageService.createUploadUrl</i> (URL có chữ ký để điện thoại tải thẳng lên kho) và <i>head</i> hiện <b>chỉ làm việc với kho công khai</b>. Video bài viết và Reels dùng cách này qua <i>POST /media/upload-url</i>, giới hạn video 30 MB, MP4/MOV (<i>reels.service.ts</i>). Tin nhắn chưa có cách tải video vào kho riêng tư.</li>
+<li><b>Thời gian thực:</b> có <i>message:new</i>, <i>message:read</i>, <i>conversation:updated</i>. Gateway không nhận sự kiện từ ứng dụng nên chưa thể làm "đang soạn".</li>
+<li><b>Gửi lại khi mất mạng (ứng dụng):</b> <i>ChatScreen.tsx</i> tạo <i>clientId</i> dạng <i>thời-gian-chuỗi-ngẫu-nhiên</i>, hiện tin mờ ngay, lỗi mạng thì tin chuyển đỏ và <b>người dùng phải chạm để gửi lại</b>. Hàng đợi nằm trong bộ nhớ của màn hình (<i>outgoingRef</i>): rời màn hình hoặc tắt app là mất tin chưa gửi. Lỗi do quy tắc (có <i>code</i>, ví dụ REQUEST_LIMIT) thì gỡ tin và hiện toast. Khi socket kết nối lại thì tải lại hội thoại. Máy chủ đã chống trùng theo <i>clientId</i>.</li>
+<li><b>Ứng dụng:</b> chỉ chọn ảnh từ thư viện (<i>mediaTypes: ['images']</i>). <i>app.json</i> chỉ có câu xin quyền thư viện ảnh; <b>chưa có quyền micro, chưa có quyền camera</b>. Đã có <i>expo-video</i> (phát video) và <i>expo-video-thumbnails</i> (tạo ảnh bìa) trong <i>package.json</i>; chưa có thư viện ghi âm.</li>
+</ul>
+
+<h4>c) Cách hoạt động</h4>
+<p><b>Luồng 1: Thu hồi tin</b></p>
+<ol>
+<li>Người gửi nhấn giữ tin của mình, chọn "Thu hồi". Pop-up hỏi lại: "Thu hồi với mọi người?".</li>
+<li>Máy chủ kiểm tra: đúng người gửi, tin chưa bị thu hồi, còn trong 24 giờ kể từ lúc gửi (đề xuất).</li>
+<li>Máy chủ ghi <i>unsentAt</i>, xóa nội dung khỏi tin (xem mục e về lưu giữ cho báo cáo), phát <i>message:updated</i> cho hai bên.</li>
+<li>Hai bên thấy dòng "Tin nhắn đã được thu hồi" ở đúng chỗ tin cũ. Tin trả lời trích dẫn tin này cũng chỉ còn "Tin đã thu hồi".</li>
+<li>Thông báo push đã hiện trên máy người nhận <b>không thu hồi được</b>; ứng dụng chỉ cập nhật khi mở ra.</li>
+</ol>
+<p><b>Luồng 2: Sửa tin</b></p>
+<ol>
+<li>Người gửi nhấn giữ tin chữ của mình (không áp dụng tin ảnh/video/thoại), chọn "Sửa". Ô soạn tin hiện nội dung cũ.</li>
+<li>Máy chủ kiểm tra: đúng người gửi, trong 15 phút kể từ lúc gửi, tối đa 5 lần sửa (đề xuất), và <b>chạy lại đúng các luật như lúc gửi</b>: độ dài, chặn link/số điện thoại/số tài khoản trong tin nhắn chờ và ẩn danh (<i>findBlockedContact</i>), cảnh báo lừa đảo (<i>hasScamWarning</i>). Nếu không, người lạ có thể gửi câu vô hại rồi sửa thành đường link để lách luật.</li>
+<li>Máy chủ lưu bản cũ vào bảng lịch sử, ghi <i>editedAt</i>, phát <i>message:updated</i>.</li>
+<li>Tin hiện nhãn "(đã sửa)". Chạm vào nhãn để xem các bản trước (cả hai bên đều xem được, đề xuất). Mục đích: kẻ lừa đảo không thể sửa lại lời hứa sau khi nạn nhân đã đọc.</li>
+</ol>
+<p><b>Luồng 3: Trả lời trích dẫn</b></p>
+<ol>
+<li>Vuốt sang phải một tin (hoặc nhấn giữ, chọn "Trả lời"). Phía trên ô soạn tin hiện khung trích dẫn có tên người và 1 dòng nội dung, có nút X để bỏ.</li>
+<li>Ứng dụng gửi tin kèm <i>replyToId</i>. Máy chủ kiểm tra tin được trả lời thuộc cùng hội thoại.</li>
+<li>Bóng tin mới hiện khung trích dẫn; chạm vào thì cuộn tới tin gốc (nếu tin gốc chưa tải thì tải thêm trang cũ).</li>
+<li>Trong hội thoại ẩn danh, tên trong khung trích dẫn vẫn là "Người ẩn danh" (dùng lại <i>viewMessage</i>).</li>
+</ol>
+<p><b>Luồng 4: Cảm xúc trên tin nhắn</b></p>
+<ol>
+<li>Nhấn giữ một tin, thanh 6 cảm xúc hiện ra (dùng lại danh sách <i>REACTION_TYPES</i> của bài viết: LIKE, LOVE, HAHA, WOW, SAD, ANGRY).</li>
+<li>Mỗi người một cảm xúc trên mỗi tin; chọn lại cảm xúc khác thì thay; chọn lại cùng cảm xúc thì bỏ.</li>
+<li>Máy chủ lưu, phát <i>message:reaction</i>. Người gửi tin nhận push "A đã bày tỏ cảm xúc về tin nhắn của bạn" (tắt được trong D8).</li>
+<li>Chỉ dùng được trong hội thoại đã chấp nhận (không thả cảm xúc trong tin nhắn chờ, để người lạ không có thêm cách gây chú ý).</li>
+</ol>
+<p><b>Luồng 5: Đang soạn tin</b></p>
+<ol>
+<li>Khi người dùng gõ, ứng dụng gửi sự kiện socket <i>typing</i> tối đa 1 lần mỗi 3 giây.</li>
+<li>Máy chủ kiểm tra người đó là thành viên hội thoại (lưu tạm trong bộ nhớ 1 phút để không hỏi cơ sở dữ liệu mỗi lần), rồi chuyển cho người kia. Không ghi vào cơ sở dữ liệu.</li>
+<li>Người kia thấy "đang soạn tin…" dưới tin cuối; tự tắt sau 5 giây không có sự kiện mới hoặc khi tin đến.</li>
+<li>Không gửi "đang soạn" cho người mở tin nhắn chờ (giống quy tắc ẩn "Đã xem" hiện có). Trong hội thoại ẩn danh, người nhận chỉ thấy "Người ẩn danh đang soạn tin".</li>
+</ol>
+<p><b>Luồng 6: Gửi video và tin nhắn thoại</b></p>
+<ol>
+<li>Video: bấm nút đính kèm, chọn video từ thư viện (tối đa 60 giây, 30 MB, đề xuất). Thoại: giữ nút micro để ghi (tối đa 2 phút), thả tay để gửi, vuốt sang trái để hủy.</li>
+<li>Lần đầu, hệ điều hành hỏi quyền micro (thoại) hoặc thư viện ảnh (video). Từ chối thì app hiện hướng dẫn mở Cài đặt.</li>
+<li>Ứng dụng xin URL tải lên, gửi loại tệp và dung lượng. Máy chủ kiểm tra loại tệp, dung lượng và quyền gửi (giống quy tắc ảnh: không được gửi trong hội thoại ẩn danh và khi đang là người mở tin nhắn chờ).</li>
+<li>Ứng dụng tải tệp thẳng lên kho riêng tư (không qua API). Với video, ứng dụng tạo thêm ảnh bìa bằng <i>expo-video-thumbnails</i> và tải lên cùng.</li>
+<li>Ứng dụng gửi tin kèm <i>storageKey</i>. Máy chủ kiểm tra tệp có thật trong kho và nằm đúng thư mục của hội thoại, quét ảnh bìa video bằng bộ nhận diện ảnh nhạy cảm, lưu tin.</li>
+<li>Người nhận thấy bóng tin có nút phát (video phát bằng <i>expo-video</i>; thoại có thanh thời lượng). Push ghi "Đã gửi một video" hoặc "Đã gửi tin nhắn thoại", không bao giờ kèm nội dung.</li>
+</ol>
+<p><b>Luồng 7: Gửi khi mất mạng, tự gửi lại</b></p>
+<ol>
+<li>Bấm Gửi: ứng dụng tạo <i>clientId</i>, hiện tin mờ và lưu tin vào hàng đợi trên máy (một tệp JSON trong thư mục của app, dùng <i>expo-file-system</i> đã có), nên tắt app vẫn không mất.</li>
+<li>Không có mạng: chờ tới khi socket kết nối lại (<i>notificationSocket.onReconnect</i> đã có) rồi gửi.</li>
+<li>Gửi lỗi mạng: tự thử lại sau 2, 4, 8, 16, 32 giây. Sau 5 lần vẫn lỗi thì tin chuyển đỏ "Chạm để gửi lại".</li>
+<li>Bị luật chặn (máy chủ trả <i>code</i>): gỡ tin khỏi hàng đợi, hiện lý do, không thử lại (giữ cách đang làm).</li>
+<li>Thành công (kể cả khi máy chủ trả lại tin cũ vì trùng <i>clientId</i>): thay tin mờ bằng tin thật, xóa khỏi hàng đợi.</li>
+<li>Tin trong cùng một hội thoại gửi lần lượt từng tin để giữ đúng thứ tự.</li>
+</ol>
+
+<h4>d) Flowchart</h4>
+<p>Thu hồi và sửa tin (cùng một bộ kiểm tra ở máy chủ):</p>
+<!--FLOW:d2-thu-hoi-sua-->
+<p>Gửi video và tin nhắn thoại qua kho riêng tư:</p>
+<!--FLOW:d2-gui-video-ghi-am-->
+<p>Hàng đợi gửi trên máy và tự gửi lại:</p>
+<!--FLOW:d2-gui-lai-khi-mat-mang-->
+
+<h4>e) Quy tắc, giới hạn và trường hợp đặc biệt</h4>
+<table>
+<tr><th>Việc</th><th>Giới hạn đề xuất</th></tr>
+<tr><td>Thu hồi</td><td>Trong 24 giờ sau khi gửi; mọi loại tin.</td></tr>
+<tr><td>Sửa</td><td>Trong 15 phút; tối đa 5 lần; chỉ tin chữ; chạy lại luật như lúc gửi.</td></tr>
+<tr><td>Video</td><td>MP4 hoặc MOV, tối đa 30 MB và 60 giây; 1 video mỗi tin.</td></tr>
+<tr><td>Tin nhắn thoại</td><td>M4A (AAC), tối đa 2 phút, tối đa 5 MB.</td></tr>
+<tr><td>Đang soạn</td><td>Ứng dụng gửi tối đa 1 lần/3 giây; máy chủ bỏ qua nếu nhiều hơn; hiện trong 5 giây.</td></tr>
+<tr><td>Hàng đợi trên máy</td><td>Tối đa 50 tin, giữ tối đa 7 ngày; đăng xuất thì xóa hàng đợi.</td></tr>
+</table>
+<ul>
+<li><b>Lưu giữ tin đã thu hồi để xử lý báo cáo (cần chủ dự án quyết):</b> nếu xóa hẳn ngay, kẻ quấy rối có thể gửi lời đe dọa rồi thu hồi trước khi bị báo cáo. Đề xuất: nội dung và tệp được giữ ẩn 30 ngày, không ai trong app xem được, chỉ đưa vào bản chụp khi người nhận báo cáo hội thoại; sau 30 ngày xóa hẳn. Cần ghi rõ trong chính sách quyền riêng tư. Backend hiện chưa có tác vụ chạy định kỳ (không thấy <i>@nestjs/schedule</i>), cần thêm để dọn sau 30 ngày.</li>
+<li><b>Ẩn danh:</b> không cho gửi tin nhắn thoại trong hội thoại ẩn danh, kể cả sau khi đã chấp nhận, vì giọng nói làm lộ danh tính. Video cũng không (theo quy tắc "ẩn danh chỉ chữ" hiện có).</li>
+<li><b>Tin nhắn chờ:</b> người mở chỉ gửi chữ (giữ nguyên); không có cảm xúc, không có "đang soạn". Thu hồi được; sửa được nhưng chạy lại luật và vẫn tính vào giới hạn 3 tin.</li>
+<li><b>Video và âm thanh không được quét nội dung.</b> Chỉ quét ảnh bìa video. Tin thoại không được quét. Đây là giới hạn thật; báo cáo hội thoại vẫn là cách xử lý chính. Có thể bổ sung dịch vụ quét video sau (chi phí riêng).</li>
+<li><b>Tệp tải lên nhưng không gửi tin:</b> tệp mồ côi trong kho riêng tư. Cần tác vụ dọn tệp trong thư mục <i>messages/</i> không có tin nào sau 24 giờ.</li>
+<li><b>Hạn URL có chữ ký 1 giờ:</b> video đang phát dở mà URL hết hạn sẽ lỗi; ứng dụng tải lại tin để lấy URL mới (theo ghi chú đã có trong <i>docs/api-contract.md</i>: lưu bộ nhớ đệm theo id tin, không theo URL).</li>
+<li><b>Người bị chặn:</b> mọi thao tác (sửa, cảm xúc, đang soạn) bị từ chối như gửi tin. Thu hồi vẫn cho phép.</li>
+<li><b>Xóa tài khoản:</b> mã xóa tài khoản hiện chỉ gom <i>imageUrl</i> của tin nhắn để xóa tệp; phải thêm tệp video, ảnh bìa, âm thanh.</li>
+<li><b>Lạm dụng cảm xúc:</b> mỗi người tối đa 60 thao tác cảm xúc/phút (đề xuất); push cảm xúc gộp lại nếu nhiều trong 1 phút.</li>
+</ul>
+
+<h4>f) Dữ liệu và API (đề xuất)</h4>
+<p>Đề xuất, cần đưa vào <i>docs/api-contract.md</i> trước khi code.</p>
+<table>
+<tr><th>Bảng / trường</th><th>Nội dung</th></tr>
+<tr><td><i>Message</i> (thêm)</td><td><i>replyToId</i> (tự liên kết, xóa tin gốc thì để trống), <i>editedAt</i>, <i>unsentAt</i>, <i>mediaType</i> (VIDEO | AUDIO), <i>mediaUrl</i>, <i>thumbnailUrl</i>, <i>durationMs</i>. Tên trường kết thúc bằng <i>Url</i> để <i>resolveMediaUrls</i> tự ký URL như <i>imageUrl</i>.</td></tr>
+<tr><td><i>MessageEdit</i> (mới)</td><td><i>id</i>, <i>messageId</i>, <i>content</i> (bản trước khi sửa), <i>createdAt</i>.</td></tr>
+<tr><td><i>MessageReaction</i> (mới)</td><td><i>messageId</i>, <i>userId</i>, <i>type</i>, <i>createdAt</i>; khóa chính <i>(messageId, userId)</i>.</td></tr>
+</table>
+<table>
+<tr><th>Endpoint / sự kiện</th><th>Việc</th></tr>
+<tr><td>POST <i>/conversations/:id/upload-url</i></td><td><i>{ kind: video | audio | thumbnail, mimeType, sizeBytes }</i> → <i>{ storageKey, uploadUrl, method, headers }</i>, cùng dạng với <i>/media/upload-url</i> nhưng ký vào kho riêng tư, thư mục <i>messages/&lt;conversationId&gt;/</i>.</td></tr>
+<tr><td>POST <i>/conversations/:id/messages</i> (mở rộng)</td><td>Thêm <i>replyToId</i>, <i>storageKey</i>, <i>thumbnailKey</i>, <i>mediaType</i>, <i>durationMs</i>. Lỗi mới: MEDIA_NOT_ALLOWED, MEDIA_NOT_FOUND.</td></tr>
+<tr><td>PATCH <i>/messages/:id</i></td><td>Sửa <i>{ content }</i>. Lỗi: EDIT_WINDOW_EXPIRED, EDIT_LIMIT, CONTACT_INFO_BLOCKED.</td></tr>
+<tr><td>GET <i>/messages/:id/edits</i></td><td>Lịch sử sửa.</td></tr>
+<tr><td>POST <i>/messages/:id/unsend</i></td><td>Thu hồi. Lỗi: UNSEND_WINDOW_EXPIRED.</td></tr>
+<tr><td>PUT / DELETE <i>/messages/:id/reaction</i></td><td>Đặt hoặc bỏ cảm xúc <i>{ type }</i>.</td></tr>
+<tr><td>Socket <i>message:updated</i></td><td><i>{ conversationId, message }</i> sau sửa, thu hồi.</td></tr>
+<tr><td>Socket <i>message:reaction</i></td><td><i>{ conversationId, messageId, reactions: { type: count }, mine }</i>.</td></tr>
+<tr><td>Socket <i>typing</i> (hai chiều)</td><td>Ứng dụng gửi <i>{ conversationId }</i>; máy chủ chuyển <i>{ conversationId, userId }</i> (<i>userId</i> là "anonymous" nếu bên đó đang ẩn danh). Đây là handler nhận sự kiện đầu tiên của gateway.</td></tr>
+</table>
+<p>Sửa nhỏ trong <i>StorageService</i>: <i>createUploadUrl</i> và <i>head</i> nhận thêm tùy chọn kho riêng tư. Trường <i>canSendImages</i> của hội thoại nên đổi nghĩa thành "được gửi tệp" hoặc thêm <i>canSendVoice</i> (ẩn danh: không).</p>
+
+<h4>g) Android, iOS và web</h4>
+<ul>
+<li><b>Thư viện mới:</b> <i>expo-audio</i> (ghi âm và phát âm thanh, thuộc Expo SDK, hỗ trợ cả Android và iOS, chạy được trong Expo Go). Cài bằng <i>npx expo install expo-audio</i>. Không cần thư viện mạng riêng: dùng sự kiện kết nối lại của socket. Không cần thư viện nén video: dùng tùy chọn chất lượng và thời lượng tối đa của <i>expo-image-picker</i> (cần kiểm tra mức nén thực tế trên Android, có thể khác iOS).</li>
+<li><b>Quyền micro, khai báo cả hai phía trong cùng thay đổi:</b> thêm plugin <i>expo-audio</i> vào <i>app.json</i> với <i>microphonePermission</i>, ví dụ "Ứng dụng cần dùng micro để bạn ghi và gửi tin nhắn thoại." Plugin thêm <i>NSMicrophoneUsageDescription</i> (iOS) và <i>RECORD_AUDIO</i> (Android). Thiếu câu mô tả trên iOS thì app bị tắt ngay khi xin quyền.</li>
+<li><b>Quay video bằng camera</b> (không bắt buộc ở bản đầu): nếu làm thì phải thêm <i>cameraPermission</i> và <i>microphonePermission</i> cho plugin <i>expo-image-picker</i> (iOS <i>NSCameraUsageDescription</i>, Android <i>CAMERA</i>). Đề xuất bản đầu chỉ chọn từ thư viện.</li>
+<li><b>iOS:</b> mặc định âm thanh không phát khi gạt nút im lặng; cần đặt chế độ âm thanh "phát cả khi im lặng" cho tin thoại (<i>setAudioModeAsync</i>, cần kiểm tra tên tùy chọn trong SDK 57). Android không có khái niệm này; ghi chú lý do trong code theo RULE.md.</li>
+<li><b>Định dạng ghi âm:</b> dùng mẫu chất lượng cao của <i>expo-audio</i> cho ra M4A/AAC trên cả hai nền tảng, phát được ở cả hai. Cần kiểm tra MIME thực tế mỗi bên trả về (<i>audio/mp4</i>, <i>audio/m4a</i> hoặc <i>audio/x-m4a</i>) và cho phép đủ.</li>
+<li><b>Vuốt để trả lời và nhấn giữ:</b> dùng cử chỉ hoạt động trên cả hai; không dùng <i>android_ripple</i> hay <i>ActionSheetIOS</i> riêng một bên, dùng pop-up chung của app.</li>
+<li><b>Chi phí:</b> dung lượng kho và băng thông tăng theo video (30 MB/video). Ví dụ 1.000 video/ngày ≈ 30 GB/ngày ≈ 900 GB/tháng lưu trữ nếu không xóa; cần quyết thời hạn giữ tệp tin nhắn hoặc giới hạn dung lượng.</li>
+</ul>
+
+<h4>h) Tiêu chí hoàn thành</h4>
+<ul>
+<li>Thu hồi trong 24 giờ: hai bên thấy "Tin nhắn đã được thu hồi"; quá hạn trả lỗi đúng; tệp không còn xem được.</li>
+<li>Sửa trong 15 phút: nhãn "(đã sửa)", xem được lịch sử; sửa thành đường link trong tin nhắn chờ bị chặn.</li>
+<li>Trả lời trích dẫn: chạm khung trích dẫn cuộn đúng tin gốc; tin gốc bị thu hồi thì hiện "Tin đã thu hồi".</li>
+<li>Cảm xúc: thêm, đổi, bỏ; cập nhật ngay ở máy kia; không dùng được trong tin nhắn chờ.</li>
+<li>"Đang soạn" hiện và tự tắt; không hiện cho người mở tin nhắn chờ.</li>
+<li>Gửi video 30 MB và tin thoại 2 phút, phát được ở máy kia; từ chối quyền micro thì hiện hướng dẫn; không gửi được thoại trong ẩn danh.</li>
+<li>Tắt mạng, gửi 3 tin, tắt hẳn app, mở lại khi có mạng: 3 tin được gửi đúng thứ tự, không trùng.</li>
+<li>Chạy trên Android và iPhone thật, ghi rõ trong <i>docs/change.md</i>. Riêng tin thoại phải thử: ghi trên Android phát trên iPhone và ngược lại.</li>
+<li>Test tự động: thời hạn sửa/thu hồi, chạy lại luật khi sửa, kiểm tra <i>storageKey</i> đúng thư mục hội thoại, cảm xúc mỗi người một cái.</li>
+<li>Quản trị viên app thấy tin đã thu hồi và lịch sử sửa trong bản chụp báo cáo (nếu chủ dự án chọn giữ 30 ngày).</li>
+</ul>
+
+<h4>i) Ước lượng và phụ thuộc</h4>
+<table>
+<tr><th>Phần</th><th>Backend</th><th>Mobile</th></tr>
+<tr><td>Thu hồi và sửa (kèm lịch sử)</td><td>2</td><td>2</td></tr>
+<tr><td>Trả lời trích dẫn</td><td>0,5</td><td>1,5</td></tr>
+<tr><td>Cảm xúc</td><td>1</td><td>1,5</td></tr>
+<tr><td>Đang soạn (handler socket đầu tiên)</td><td>1</td><td>1</td></tr>
+<tr><td>Gửi video (kho riêng tư, URL ký sẵn)</td><td>1,5</td><td>2</td></tr>
+<tr><td>Tin nhắn thoại</td><td>0,5</td><td>2,5</td></tr>
+<tr><td>Hàng đợi trên máy, tự gửi lại</td><td>0</td><td>2</td></tr>
+<tr><td>Tác vụ dọn tệp, giữ tin thu hồi 30 ngày</td><td>1</td><td>0</td></tr>
+<tr><td><b>Cộng</b></td><td><b>7,5</b></td><td><b>12,5</b></td></tr>
+</table>
+<ul>
+<li>Kiểm thử 3 ngày. Tổng 22–24 ngày công.</li>
+<li>Phụ thuộc: nên làm sau D1 (cùng sửa <i>Message</i>; nếu D1 làm trước thì mọi phần ở đây phải tính cho nhóm: "Đã xem", "đang soạn" nhiều người). D8 (cài đặt push cho cảm xúc). C1 (bản chụp báo cáo có tin thu hồi và lịch sử sửa). B1, B2 (luật tin nhắn chờ và ẩn danh áp dụng cho sửa, thoại).</li>
+<li>Rủi ro: ChatScreen đã 990 dòng; thêm 7 phần sẽ khó bảo trì, nên tách bóng tin, thanh soạn tin và hàng đợi ra tệp riêng trước. Định dạng âm thanh khác nhau giữa hai nền tảng cần thử sớm.</li>
+</ul>
