@@ -11,12 +11,13 @@ import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
-import { claySpacing } from '../../../theme/spacing';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { useAuthSession } from '../../auth/authSession';
 import { validateVideo } from '../../reel/hooks/useVideoPicker';
 import { storyService, type StoryGroup, type StoryMedia } from '../services/storyService';
 
-const AVATAR_SIZE = 60;
+const AVATAR_SIZE = 64;
+// 2px ring + 2px of ground between ring and photo.
 const RING_SIZE = AVATAR_SIZE + 8;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -148,7 +149,7 @@ export function StoriesTray({ refreshKey = 0 }: { refreshKey?: number }) {
             >
               <ClayIcon color={clayColors.onPrimary} name="Plus" size={14} weight="bold" />
             </Pressable>
-            <ClayText numberOfLines={1} style={styles.name} variant="meta">
+            <ClayText numberOfLines={1} style={[styles.name, styles.nameOwn]} variant="meta">
               Tin của bạn
             </ClayText>
           </View>
@@ -179,21 +180,21 @@ export function StoriesTray({ refreshKey = 0 }: { refreshKey?: number }) {
         onClose={() => setPendingMedia(null)}
         options={[
           {
-            description: 'Người xem thả cảm xúc và trả lời bằng tên của họ',
-            icon: 'Plus',
+            description: 'Người xem thả cảm xúc và trả lời bằng tên của họ.',
+            icon: 'User',
             key: 'normal',
             label: 'Đăng tin',
             onPress: () => pendingMedia && void publish(pendingMedia, false),
           },
           {
-            description: 'Người xem có thể thả cảm xúc, trả lời mà bạn không biết họ là ai',
+            description: 'Người xem có thể thả cảm xúc và trả lời mà bạn không biết họ là ai.',
             icon: 'Mask',
             key: 'anonymous',
-            label: 'Đăng và cho phép tương tác ẩn danh',
+            label: 'Đăng, cho phép tương tác ẩn danh',
             onPress: () => pendingMedia && void publish(pendingMedia, true),
           },
         ]}
-        title="Đăng tin 24 giờ"
+        title="Đăng tin trong 24 giờ"
         visible={pendingMedia !== null}
       />
     </>
@@ -201,32 +202,36 @@ export function StoriesTray({ refreshKey = 0 }: { refreshKey?: number }) {
 }
 
 const styles = StyleSheet.create({
+  // Ink, not the brand hue: in the tray the hue only marks unseen stories.
   addBadge: {
     alignItems: 'center',
-    backgroundColor: clayColors.primary,
+    backgroundColor: clayColors.text,
     borderColor: clayColors.canvas,
-    borderRadius: 11,
+    borderRadius: clayRadii.pill,
     borderWidth: 2,
-    height: 22,
+    height: 24,
     justifyContent: 'center',
-    left: RING_SIZE - 12,
+    left: RING_SIZE - 22,
     position: 'absolute',
     top: RING_SIZE - 22,
-    width: 22,
+    width: 24,
   },
   content: {
     gap: claySpacing.md,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: clayDimensions.gutter,
     paddingVertical: claySpacing.md,
   },
   item: {
     alignItems: 'center',
-    width: RING_SIZE + 4,
+    width: RING_SIZE,
   },
   name: {
+    color: clayColors.text,
+    marginTop: claySpacing.xs,
+    maxWidth: RING_SIZE,
+  },
+  nameOwn: {
     color: clayColors.textSecondary,
-    marginTop: 4,
-    maxWidth: RING_SIZE + 4,
   },
   posting: {
     alignItems: 'center',
@@ -249,14 +254,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   ringSeen: {
-    borderColor: clayColors.border,
+    borderColor: clayColors.control,
   },
   ringUnseen: {
     borderColor: clayColors.primary,
   },
   tray: {
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexGrow: 0,
   },
 });

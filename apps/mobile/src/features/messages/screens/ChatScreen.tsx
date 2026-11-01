@@ -19,6 +19,7 @@ import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { LoadError } from '../../../components/common/LoadError';
 import { showToast } from '../../../components/common/toast';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { MainStackParamList } from '../../../navigation/types';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
@@ -26,7 +27,7 @@ import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { useAuthSession } from '../../auth/authSession';
 import type { PostAuthor } from '../../feed/types';
 import { notificationSocket } from '../../notifications/services/notificationSocket';
@@ -421,7 +422,6 @@ export function ChatScreen({ route }: ChatScreenProps) {
               styles.bubble,
               isMine ? styles.bubbleMine : styles.bubbleTheirs,
               item.imageUrl && !item.content ? styles.bubbleImageOnly : null,
-              item.pending && styles.bubblePending,
             ]}
           >
             {item.imageUrl ? (
@@ -445,12 +445,9 @@ export function ChatScreen({ route }: ChatScreenProps) {
                     onPress={() => setShownImages((current) => new Set(current).add(item.id))}
                     style={styles.blurCover}
                   >
-                    <ClayIcon color={clayColors.onPrimary} name="EyeSlash" size={26} />
-                    <ClayText style={styles.blurTitle} variant="caption">
-                      Ảnh có thể nhạy cảm
-                    </ClayText>
-                    <ClayText style={styles.blurAction} variant="meta">
-                      Chạm để xem
+                    <ClayIcon color={clayColors.onPrimary} name="EyeSlash" size={22} />
+                    <ClayText style={styles.blurText} variant="caption">
+                      Ảnh nhạy cảm · Chạm để xem
                     </ClayText>
                   </Pressable>
                 ) : null}
@@ -470,8 +467,8 @@ export function ChatScreen({ route }: ChatScreenProps) {
         ) : null}
         {!isMine && item.warning ? (
           <View style={styles.warning}>
-            <ClayIcon color={clayColors.error} name="TriangleWarning" size={14} />
-            <ClayText style={styles.warningText} variant="meta">
+            <ClayIcon color={clayColors.warningInk} name="TriangleWarning" size={16} />
+            <ClayText style={styles.warningText} variant="caption">
               Tin nhắn có dấu hiệu lừa đảo. Đừng chuyển tiền hay gửi mã OTP.
             </ClayText>
           </View>
@@ -524,9 +521,9 @@ export function ChatScreen({ route }: ChatScreenProps) {
           onPress={() => navigation.openProfile(peer.id)}
           style={styles.headerPeer}
         >
-          <PeerAvatar peer={peer} size={36} />
+          <PeerAvatar peer={peer} size={40} />
           <View style={styles.headerText}>
-            <ClayText numberOfLines={1} style={styles.headerName} variant="body">
+            <ClayText level={1} numberOfLines={1} style={styles.headerName} variant="heading">
               {peerName}
             </ClayText>
             <ClayText numberOfLines={1} style={styles.headerUsername} variant="meta">
@@ -555,39 +552,31 @@ export function ChatScreen({ route }: ChatScreenProps) {
               : `${peerName} muốn nhắn tin với bạn. Họ không biết bạn đã xem tin cho tới khi bạn trả lời hoặc chấp nhận.`}
           </ClayText>
           <View style={styles.requestActions}>
-            <Pressable
-              accessibilityLabel="Xoá tin nhắn chờ"
-              accessibilityRole="button"
-              disabled={isBusy}
-              onPress={handleDecline}
-              style={styles.requestButton}
-            >
-              <ClayText style={styles.requestButtonText} variant="caption">
-                Xoá
-              </ClayText>
-            </Pressable>
-            <Pressable
+            <ClayButton
               accessibilityLabel="Báo cáo cuộc trò chuyện"
-              accessibilityRole="button"
               disabled={isBusy}
               onPress={() => setIsReportVisible(true)}
-              style={styles.requestButton}
-            >
-              <ClayText style={[styles.requestButtonText, styles.requestDanger]} variant="caption">
-                Báo cáo
-              </ClayText>
-            </Pressable>
-            <Pressable
+              size="sm"
+              title="Báo cáo"
+              variant="destructive"
+            />
+            <View style={styles.fill} />
+            <ClayButton
+              accessibilityLabel="Xoá tin nhắn chờ"
+              disabled={isBusy}
+              onPress={handleDecline}
+              size="sm"
+              title="Xoá"
+              variant="secondary"
+            />
+            <ClayButton
               accessibilityLabel="Chấp nhận tin nhắn"
-              accessibilityRole="button"
               disabled={isBusy}
               onPress={handleAccept}
-              style={[styles.requestButton, styles.requestPrimary]}
-            >
-              <ClayText style={styles.requestPrimaryText} variant="caption">
-                Chấp nhận
-              </ClayText>
-            </Pressable>
+              size="sm"
+              title="Chấp nhận"
+              variant="primary"
+            />
           </View>
         </View>
       ) : null}
@@ -610,7 +599,7 @@ export function ChatScreen({ route }: ChatScreenProps) {
           // Inverted list: this sits at the visual centre when there is nothing yet.
           ListEmptyComponent={
             <View style={styles.empty}>
-              <PeerAvatar peer={peer} size={72} />
+              <PeerAvatar peer={peer} size={48} />
               <ClayText style={styles.emptyName} variant="heading">
                 {peerName}
               </ClayText>
@@ -635,7 +624,7 @@ export function ChatScreen({ route }: ChatScreenProps) {
             name={anonymity ? 'Mask' : 'ShieldWarning'}
             size={16}
           />
-          <ClayText style={styles.noticeText} variant="meta">
+          <ClayText style={styles.noticeText} variant="caption">
             {notice}
           </ClayText>
         </View>
@@ -657,7 +646,7 @@ export function ChatScreen({ route }: ChatScreenProps) {
               onPress={handlePickImage}
               style={styles.composerButton}
             >
-              <ClayIcon color={clayColors.primary} name="Image" size={24} />
+              <ClayIcon color={clayColors.textSecondary} name="Image" size={24} />
             </Pressable>
           ) : null}
           <TextInput
@@ -679,7 +668,12 @@ export function ChatScreen({ route }: ChatScreenProps) {
             onPress={handleSendText}
             style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
           >
-            <ClayIcon color={clayColors.onPrimary} name="ArrowUp" size={20} weight="bold" />
+            <ClayIcon
+              color={canSend ? clayColors.onPrimary : clayColors.caption}
+              name="ArrowUp"
+              size={20}
+              weight="bold"
+            />
           </Pressable>
         </View>
       )}
@@ -721,49 +715,57 @@ export function ChatScreen({ route }: ChatScreenProps) {
   );
 }
 
+/** Bubble corners: soft, with the corner nearest the speaker drawn in tight. */
+const BUBBLE_RADIUS = clayRadii.dialog;
+const BUBBLE_TAIL = 4;
+
 const styles = StyleSheet.create({
-  blurAction: {
-    color: clayColors.onPrimary,
-    opacity: 0.85,
-  },
+  // A neutral dark scrim over the blurred picture: the same mark wherever an image is held back.
   blurCover: {
     alignItems: 'center',
-    backgroundColor: 'rgba(40, 24, 32, 0.35)',
+    backgroundColor: 'rgba(20, 20, 20, 0.55)',
     borderRadius: clayRadii.media,
     bottom: 0,
-    gap: 4,
+    gap: claySpacing.sm,
     justifyContent: 'center',
     left: 0,
+    paddingHorizontal: claySpacing.md,
     position: 'absolute',
     right: 0,
     top: 0,
   },
-  blurTitle: {
+  blurText: {
     color: clayColors.onPrimary,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
+    textAlign: 'center',
   },
   bubble: {
-    borderRadius: 18,
+    borderRadius: BUBBLE_RADIUS,
+    borderWidth: 1,
     maxWidth: '78%',
     overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: claySpacing.md,
+    paddingVertical: claySpacing.sm,
   },
   bubbleImageOnly: {
+    borderBottomLeftRadius: clayRadii.media,
+    borderBottomRightRadius: clayRadii.media,
+    borderRadius: clayRadii.media,
+    borderWidth: 0,
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
+  // Mine on the brand's palest tint with its dark ink: the hue marks whose words these are
+  // without turning half the screen raspberry.
   bubbleMine: {
-    backgroundColor: clayColors.primary,
-    borderBottomRightRadius: 6,
-  },
-  bubblePending: {
-    opacity: 0.6,
+    backgroundColor: clayColors.primarySoft,
+    borderBottomRightRadius: BUBBLE_TAIL,
+    borderColor: clayColors.primaryTrack,
   },
   bubbleRow: {
     flexDirection: 'row',
     marginVertical: 2,
-    paddingHorizontal: claySpacing.md,
+    paddingHorizontal: clayDimensions.gutter,
   },
   bubbleRowMine: {
     justifyContent: 'flex-end',
@@ -772,28 +774,27 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubbleTheirs: {
-    backgroundColor: clayColors.surfaceHigh,
-    borderBottomLeftRadius: 6,
+    backgroundColor: clayColors.surface,
+    borderBottomLeftRadius: BUBBLE_TAIL,
     borderColor: clayColors.border,
-    borderWidth: 1,
   },
   closed: {
     alignItems: 'center',
     backgroundColor: clayColors.surface,
     borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: claySpacing.base,
+    borderTopWidth: 1,
+    paddingHorizontal: clayDimensions.gutter,
     paddingTop: claySpacing.md,
   },
   closedText: {
-    color: clayColors.caption,
+    color: clayColors.textSecondary,
     textAlign: 'center',
   },
   composer: {
     alignItems: 'flex-end',
     backgroundColor: clayColors.surface,
     borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     flexDirection: 'row',
     gap: claySpacing.sm,
     paddingHorizontal: claySpacing.sm,
@@ -811,17 +812,17 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: 'center',
-    paddingHorizontal: claySpacing.lg,
-    paddingVertical: 48,
+    paddingHorizontal: claySpacing.xl,
+    paddingVertical: claySpacing.xxl,
     // The list is inverted, so its content is flipped back for reading.
     transform: [{ scaleY: -1 }],
   },
   emptyName: {
-    marginTop: 12,
+    marginTop: claySpacing.md,
   },
   emptyText: {
-    color: clayColors.caption,
-    marginTop: 4,
+    color: clayColors.textSecondary,
+    marginTop: claySpacing.xs,
     textAlign: 'center',
   },
   fill: {
@@ -831,10 +832,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: clayColors.canvas,
     borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     paddingBottom: claySpacing.sm,
-    paddingHorizontal: claySpacing.xs,
+    paddingHorizontal: claySpacing.sm,
   },
   headerButton: {
     alignItems: 'center',
@@ -849,7 +850,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    gap: claySpacing.sm,
+    gap: claySpacing.md,
     minHeight: clayDimensions.minTouchTarget,
   },
   headerText: {
@@ -864,15 +865,17 @@ const styles = StyleSheet.create({
     width: 220,
   },
   input: {
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: 22,
+    backgroundColor: clayColors.surface,
+    borderColor: clayColors.control,
+    borderRadius: clayDimensions.minTouchTarget / 2,
+    borderWidth: 1,
     color: clayColors.text,
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: 15,
     maxHeight: 120,
     minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: 16,
+    paddingHorizontal: claySpacing.base,
     paddingVertical: 10,
   },
   listContent: {
@@ -883,51 +886,28 @@ const styles = StyleSheet.create({
     backgroundColor: clayColors.surfaceWell,
     flexDirection: 'row',
     gap: claySpacing.sm,
-    paddingHorizontal: claySpacing.base,
-    paddingVertical: claySpacing.sm,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
   noticeText: {
     color: clayColors.textSecondary,
     flex: 1,
   },
   requestActions: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: claySpacing.sm,
-    justifyContent: 'flex-end',
-    marginTop: claySpacing.sm,
+    marginTop: claySpacing.md,
   },
   requestBar: {
-    backgroundColor: clayColors.surface,
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    padding: claySpacing.base,
-  },
-  requestButton: {
-    alignItems: 'center',
-    borderColor: clayColors.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: claySpacing.base,
-  },
-  requestButtonText: {
-    color: clayColors.text,
-    fontFamily: fontFamilies.semiBold,
-  },
-  requestDanger: {
-    color: clayColors.error,
-  },
-  requestPrimary: {
-    backgroundColor: clayColors.primary,
-    borderColor: clayColors.primary,
-  },
-  requestPrimaryText: {
-    color: clayColors.onPrimary,
-    fontFamily: fontFamilies.bold,
+    backgroundColor: clayColors.primarySoft,
+    borderBottomColor: clayColors.primaryTrack,
+    borderBottomWidth: 1,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
   requestText: {
-    color: clayColors.textSecondary,
+    color: clayColors.primaryInk,
   },
   sendButton: {
     alignItems: 'center',
@@ -938,12 +918,12 @@ const styles = StyleSheet.create({
     width: clayDimensions.minTouchTarget,
   },
   sendButtonDisabled: {
-    opacity: 0.4,
+    backgroundColor: clayColors.surfaceWell,
   },
   status: {
     alignSelf: 'flex-end',
     color: clayColors.caption,
-    marginRight: claySpacing.base,
+    marginRight: clayDimensions.gutter,
     marginTop: 2,
   },
   statusFailed: {
@@ -952,9 +932,9 @@ const styles = StyleSheet.create({
   storyLabel: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 4,
+    gap: claySpacing.xs,
     marginTop: claySpacing.xs,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: clayDimensions.gutter,
   },
   storyLabelMine: {
     justifyContent: 'flex-end',
@@ -966,25 +946,35 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   textMine: {
-    color: clayColors.onPrimary,
+    color: clayColors.primaryInk,
   },
   textTheirs: {
     color: clayColors.text,
   },
   timeLabel: {
+    ...tabularNums,
     alignSelf: 'center',
     color: clayColors.caption,
-    marginVertical: claySpacing.sm,
+    marginVertical: claySpacing.md,
   },
+  // The scam warning: the warning pale pair, attached to the message it is about.
   warning: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
+    backgroundColor: clayColors.warningBg,
+    borderColor: clayColors.warningBorder,
+    borderRadius: clayRadii.control,
+    borderWidth: 1,
     flexDirection: 'row',
-    gap: 4,
-    marginTop: 2,
-    paddingHorizontal: claySpacing.base,
+    gap: claySpacing.sm,
+    marginHorizontal: clayDimensions.gutter,
+    marginTop: claySpacing.xs,
+    maxWidth: '78%',
+    paddingHorizontal: claySpacing.md,
+    paddingVertical: claySpacing.sm,
   },
   warningText: {
-    color: clayColors.error,
+    color: clayColors.warningInk,
     flexShrink: 1,
   },
 });

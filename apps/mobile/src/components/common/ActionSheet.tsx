@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { clayColors } from '../../theme/colors';
-import { clayDimensions, clayRadii } from '../../theme/spacing';
+import { clayRadii } from '../../theme/spacing';
 import { ClayIcon } from '../icons/ClayIcon';
 import { ClaySurface } from '../ui/ClaySurface';
 import { ClayText } from '../ui/ClayText';
@@ -66,15 +66,13 @@ export function ActionSheet({ onClose, options, title, visible }: ActionSheetPro
                       onClose();
                       item.onPress();
                     }}
-                    style={styles.optionRow}
+                    style={({ pressed }) => [styles.optionRow, pressed && styles.optionRowPressed]}
                   >
-                    <View
-                      style={[styles.iconWrap, item.destructive && styles.iconWrapDestructive]}
-                    >
+                    <View style={styles.iconSlot}>
                       <ClayIcon
                         color={color}
                         name={item.icon}
-                        size={22}
+                        size={20}
                         weight={item.destructive ? 'bold' : 'regular'}
                       />
                     </View>
@@ -117,17 +115,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: clayColors.text,
   },
-  iconWrap: {
+  // One fixed, unboxed icon slot so every label starts on the same edge.
+  iconSlot: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: clayRadii.control,
-    height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    marginRight: 14,
-    width: clayDimensions.minTouchTarget,
-  },
-  iconWrapDestructive: {
-    backgroundColor: clayColors.errorBg,
+    marginRight: 16,
+    width: 24,
   },
   list: {
     paddingBottom: 24,
@@ -152,8 +145,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  optionRowPressed: {
+    backgroundColor: clayColors.surfaceWell,
+  },
   overlay: {
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.45)',
     flex: 1,
     justifyContent: 'flex-end',
   },

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { clayColors } from '../../theme/colors';
 import { clayRadii, clayDimensions } from '../../theme/spacing';
+import { fontFamilies } from '../../theme/typography';
 import { ClayText } from './ClayText';
 
 export type ClayInputProps = TextInputProps & {
@@ -87,12 +88,14 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 8,
     color: clayColors.text,
+    fontFamily: fontFamilies.medium,
+    fontSize: 14,
   },
   inputShell: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: clayColors.surfaceHigh,
-    borderColor: clayColors.border,
+    borderColor: clayColors.control,
     borderRadius: clayRadii.control,
     borderWidth: 1,
     paddingHorizontal: 14,
@@ -107,6 +110,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: clayColors.text,
+    fontFamily: fontFamilies.regular,
     fontSize: 15,
     minHeight: clayDimensions.minTouchTarget,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,

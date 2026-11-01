@@ -32,6 +32,8 @@ export function useCommentThread(post: Post | null, active: boolean) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  // The first page could not be loaded: the thread shows an error with a retry.
+  const [loadFailed, setLoadFailed] = useState(false);
   const pageRef = useRef(1);
 
   /** Publishes a new comment total to every post card showing this post. */
@@ -52,6 +54,7 @@ export function useCommentThread(post: Post | null, active: boolean) {
     const data = await commentService.getComments(targetPostId);
 
     pageRef.current = 1;
+    setLoadFailed(false);
     setComments(data);
     setRepliesByParent({});
     setExpandedIds(new Set());
@@ -71,7 +74,10 @@ export function useCommentThread(post: Post | null, active: boolean) {
     setIsLoading(true);
 
     loadFirstPage(postId)
-      .catch((error) => console.error('Failed to load comments:', error))
+      .catch((error) => {
+        console.error('Failed to load comments:', error);
+        setLoadFailed(true);
+      })
       .finally(() => setIsLoading(false));
     // `post.commentsCount` is only the starting value; later changes come from this hook.
   }, [active, loadFirstPage, postId]);
@@ -87,6 +93,7 @@ export function useCommentThread(post: Post | null, active: boolean) {
       await loadFirstPage(postId);
     } catch (error) {
       console.error('Refresh comments failed:', error);
+      setLoadFailed(true);
     } finally {
       setIsRefreshing(false);
     }
@@ -402,6 +409,7 @@ export function useCommentThread(post: Post | null, active: boolean) {
     hasMore,
     inputText,
     isLoading,
+    loadFailed,
     isLoadingMore,
     isRefreshing,
     isSending,

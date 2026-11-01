@@ -7,7 +7,8 @@ import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { ApiError } from '../../../services/apiError';
 import { useAuthSession } from '../authSession';
-import { authColors } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions } from '../../../theme/spacing';
 import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
@@ -84,11 +85,11 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
 
   return (
     <AuthScreenContainer
-      footerActionLabel="Create account"
-      footerPrompt="New to Mobile Social?"
+      about="Mạng xã hội cho người từ 18 tuổi: đăng ảnh, video và tin, nhắn tin với bạn bè."
+      footerActionLabel="Tạo tài khoản"
+      footerPrompt="Chưa có tài khoản?"
       onFooterAction={() => navigation.navigate('Register')}
-      subtitle="Sign in to continue sharing with your community."
-      title="Welcome back"
+      title="Đăng nhập"
     >
       <AuthTextInput
         autoCapitalize="none"
@@ -100,7 +101,7 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
         label="Email"
         onChangeText={(value) => updateField('email', value)}
         onSubmitEditing={() => passwordInputRef.current?.focus()}
-        placeholder="you@example.com"
+        placeholder="ten.ban@gmail.com"
         returnKeyType="next"
         textContentType="emailAddress"
         value={values.email}
@@ -112,11 +113,11 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
         editable={!isSubmitting}
         error={errors.password}
         inputRef={passwordInputRef}
-        label="Password"
+        label="Mật khẩu"
         onChangeText={(value) => updateField('password', value)}
         onSubmitEditing={handleSubmit}
         password
-        placeholder="Enter your password"
+        placeholder="Nhập mật khẩu"
         returnKeyType="done"
         textContentType="password"
         value={values.password}
@@ -128,15 +129,15 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
         onPress={() => navigation.navigate('ForgotPassword')}
         style={styles.forgotPasswordAction}
       >
-        <ClayText variant="caption" style={styles.forgotPasswordText}>
-          Forgot password?
+        <ClayText variant="button" style={styles.forgotPasswordText}>
+          Quên mật khẩu?
         </ClayText>
       </Pressable>
       <FormMessage
         message={submissionMessage ?? successMessage}
         tone={submissionMessage ? submissionTone : 'info'}
       />
-      <PrimaryButton isLoading={isSubmitting} label="Log in" onPress={handleSubmit} />
+      <PrimaryButton isLoading={isSubmitting} label="Đăng nhập" onPress={handleSubmit} />
       {showGoogle && (
         <>
           <AuthDivider />
@@ -154,11 +155,12 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
 const styles = StyleSheet.create({
   forgotPasswordAction: {
     alignSelf: 'flex-end',
+    justifyContent: 'center',
     marginBottom: 8,
-    marginTop: 8,
-    paddingVertical: 4,
+    marginTop: -8,
+    minHeight: clayDimensions.minTouchTarget,
   },
   forgotPasswordText: {
-    color: authColors.primary,
+    color: clayColors.primaryInk,
   },
 });

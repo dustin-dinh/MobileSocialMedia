@@ -6,16 +6,14 @@ jest.mock('expo-font', () => ({
   loadAsync: jest.fn(() => Promise.resolve()),
 }));
 
-// Mock @expo-google-fonts/nunito
-jest.mock('@expo-google-fonts/nunito', () => ({
+// Mock @expo-google-fonts/be-vietnam-pro
+jest.mock('@expo-google-fonts/be-vietnam-pro', () => ({
   useFonts: jest.fn(() => [true]),
-  Nunito_400Regular: 'Nunito_400Regular',
-  Nunito_500Medium: 'Nunito_500Medium',
-  Nunito_600SemiBold: 'Nunito_600SemiBold',
-  Nunito_600SemiBold_Italic: 'Nunito_600SemiBold_Italic',
-  Nunito_700Bold: 'Nunito_700Bold',
-  Nunito_800ExtraBold: 'Nunito_800ExtraBold',
-  Nunito_900Black: 'Nunito_900Black',
+  BeVietnamPro_400Regular: 'BeVietnamPro_400Regular',
+  BeVietnamPro_400Regular_Italic: 'BeVietnamPro_400Regular_Italic',
+  BeVietnamPro_500Medium: 'BeVietnamPro_500Medium',
+  BeVietnamPro_600SemiBold: 'BeVietnamPro_600SemiBold',
+  BeVietnamPro_700Bold: 'BeVietnamPro_700Bold',
 }));
 
 // Mock expo-secure-store

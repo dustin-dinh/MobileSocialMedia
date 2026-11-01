@@ -1,25 +1,16 @@
-import { memo, useCallback, useRef } from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { Image } from 'expo-image';
+import { memo, useCallback } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { searchColors } from '../searchTheme';
-import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
-import { ClayText } from '../../../components/ui/ClayText';
+import { UserAvatar } from '../../../components/common/UserAvatar';
 import { ClayButton } from '../../../components/ui/ClayButton';
+import { ClayText } from '../../../components/ui/ClayText';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
+import { searchColors } from '../searchTheme';
 import type { SearchedUser } from '../types';
 
-// ---------------------------------------------------------------------------
-// Constants & Helpers
-// ---------------------------------------------------------------------------
-
-const AVATAR_SIZE = 50;
+const AVATAR_SIZE = 40;
 
 function formatCount(count: number): string {
   if (count >= 1_000_000) {
@@ -31,44 +22,6 @@ function formatCount(count: number): string {
   return String(count);
 }
 
-// ---------------------------------------------------------------------------
-// UserAvatar
-// ---------------------------------------------------------------------------
-
-function UserAvatar({ user }: { user: SearchedUser }) {
-  const nameToUse = user.displayName?.trim() || user.username;
-  const initials = nameToUse
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return (
-    <View style={styles.avatarHalo}>
-      {user.avatarUrl ? (
-        <Image
-          source={{ uri: user.avatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <ClayText variant="caption" style={styles.avatarInitials}>
-            {initials || '?'}
-          </ClayText>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// UserSearchCard Component (memoized)
-// ---------------------------------------------------------------------------
-
 export type UserSearchCardProps = {
   isPending?: boolean;
   onPressUser?: (user: SearchedUser) => void;
@@ -77,8 +30,8 @@ export type UserSearchCardProps = {
 };
 
 /**
- * UserSearchCard component (memoized, lite clay tier)
- * Flat row with a hairline divider.
+ * One person in the search results or suggestions: avatar, name, a grey line
+ * of who they are, and a tonal Follow button (an action repeated down a list).
  */
 export const UserSearchCard = memo(function UserSearchCard({
   isPending = false,
@@ -86,142 +39,96 @@ export const UserSearchCard = memo(function UserSearchCard({
   onToggleFollow,
   user,
 }: UserSearchCardProps) {
-  const buttonScale = useRef(new Animated.Value(1)).current;
-
-  const handlePressFollow = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(buttonScale, {
-        duration: 90,
-        toValue: 0.92,
-        useNativeDriver: true,
-      }),
-      Animated.spring(buttonScale, {
-        friction: 4,
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    onToggleFollow(user);
-  }, [buttonScale, onToggleFollow, user]);
+  const handlePressFollow = useCallback(() => onToggleFollow(user), [onToggleFollow, user]);
 
   const displayName = user.displayName?.trim() || user.username;
   const isFollowing = user.isFollowing;
+  // Line 3: the follower count as a figure first, then the bio; the bio is what gets cut.
+  const details = [
+    user.followersCount !== null ? `${formatCount(user.followersCount)} người theo dõi` : null,
+    user.bio,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Pressable
+      accessibilityLabel={`Xem trang cá nhân của @${user.username}`}
       accessibilityRole="button"
-      accessibilityLabel={`View profile of @${user.username}`}
       onPress={() => onPressUser?.(user)}
-      style={styles.cardContainer}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
-      {/* ── Left: Avatar ────────────────────────────────────── */}
-      <UserAvatar user={user} />
+      <UserAvatar avatarUrl={user.avatarUrl} name={displayName} size={AVATAR_SIZE} />
 
-      {/* ── Center: User Meta & Bio ─────────────────────────── */}
-      <View style={styles.infoContainer}>
-        <View style={styles.nameRow}>
-          <ClayText variant="heading" style={styles.displayName} numberOfLines={1}>
-            {displayName}
-          </ClayText>
-        </View>
-
-        <ClayText variant="meta" style={styles.username} numberOfLines={1}>
-          @{user.username}
-          {user.followersCount !== null ? (
-            <ClayText variant="meta" style={styles.followersText}>
-              {' '}• {formatCount(user.followersCount)} followers
-            </ClayText>
-          ) : null}
+      <View style={styles.info}>
+        <ClayText numberOfLines={1} style={styles.displayName} variant="body">
+          {displayName}
         </ClayText>
-
-        {user.bio ? (
-          <ClayText variant="body" style={styles.bio} numberOfLines={1} ellipsizeMode="tail">
-            {user.bio}
+        <ClayText numberOfLines={1} style={styles.meta} variant="caption">
+          @{user.username}
+        </ClayText>
+        {details ? (
+          <ClayText numberOfLines={1} style={styles.bio} variant="caption">
+            {details}
           </ClayText>
         ) : null}
       </View>
 
-      {/* ── Right: Follow / Following Button ─────────────────── */}
-      <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-        <ClayButton
-          accessibilityLabel={isFollowing ? `Following @${user.username}` : `Follow @${user.username}`}
-          variant={isFollowing ? 'secondary' : 'primary'}
-          label={isFollowing ? 'Following' : 'Follow'}
-          isLoading={isPending}
-          onPress={handlePressFollow}
-          style={styles.followButton}
-          labelStyle={styles.followButtonLabel}
-        />
-      </Animated.View>
+      <ClayButton
+        accessibilityLabel={
+          isFollowing ? `Bỏ theo dõi @${user.username}` : `Theo dõi @${user.username}`
+        }
+        isLoading={isPending}
+        label={isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+        labelStyle={styles.followLabel}
+        onPress={handlePressFollow}
+        style={styles.followButton}
+        variant={isFollowing ? 'secondary' : 'tonal'}
+      />
     </Pressable>
   );
 });
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
-  avatar: {
-    borderRadius: AVATAR_SIZE / 2,
-    height: AVATAR_SIZE,
-    width: AVATAR_SIZE,
-  },
-  avatarFallback: {
-    alignItems: 'center',
-    backgroundColor: clayColors.primarySoft,
-    justifyContent: 'center',
-  },
-  avatarHalo: {
-    borderRadius: AVATAR_SIZE / 2,
-  },
-  avatarInitials: {
-    color: clayColors.primary,
-    fontSize: 16,
-    fontFamily: fontFamilies.bold,
-  },
   bio: {
+    ...tabularNums,
     color: searchColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  cardContainer: {
-    alignItems: 'center',
-    backgroundColor: searchColors.surface,
-    borderBottomColor: searchColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    fontFamily: fontFamilies.regular,
+    marginTop: 2,
   },
   displayName: {
-    fontSize: 15,
+    color: searchColors.text,
+    fontFamily: fontFamilies.semiBold,
   },
   followButton: {
-    minHeight: 36,
-    minWidth: 92,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    minWidth: 104,
+    paddingHorizontal: claySpacing.md,
   },
-  followButtonLabel: {
+  followLabel: {
     fontSize: 13,
   },
-  followersText: {
-    color: searchColors.caption,
-  },
-  infoContainer: {
+  info: {
     flex: 1,
     justifyContent: 'center',
-    marginHorizontal: 12,
+    marginHorizontal: claySpacing.md,
   },
-  nameRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  username: {
+  meta: {
+    ...tabularNums,
     color: searchColors.caption,
-    marginTop: 1,
+    fontFamily: fontFamilies.regular,
+    marginTop: 2,
+  },
+  row: {
+    alignItems: 'center',
+    backgroundColor: searchColors.surface,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    minHeight: 72,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
+  },
+  rowPressed: {
+    backgroundColor: clayColors.surfaceWell,
   },
 });

@@ -1,91 +1,76 @@
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { notificationsColors, notificationsRadii } from '../notificationsTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 
 const SKELETON_ITEMS = [1, 2, 3, 4, 5, 6];
 
+/** Loading: the rows' own layout as flat grey blocks, at the real row pitch. No shimmer. */
 export function NotificationSkeleton() {
-  const pulseAnim = useRef(new Animated.Value(0.4)).current;
-
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          duration: 700,
-          toValue: 0.85,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          duration: 700,
-          toValue: 0.4,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    pulseLoop.start();
-
-    return () => {
-      pulseLoop.stop();
-    };
-  }, [pulseAnim]);
-
   return (
-    <View style={styles.container}>
+    <View accessibilityLabel="Đang tải thông báo">
       {SKELETON_ITEMS.map((item) => (
-        <Animated.View key={item} style={[styles.skeletonRow, { opacity: pulseAnim }]}>
-          <View style={styles.avatarSkeleton} />
-          <View style={styles.infoSkeleton}>
-            <View style={styles.line1} />
-            <View style={styles.line2} />
+        <View key={item} style={styles.row}>
+          <View style={styles.avatar} />
+          <View style={styles.body}>
+            <View style={styles.lines}>
+              <View style={styles.line1} />
+              <View style={styles.line2} />
+            </View>
+            <View style={styles.thumbnail} />
           </View>
-          <View style={styles.rightSkeleton} />
-        </Animated.View>
+        </View>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  avatarSkeleton: {
-    backgroundColor: notificationsColors.surfaceWell,
-    borderRadius: 22,
-    height: 44,
-    width: 44,
-  },
-  container: {
-    paddingTop: 4,
-  },
-  infoSkeleton: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  line1: {
-    backgroundColor: notificationsColors.surfaceWell,
-    borderRadius: 4,
-    height: 14,
-    width: '80%',
-  },
-  line2: {
-    backgroundColor: notificationsColors.border,
-    borderRadius: 4,
-    height: 10,
-    marginTop: 6,
-    width: '40%',
-  },
-  rightSkeleton: {
-    backgroundColor: notificationsColors.surfaceWell,
-    borderRadius: notificationsRadii.postThumb,
+  avatar: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: 20,
     height: 40,
+    marginTop: claySpacing.md,
     width: 40,
   },
-  skeletonRow: {
+  body: {
     alignItems: 'center',
-    borderBottomColor: notificationsColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
+    flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: claySpacing.md,
+    // The rows' paddingRight plus their 8px unread-dot slot and its gap.
+    paddingRight: clayDimensions.gutter + 8 + claySpacing.md,
+    paddingVertical: claySpacing.md,
+  },
+  line1: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: 4,
+    height: 14,
+    width: '85%',
+  },
+  line2: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: 4,
+    height: 12,
+    marginTop: claySpacing.sm,
+    width: '30%',
+  },
+  lines: {
+    flex: 1,
+  },
+  row: {
+    alignItems: 'flex-start',
+    backgroundColor: clayColors.surface,
+    flexDirection: 'row',
+    gap: claySpacing.md,
+    paddingLeft: clayDimensions.gutter,
+  },
+  thumbnail: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.media,
+    height: 44,
+    width: 44,
   },
 });

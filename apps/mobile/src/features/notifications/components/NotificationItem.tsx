@@ -1,96 +1,57 @@
-import { memo, useCallback, useRef } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { memo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 
+import { UserAvatar } from '../../../components/common/UserAvatar';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
-import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import type { AppNotification, NotificationType } from '../types';
 
-const AVATAR_SIZE = 44;
+const AVATAR_SIZE = 40;
+const GLYPH_SIZE = 18;
 
-// ---------------------------------------------------------------------------
-// Type Badge
-// ---------------------------------------------------------------------------
+const ACTION_TEXT: Record<NotificationType, string> = {
+  COMMENT: 'đã bình luận về bài viết của bạn.',
+  FOLLOW: 'đã bắt đầu theo dõi bạn.',
+  FOLLOW_ACCEPT: 'đã chấp nhận yêu cầu theo dõi của bạn.',
+  FOLLOW_REQUEST: 'muốn theo dõi bạn.',
+  LIKE: 'đã thích bài viết của bạn.',
+  MENTION: 'đã nhắc đến bạn.',
+  REPLY: 'đã trả lời bình luận của bạn.',
+  REPOST: 'đã đăng lại bài viết của bạn.',
+};
 
-function TypeBadge({ type }: { type: NotificationType }) {
-  let badgeBg: string = notificationsColors.likeBadge;
-  let iconName: 'Heart' | 'ChatCircle' | 'User' | 'Repeat' = 'Heart';
-
-  if (type === 'COMMENT' || type === 'REPLY' || type === 'MENTION') {
-    badgeBg = notificationsColors.commentBadge;
-    iconName = 'ChatCircle';
-  } else if (type === 'REPOST') {
-    badgeBg = notificationsColors.followBadge;
-    iconName = 'Repeat';
-  } else if (type === 'FOLLOW' || type === 'FOLLOW_REQUEST' || type === 'FOLLOW_ACCEPT') {
-    badgeBg = notificationsColors.followBadge;
-    iconName = 'User';
-  }
+/**
+ * The small glyph on the actor's avatar says what happened. A like carries the
+ * brand hue (a like is one of its small marks); every other kind is ink.
+ */
+function TypeGlyph({ type }: { type: NotificationType }) {
+  const icon =
+    type === 'LIKE'
+      ? 'Heart'
+      : type === 'REPOST'
+        ? 'Repeat'
+        : type === 'FOLLOW' || type === 'FOLLOW_REQUEST' || type === 'FOLLOW_ACCEPT'
+          ? 'User'
+          : 'ChatCircle';
 
   return (
-    <View style={[styles.typeBadge, { backgroundColor: badgeBg }]}>
-      <ClayIcon name={iconName} size={10} color={notificationsColors.onPrimary} weight="fill" />
+    <View style={[styles.glyph, { backgroundColor: type === 'LIKE' ? clayColors.liked : clayColors.text }]}>
+      {/* Filled shapes read at 10px; a filled speech bubble or arrows do not, so those stay outlined. */}
+      <ClayIcon
+        color={clayColors.onPrimary}
+        name={icon}
+        size={10}
+        weight={icon === 'Heart' || icon === 'User' ? 'fill' : 'bold'}
+      />
     </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Actor Avatar with Badge
-// ---------------------------------------------------------------------------
-
-function ActorAvatar({
-  avatarUrl,
-  displayName,
-  type,
-  username,
-}: {
-  avatarUrl: string | null;
-  displayName: string | null;
-  type: NotificationType;
-  username: string;
-}) {
-  const name = displayName?.trim() || username;
-  const initials = name
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return (
-    <View style={styles.avatarWrapper}>
-      {avatarUrl ? (
-        <Image
-          source={{ uri: avatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <ClayText variant="caption" style={styles.avatarInitials}>
-            {initials || '?'}
-          </ClayText>
-        </View>
-      )}
-
-      <TypeBadge type={type} />
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// NotificationItem Component (memoized)
-// ---------------------------------------------------------------------------
 
 export type NotificationItemProps = {
   isFollowPending?: boolean;
@@ -100,8 +61,9 @@ export type NotificationItemProps = {
 };
 
 /**
- * NotificationItem component (memoized, lite clay tier)
- * Flat row with a hairline divider.
+ * One notification: the actor's avatar with a type glyph, what they did and
+ * when, then the post it is about or a follow-back button. Unread rows are
+ * marked by weight and a small brand-hue dot, never by a coloured fill.
  */
 export const NotificationItem = memo(function NotificationItem({
   isFollowPending = false,
@@ -109,302 +71,154 @@ export const NotificationItem = memo(function NotificationItem({
   onPressItem,
   onToggleFollowBack,
 }: NotificationItemProps) {
-  const followScale = useRef(new Animated.Value(1)).current;
-
-  const handleFollowPress = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(followScale, {
-        duration: 90,
-        toValue: 0.92,
-        useNativeDriver: true,
-      }),
-      Animated.spring(followScale, {
-        friction: 4,
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    onToggleFollowBack(notification);
-  }, [followScale, notification, onToggleFollowBack]);
-
   const actorName = notification.actor.displayName?.trim() || notification.actor.username;
-  const isRead = notification.isRead;
+  const isUnread = !notification.isRead;
+  const hasCommentText = notification.type === 'COMMENT' && Boolean(notification.commentText);
 
   return (
     <Pressable
       accessibilityLabel={`Thông báo từ ${actorName}`}
       accessibilityRole="button"
       onPress={() => onPressItem(notification)}
-      style={({ pressed }) => [
-        styles.container,
-        !isRead && styles.containerUnread,
-        pressed && styles.containerPressed,
-      ]}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
-      {/* ── Left: Avatar + Badge ─────────────────────────────── */}
-      <ActorAvatar
-        avatarUrl={notification.actor.avatarUrl}
-        displayName={notification.actor.displayName}
-        type={notification.type}
-        username={notification.actor.username}
-      />
-
-      {/* ── Center: Notification Description & Time ─────────── */}
-      <View style={styles.contentWrap}>
-        <ClayText variant="body" style={styles.descriptionText} numberOfLines={3}>
-          <ClayText variant="heading" style={styles.actorName}>
-            {actorName}{' '}
-          </ClayText>
-          {notification.type === 'LIKE' && 'đã thích bài viết của bạn.'}
-          {notification.type === 'COMMENT' &&
-            (notification.commentText ? (
-              <>
-                đã bình luận: &quot;
-                <ClayText variant="caption" style={styles.commentSnippet}>
-                  {notification.commentText}
-                </ClayText>
-                &quot;
-              </>
-            ) : (
-              'đã bình luận về bài viết của bạn.'
-            ))}
-          {notification.type === 'FOLLOW' && 'đã bắt đầu theo dõi bạn.'}
-          {notification.type === 'REPLY' && 'đã trả lời bình luận của bạn.'}
-          {notification.type === 'REPOST' && 'đã đăng lại bài viết của bạn.'}
-          {notification.type === 'MENTION' && 'đã nhắc đến bạn.'}
-          {notification.type === 'FOLLOW_REQUEST' && 'muốn theo dõi bạn.'}
-          {notification.type === 'FOLLOW_ACCEPT' && 'đã chấp nhận yêu cầu theo dõi của bạn.'}
-        </ClayText>
-
-        <ClayText variant="meta" style={styles.timeAgo}>
-          {formatTimeAgo(notification.createdAt)}
-        </ClayText>
+      <View style={styles.avatar}>
+        <UserAvatar avatarUrl={notification.actor.avatarUrl} name={actorName} size={AVATAR_SIZE} />
+        <TypeGlyph type={notification.type} />
       </View>
 
-      {/* ── Right: Post Thumbnail or Follow Back Button ─────── */}
-      <View style={styles.rightActionWrap}>
+      {/* The rule starts at the text column, so the avatars keep one clean edge. */}
+      <View style={styles.body}>
+        <View style={styles.content}>
+          <ClayText numberOfLines={3} style={[styles.description, isUnread && styles.descriptionUnread]}>
+            <ClayText style={[styles.actorName, isUnread && styles.actorNameUnread]}>{actorName}</ClayText>{' '}
+            {hasCommentText ? 'đã bình luận:' : ACTION_TEXT[notification.type]}
+          </ClayText>
+          {hasCommentText ? (
+            <ClayText numberOfLines={2} style={styles.quote} variant="caption">
+              “{notification.commentText}”
+            </ClayText>
+          ) : !notification.postImageUrl && notification.postPreview && notification.type !== 'FOLLOW' ? (
+            <ClayText numberOfLines={1} style={styles.quote} variant="caption">
+              “{notification.postPreview}”
+            </ClayText>
+          ) : null}
+          <ClayText style={styles.time} variant="meta">
+            {formatTimeAgo(notification.createdAt)}
+          </ClayText>
+        </View>
+
         {notification.type === 'FOLLOW' ? (
-          <Animated.View style={{ transform: [{ scale: followScale }] }}>
-            <Pressable
-              accessibilityLabel={
-                notification.isFollowingBack
-                  ? `Đang theo dõi ${actorName}`
-                  : `Theo dõi lại ${actorName}`
-              }
-              accessibilityRole="button"
-              disabled={isFollowPending}
-              hitSlop={8}
-              onPress={handleFollowPress}
-              style={({ pressed }) => [
-                styles.followButton,
-                notification.isFollowingBack
-                  ? styles.followingButton
-                  : styles.followBackButton,
-                pressed &&
-                  (notification.isFollowingBack
-                    ? styles.followingButtonPressed
-                    : styles.followBackButtonPressed),
-              ]}
-            >
-              {isFollowPending ? (
-                <ActivityIndicator
-                  color={
-                    notification.isFollowingBack
-                      ? notificationsColors.text
-                      : notificationsColors.onPrimary
-                  }
-                  size="small"
-                />
-              ) : (
-                <ClayText
-                  variant="caption"
-                  style={[
-                    styles.followButtonText,
-                    notification.isFollowingBack
-                      ? styles.followingButtonText
-                      : styles.followBackButtonText,
-                  ]}
-                >
-                  {notification.isFollowingBack ? 'Đang theo dõi' : 'Theo dõi lại'}
-                </ClayText>
-              )}
-            </Pressable>
-          </Animated.View>
+          <ClayButton
+            accessibilityLabel={
+              notification.isFollowingBack ? `Đang theo dõi ${actorName}` : `Theo dõi lại ${actorName}`
+            }
+            disabled={isFollowPending}
+            isLoading={isFollowPending}
+            onPress={() => onToggleFollowBack(notification)}
+            size="sm"
+            title={notification.isFollowingBack ? 'Đang theo dõi' : 'Theo dõi lại'}
+            variant={notification.isFollowingBack ? 'secondary' : 'tonal'}
+          />
         ) : notification.postImageUrl ? (
           <Image
-            source={{ uri: notification.postImageUrl }}
-            style={styles.postThumbnail}
-            contentFit="cover"
             cachePolicy="memory-disk"
+            contentFit="cover"
+            source={{ uri: notification.postImageUrl }}
+            style={styles.thumbnail}
           />
-        ) : notification.postPreview ? (
-          <View style={styles.postSnippetBox}>
-            <ClayText variant="meta" style={styles.postSnippetText} numberOfLines={2}>
-              {notification.postPreview}
-            </ClayText>
-          </View>
         ) : null}
 
-        {/* ── Unread Dot ───────────────────────────────────── */}
-        {!isRead ? <View style={styles.unreadDot} /> : null}
+        {/* A fixed slot, so the follow buttons and thumbnails end on one right edge. */}
+        <View style={styles.dotSlot}>{isUnread ? <View style={styles.dot} /> : null}</View>
       </View>
     </Pressable>
   );
 });
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   actorName: {
-    color: notificationsColors.text,
-    fontFamily: 'Nunito_700Bold',
+    color: clayColors.text,
+    fontFamily: fontFamilies.semiBold,
     fontSize: 14,
+    lineHeight: 20,
+  },
+  actorNameUnread: {
+    fontFamily: fontFamilies.bold,
   },
   avatar: {
-    borderRadius: AVATAR_SIZE / 2,
     height: AVATAR_SIZE,
+    marginTop: claySpacing.md,
     width: AVATAR_SIZE,
   },
-  avatarFallback: {
+  body: {
     alignItems: 'center',
-    backgroundColor: notificationsColors.surfaceWell,
-    borderColor: notificationsColors.border,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    color: notificationsColors.primary,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 15,
-  },
-  avatarWrapper: {
-    height: AVATAR_SIZE,
-    position: 'relative',
-    width: AVATAR_SIZE,
-  },
-  commentSnippet: {
-    color: notificationsColors.textSecondary,
-    fontFamily: 'Nunito_600SemiBold_Italic',
-  },
-  container: {
-    alignItems: 'center',
-    backgroundColor: notificationsColors.surface,
-    borderBottomColor: notificationsColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  containerPressed: {
-    backgroundColor: notificationsColors.surfaceWell,
-  },
-  containerUnread: {
-    backgroundColor: notificationsColors.surfaceUnread,
-  },
-  contentWrap: {
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-  descriptionText: {
-    color: notificationsColors.text,
-    fontFamily: 'Nunito_400Regular',
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  followBackButton: {
-    backgroundColor: notificationsColors.primary,
-  },
-  followBackButtonPressed: {
-    backgroundColor: notificationsColors.primaryPressed,
-  },
-  followBackButtonText: {
-    color: notificationsColors.onPrimary,
-    fontFamily: 'Nunito_700Bold',
-  },
-  followButton: {
-    alignItems: 'center',
-    borderRadius: notificationsRadii.button,
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 96,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  followButtonText: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 12,
-  },
-  followingButton: {
-    backgroundColor: notificationsColors.surfaceWell,
-    borderColor: notificationsColors.border,
-    borderWidth: 1.5,
-  },
-  followingButtonPressed: {
-    backgroundColor: notificationsColors.surface,
-  },
-  followingButtonText: {
-    color: notificationsColors.text,
-    fontFamily: 'Nunito_700Bold',
-  },
-  postSnippetBox: {
-    backgroundColor: notificationsColors.surfaceWell,
-    borderColor: notificationsColors.postThumbBorder,
-    borderRadius: notificationsRadii.postThumb,
-    borderWidth: 1,
-    height: 44,
-    justifyContent: 'center',
-    padding: 4,
-    width: 44,
-  },
-  postSnippetText: {
-    color: notificationsColors.caption,
-    fontFamily: 'Nunito_500Medium',
-    fontSize: 9,
-    lineHeight: 12,
-  },
-  postThumbnail: {
-    borderColor: notificationsColors.postThumbBorder,
-    borderRadius: notificationsRadii.postThumb,
-    borderWidth: 1,
-    height: 44,
-    width: 44,
-  },
-  rightActionWrap: {
-    alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: claySpacing.md,
+    paddingRight: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
-  timeAgo: {
-    color: notificationsColors.caption,
-    fontFamily: 'Nunito_500Medium',
-    fontSize: 12,
-    marginTop: 4,
+  content: {
+    flex: 1,
   },
-  typeBadge: {
-    alignItems: 'center',
-    borderColor: notificationsColors.surface,
-    borderRadius: notificationsRadii.badge,
-    borderWidth: 1.5,
-    bottom: -2,
-    height: 20,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: -2,
-    width: 20,
+  description: {
+    color: clayColors.textSecondary,
+    fontFamily: fontFamilies.regular,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  typeBadgeIcon: {
-    color: notificationsColors.onPrimary,
-    fontSize: 9,
-    fontFamily: 'Nunito_700Bold',
+  descriptionUnread: {
+    color: clayColors.text,
   },
-  unreadDot: {
-    backgroundColor: notificationsColors.unreadDot,
+  dot: {
+    backgroundColor: clayColors.primary,
     borderRadius: 4,
     height: 8,
     width: 8,
+  },
+  dotSlot: {
+    alignItems: 'center',
+    width: 8,
+  },
+  glyph: {
+    alignItems: 'center',
+    borderColor: clayColors.surface,
+    borderRadius: GLYPH_SIZE / 2,
+    borderWidth: 2,
+    bottom: -3,
+    height: GLYPH_SIZE,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -3,
+    width: GLYPH_SIZE,
+  },
+  quote: {
+    color: clayColors.textSecondary,
+    fontFamily: fontFamilies.regular,
+    marginTop: 2,
+  },
+  row: {
+    alignItems: 'flex-start',
+    backgroundColor: clayColors.surface,
+    flexDirection: 'row',
+    gap: claySpacing.md,
+    paddingLeft: clayDimensions.gutter,
+  },
+  rowPressed: {
+    backgroundColor: clayColors.surfaceWell,
+  },
+  thumbnail: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.media,
+    height: 44,
+    width: 44,
+  },
+  time: {
+    ...tabularNums,
+    color: clayColors.caption,
+    marginTop: claySpacing.xs,
   },
 });

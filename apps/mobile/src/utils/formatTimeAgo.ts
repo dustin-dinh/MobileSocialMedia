@@ -1,8 +1,8 @@
 /**
  * Human-friendly relative time formatter.
  *
- * Converts an ISO-8601 date string (or Date) into a short label such as
- * "just now", "5m", "2h", "3d", "2w", etc.
+ * Converts an ISO-8601 date string (or Date) into a short Vietnamese label:
+ * "vừa xong", "5 phút", "2 giờ", "3 ngày", "2 tuần", "4 tháng", "1 năm".
  */
 
 const SECOND = 1_000;
@@ -20,19 +20,19 @@ type TimeUnit = {
 };
 
 const UNITS: TimeUnit[] = [
-  { label: 'y', threshold: YEAR, value: YEAR },
-  { label: 'mo', threshold: MONTH, value: MONTH },
-  { label: 'w', threshold: WEEK, value: WEEK },
-  { label: 'd', threshold: DAY, value: DAY },
-  { label: 'h', threshold: HOUR, value: HOUR },
-  { label: 'm', threshold: MINUTE, value: MINUTE },
+  { label: ' năm', threshold: YEAR, value: YEAR },
+  { label: ' tháng', threshold: MONTH, value: MONTH },
+  { label: ' tuần', threshold: WEEK, value: WEEK },
+  { label: ' ngày', threshold: DAY, value: DAY },
+  { label: ' giờ', threshold: HOUR, value: HOUR },
+  { label: ' phút', threshold: MINUTE, value: MINUTE },
 ];
 
 /**
  * Format an ISO date string to a relative "time ago" label.
  *
  * @example
- * formatTimeAgo('2026-09-28T12:00:00Z'); // "2h"
+ * formatTimeAgo('2026-09-28T12:00:00Z'); // "2 giờ"
  */
 export function formatTimeAgo(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
@@ -40,7 +40,7 @@ export function formatTimeAgo(dateInput: Date | string): string {
   const elapsed = now - date.getTime();
 
   if (elapsed < MINUTE) {
-    return 'just now';
+    return 'vừa xong';
   }
 
   for (const unit of UNITS) {

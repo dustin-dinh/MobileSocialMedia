@@ -28,7 +28,7 @@ export const MOCK_POSTS: Post[] = [
     },
     commentsCount: 4,
     content:
-      'Just finished reading "Atomic Habits" for the second time. The compounding effect of small daily improvements is genuinely life-changing. What books are you re-reading this year? 📚',
+      'Vừa đọc lại "Atomic Habits" lần thứ hai và vẫn thấy đáng. Mỗi ngày tốt hơn một chút, cộng dồn cả năm thì khác hẳn. Năm nay mọi người đọc lại cuốn nào?',
     createdAt: hoursAgo(2),
     id: 'post-001',
     isLiked: false,
@@ -38,13 +38,13 @@ export const MOCK_POSTS: Post[] = [
   },
   {
     author: {
-      avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcabd9c?w=120&h=120&fit=crop&crop=face',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face',
       displayName: 'Alex Rivera',
       id: 'user-002',
       username: 'alexrivera',
     },
     commentsCount: 12,
-    content: 'Golden hour at Đà Nẵng 🌅',
+    content: 'Ruộng bậc thang lúc chiều muộn, nhìn từ trên đồi. Leo bộ 40 phút mới tới nhưng không tiếc chút nào.',
     createdAt: hoursAgo(5),
     id: 'post-002',
     isLiked: true,
@@ -67,7 +67,7 @@ export const MOCK_POSTS: Post[] = [
       username: 'minhtran',
     },
     commentsCount: 8,
-    content: 'Weekend brunch vibes ✨ Which one would you pick?',
+    content: 'Brunch cuối tuần, ba món ba kiểu. Mọi người chọn món nào?',
     createdAt: hoursAgo(18),
     id: 'post-003',
     isLiked: false,
@@ -103,7 +103,7 @@ export const MOCK_POSTS: Post[] = [
     },
     commentsCount: 31,
     content:
-      'Day 45 of #100DaysOfCode 🚀\n\nFinally cracked that nasty race condition in the auth middleware. Turns out the token refresh was firing twice when the app came back from background.\n\nLesson learned: always debounce your refresh logic and use a mutex around token storage writes.\n\nKeep grinding everyone! 💪',
+      'Ngày 45 của #100DaysOfCode\n\nCuối cùng cũng bắt được lỗi race condition trong middleware xác thực: token bị làm mới hai lần khi app quay lại từ nền.\n\nBài học: debounce phần làm mới và khoá lại mỗi lần ghi token.\n\nCố lên mọi người 💪', // taste-skill-ignore: user content in mock data
     createdAt: hoursAgo(26),
     id: 'post-004',
     isLiked: true,
@@ -127,7 +127,7 @@ export const MOCK_POSTS: Post[] = [
     },
     commentsCount: 67,
     content:
-      'Hot take: TypeScript strict mode should be the default for every project, no exceptions. Fight me. 🔥',
+      'Ý kiến cá nhân: dự án TypeScript nào cũng nên bật strict mode ngay từ ngày đầu. Ai không đồng ý thì vào đây tranh luận.',
     createdAt: hoursAgo(48),
     id: 'post-005',
     isLiked: false,

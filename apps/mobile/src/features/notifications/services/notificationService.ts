@@ -36,7 +36,7 @@ function delay(ms: number): Promise<void> {
 let mockNotifications: AppNotification[] = [
   {
     actor: {
-      avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcabd9c?w=100&h=100&fit=crop&crop=face',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face',
       displayName: 'Alex Rivera',
       id: 'user-002',
       username: 'alexrivera',
@@ -56,7 +56,7 @@ let mockNotifications: AppNotification[] = [
       id: 'user-003',
       username: 'minhtran',
     },
-    commentText: 'App chạy mượt thật sự! UI/UX clean ghê 🚀',
+    commentText: 'App chạy mượt thật, giao diện gọn gàng. Hóng bản cập nhật tiếp theo.',
     createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(), // 25m ago
     id: 'notif-002',
     isRead: false,
@@ -94,12 +94,12 @@ let mockNotifications: AppNotification[] = [
   },
   {
     actor: {
-      avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcabd9c?w=100&h=100&fit=crop&crop=face',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face',
       displayName: 'Alex Rivera',
       id: 'user-002',
       username: 'alexrivera',
     },
-    commentText: 'Bộ ảnh chụp góc đẹp quá bạn ơi! Tone màu nghệ thực sự 👏📸',
+    commentText: 'Góc chụp đẹp quá bạn ơi, tone màu rất có gu.',
     createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6h ago
     id: 'notif-005',
     isRead: true,

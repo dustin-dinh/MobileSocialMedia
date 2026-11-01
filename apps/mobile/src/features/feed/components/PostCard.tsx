@@ -11,7 +11,7 @@ import { Image } from 'expo-image';
 
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { clayColors } from '../../../theme/colors';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { feedSpacing } from '../feedTheme';
 import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
@@ -41,8 +41,13 @@ import { feedEvents } from '../feedEvents';
 // ---------------------------------------------------------------------------
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_HORIZONTAL_MARGIN = feedSpacing.cardPadding;
-const MEDIA_WIDTH = SCREEN_WIDTH - CARD_HORIZONTAL_MARGIN * 2;
+// Media runs the content width (inside the page margins) with radius 8, in
+// every post; one height for photos so text below starts on the same rhythm.
+const MEDIA_WIDTH = SCREEN_WIDTH - feedSpacing.cardPadding * 2;
+const MEDIA_HEIGHT = Math.round(MEDIA_WIDTH * 0.75);
+// Several photos: each slide leaves the next one peeking in, so it reads as swipeable.
+const SLIDE_GAP = 8;
+const SLIDE_WIDTH = Math.round(MEDIA_WIDTH * 0.86);
 const AVATAR_SIZE = 40;
 
 // ---------------------------------------------------------------------------
@@ -100,6 +105,7 @@ function SingleImage({ media }: { media: PostMedia }) {
     <View style={styles.mediaSingle}>
       {!loaded && <View style={styles.mediaPlaceholder} />}
       <Image
+        accessibilityIgnoresInvertColors
         source={{ uri: media.url }}
         style={[styles.mediaSingleImage, !loaded && styles.hidden]}
         contentFit="cover"
@@ -108,6 +114,10 @@ function SingleImage({ media }: { media: PostMedia }) {
       />
     </View>
   );
+}
+
+function SlideGap() {
+  return <View style={styles.slideGap} />;
 }
 
 function MediaGrid({ items, onPressVideo }: { items: PostMedia[]; onPressVideo: () => void }) {
@@ -122,20 +132,23 @@ function MediaGrid({ items, onPressVideo }: { items: PostMedia[]; onPressVideo: 
   return (
     <FlatList
       data={items}
+      decelerationRate="fast"
+      disableIntervalMomentum
       horizontal
+      ItemSeparatorComponent={SlideGap}
       keyExtractor={(item) => item.id}
-      pagingEnabled
       renderItem={({ item }) => (
-        <View style={styles.carouselItem}>
-          <Image
-            source={{ uri: item.url }}
-            style={styles.carouselImage}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-          />
-        </View>
+        <Image
+          accessibilityIgnoresInvertColors
+          source={{ uri: item.url }}
+          style={styles.carouselImage}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
       )}
       showsHorizontalScrollIndicator={false}
+      snapToAlignment="start"
+      snapToInterval={SLIDE_WIDTH + SLIDE_GAP}
       style={styles.carousel}
     />
   );
@@ -280,7 +293,7 @@ export const PostCard = memo(function PostCard({
   // The original of this repost was deleted or is no longer visible.
   if (post.unavailable) {
     return (
-      <ClaySurface variant="raisedLite" style={styles.card}>
+      <ClaySurface variant="flat" style={styles.card}>
         {repostBanner}
         <View style={styles.unavailable}>
           <ClayIcon name="EyeSlash" size={20} weight="regular" color={clayColors.caption} />
@@ -293,7 +306,7 @@ export const PostCard = memo(function PostCard({
   }
 
   return (
-    <ClaySurface variant="raisedLite" style={styles.card}>
+    <ClaySurface variant="flat" style={styles.card}>
       {repostBanner}
       {/* ── Header ─────────────────────────────────────────── */}
       <View style={styles.header}>
@@ -309,27 +322,16 @@ export const PostCard = memo(function PostCard({
             {displayName}
           </ClayText>
           <View style={styles.headerMeta}>
-            <ClayText variant="meta" style={styles.username}>
-              @{post.author.username}
-            </ClayText>
-            <ClayText variant="meta" style={styles.dot}>
-              ·
-            </ClayText>
-            <ClayText variant="meta" style={styles.timestamp}>
-              {formatTimeAgo(post.createdAt)}
+            <ClayText variant="caption" style={styles.metaText} numberOfLines={1}>
+              @{post.author.username} · {formatTimeAgo(post.createdAt)}
             </ClayText>
             {Boolean(post.privacy) && (
-              <>
-                <ClayText variant="meta" style={styles.dot}>
-                  ·
-                </ClayText>
-                <ClayIcon
-                  name={privacyIconName}
-                  size={12}
-                  weight="bold"
-                  color={clayColors.caption}
-                />
-              </>
+              <ClayIcon
+                name={privacyIconName}
+                size={13}
+                weight="regular"
+                color={clayColors.caption}
+              />
             )}
           </View>
         </View>
@@ -341,7 +343,7 @@ export const PostCard = memo(function PostCard({
           onPress={() => setIsOptionsModalOpen(true)}
           style={styles.moreButton}
         >
-          <ClayIcon name="DotsThree" size={22} weight="bold" color={clayColors.caption} />
+          <ClayIcon name="DotsThree" size={20} weight="bold" color={clayColors.caption} />
         </Pressable>
       </View>
 
@@ -391,20 +393,18 @@ export const PostCard = memo(function PostCard({
               ) : (
                 <ClayIcon
                   name="Heart"
-                  size={22}
+                  size={20}
                   weight={post.isLiked ? 'fill' : 'regular'}
                   color={post.isLiked ? clayColors.liked : clayColors.caption}
                 />
               )}
             </Animated.View>
-            {post.likesCount > 0 && (
-              <ClayText
-                variant="caption"
-                style={[styles.actionCount, post.isLiked && styles.actionCountLiked]}
-              >
-                {formatCount(post.likesCount)}
-              </ClayText>
-            )}
+            <ClayText
+              variant="caption"
+              style={[styles.actionCount, post.isLiked && styles.actionCountLiked]}
+            >
+              {formatCount(post.likesCount)}
+            </ClayText>
           </Pressable>
 
           <Pressable
@@ -414,12 +414,10 @@ export const PostCard = memo(function PostCard({
             style={styles.actionButton}
             hitSlop={8}
           >
-            <ClayIcon name="ChatCircle" size={22} weight="regular" color={clayColors.caption} />
-            {post.commentsCount > 0 && (
-              <ClayText variant="caption" style={styles.actionCount}>
-                {formatCount(post.commentsCount)}
-              </ClayText>
-            )}
+            <ClayIcon name="ChatCircle" size={20} weight="regular" color={clayColors.caption} />
+            <ClayText variant="caption" style={styles.actionCount}>
+              {formatCount(post.commentsCount)}
+            </ClayText>
           </Pressable>
 
           <Pressable
@@ -433,9 +431,9 @@ export const PostCard = memo(function PostCard({
           >
             <ClayIcon
               name="Repeat"
-              size={22}
+              size={20}
               weight={post.isReposted ? 'bold' : 'regular'}
-              color={post.isReposted ? clayColors.primary : clayColors.caption}
+              color={post.isReposted ? clayColors.text : clayColors.caption}
             />
             {(post.repostsCount ?? 0) > 0 && (
               <ClayText
@@ -451,10 +449,10 @@ export const PostCard = memo(function PostCard({
             accessibilityRole="button"
             accessibilityLabel="Share post"
             onPress={() => setIsShareModalOpen(true)}
-            style={styles.actionButton}
+            style={[styles.actionButton, styles.shareButton]}
             hitSlop={8}
           >
-            <ClayIcon name="ShareNetwork" size={22} weight="regular" color={clayColors.caption} />
+            <ClayIcon name="ShareNetwork" size={20} weight="regular" color={clayColors.caption} />
           </Pressable>
       </View>
 
@@ -532,19 +530,18 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 6,
     height: clayDimensions.minTouchTarget,
-    justifyContent: 'center',
-    minWidth: clayDimensions.minTouchTarget,
+    minWidth: 72,
     paddingHorizontal: 8,
   },
   actionCount: {
+    ...tabularNums,
     color: clayColors.caption,
-    fontSize: 12,
-    marginLeft: 4,
   },
   reactionEmoji: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 22,
   },
   actionDisabled: {
     opacity: 0.4,
@@ -553,7 +550,7 @@ const styles = StyleSheet.create({
     color: clayColors.liked,
   },
   actionCountReposted: {
-    color: clayColors.primary,
+    color: clayColors.text,
   },
   authorButton: {
     alignItems: 'center',
@@ -566,7 +563,7 @@ const styles = StyleSheet.create({
     gap: 6,
     minHeight: 32,
     paddingHorizontal: feedSpacing.cardPadding,
-    paddingTop: 10,
+    paddingTop: 8,
   },
   repostBannerText: {
     color: clayColors.caption,
@@ -584,11 +581,12 @@ const styles = StyleSheet.create({
   actions: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
     paddingBottom: 4,
-    paddingHorizontal: 8,
+    // Buttons pad 8px, so the first icon starts on the 16px margin.
+    paddingHorizontal: feedSpacing.cardPadding - 8,
   },
   avatar: {
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: AVATAR_SIZE / 2,
     height: AVATAR_SIZE,
     width: AVATAR_SIZE,
@@ -599,44 +597,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
-    color: clayColors.caption,
-    fontFamily: fontFamilies.bold,
+    color: clayColors.primaryInk,
+    fontFamily: fontFamilies.semiBold,
     fontSize: 14,
   },
   card: {
+    backgroundColor: clayColors.surface,
     marginBottom: feedSpacing.cardGap,
-    marginHorizontal: feedSpacing.cardPadding,
-    overflow: 'hidden',
   },
   carousel: {
+    borderRadius: clayRadii.media,
     width: MEDIA_WIDTH,
   },
   carouselImage: {
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: clayRadii.media,
-    borderWidth: 1,
-    borderColor: clayColors.border,
-    height: MEDIA_WIDTH * 0.65,
-    width: MEDIA_WIDTH - feedSpacing.cardPadding * 2 - 8,
-  },
-  carouselItem: {
-    paddingRight: 8,
+    height: MEDIA_HEIGHT,
+    width: SLIDE_WIDTH,
   },
   content: {
     lineHeight: 22,
-    paddingBottom: 8,
+    paddingBottom: 12,
     paddingHorizontal: feedSpacing.cardPadding,
   },
   displayName: {
     fontSize: 15,
-    fontFamily: fontFamilies.bold,
-  },
-  dot: {
-    marginHorizontal: 4,
+    lineHeight: 20,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
-    paddingBottom: 8,
+    paddingBottom: 10,
     paddingLeft: feedSpacing.cardPadding,
     paddingRight: 4,
     paddingTop: 12,
@@ -644,23 +635,24 @@ const styles = StyleSheet.create({
   headerMeta: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 6,
   },
   headerText: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   hidden: {
     opacity: 0,
     position: 'absolute',
   },
   mediaContainer: {
-    paddingBottom: 10,
+    paddingBottom: 4,
     paddingHorizontal: feedSpacing.cardPadding,
   },
   mediaPlaceholder: {
     backgroundColor: clayColors.surfaceWell,
     borderRadius: clayRadii.media,
-    height: MEDIA_WIDTH * 0.65,
+    height: MEDIA_HEIGHT,
     width: '100%',
   },
   mediaSingle: {
@@ -669,10 +661,11 @@ const styles = StyleSheet.create({
   },
   mediaSingleImage: {
     borderRadius: clayRadii.media,
-    borderWidth: 1,
-    borderColor: clayColors.border,
-    height: MEDIA_WIDTH * 0.65,
+    height: MEDIA_HEIGHT,
     width: '100%',
+  },
+  metaText: {
+    flexShrink: 1,
   },
   moreButton: {
     alignItems: 'center',
@@ -680,10 +673,12 @@ const styles = StyleSheet.create({
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
   },
-  timestamp: {
-    fontSize: 12,
+  shareButton: {
+    justifyContent: 'flex-end',
+    marginLeft: 'auto',
+    minWidth: clayDimensions.minTouchTarget,
   },
-  username: {
-    fontSize: 12,
+  slideGap: {
+    width: SLIDE_GAP,
   },
 });

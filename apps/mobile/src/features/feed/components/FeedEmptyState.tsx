@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { clayColors } from '../../../theme/colors';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
 
 /**
  * Shown when the home feed has nothing: the feed only holds posts from the
@@ -12,13 +12,9 @@ import { clayColors } from '../../../theme/colors';
 export function FeedEmptyState({ onFindPeople }: { onFindPeople?: () => void }) {
   return (
     <View style={styles.container}>
-      <ClayEmoji name="sparkles" size={68} />
-      <ClayText variant="heading" style={styles.title}>
-        Bảng tin của bạn đang trống
-      </ClayText>
+      <ClayText variant="heading">Chưa có bài viết nào</ClayText>
       <ClayText variant="body" style={styles.subtitle}>
-        Bảng tin hiện bài viết của bạn và của những người bạn theo dõi. Hãy theo dõi vài người
-        để bắt đầu.
+        Bảng tin hiện bài viết của bạn và của những người bạn theo dõi.
       </ClayText>
       {onFindPeople ? (
         <ClayButton
@@ -35,23 +31,17 @@ export function FeedEmptyState({ onFindPeople }: { onFindPeople?: () => void }) 
 
 const styles = StyleSheet.create({
   button: {
-    marginTop: 20,
+    alignSelf: 'flex-start',
+    marginTop: claySpacing.base,
   },
   container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 80,
+    alignItems: 'flex-start',
+    backgroundColor: clayColors.surface,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xl,
   },
   subtitle: {
-    color: clayColors.caption,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  title: {
-    color: clayColors.text,
-    marginTop: 16,
-    textAlign: 'center',
+    color: clayColors.textSecondary,
+    marginTop: claySpacing.xs,
   },
 });

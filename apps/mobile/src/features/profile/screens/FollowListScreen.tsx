@@ -8,7 +8,7 @@ import { USE_MOCK_API } from '../../../config/runtime';
 import type { MainStackParamList } from '../../../navigation/types';
 import { followApi } from '../../../services/followApi';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
 
 type FollowListScreenProps = NativeStackScreenProps<MainStackParamList, 'FollowList'>;
@@ -39,7 +39,7 @@ export function FollowListScreen({ route }: FollowListScreenProps) {
       }
       fetchPage={fetchPage}
       header={
-        <View style={styles.tabs}>
+        <View accessibilityRole="tablist" style={styles.tabs}>
           {TABS.map((tab) => {
             const isActive = tab.key === type;
 
@@ -53,7 +53,7 @@ export function FollowListScreen({ route }: FollowListScreenProps) {
                 style={[styles.tab, isActive && styles.tabActive]}
               >
                 <ClayText
-                  variant="caption"
+                  variant="body"
                   style={[styles.tabText, isActive && styles.tabTextActive]}
                 >
                   {tab.label}
@@ -69,12 +69,12 @@ export function FollowListScreen({ route }: FollowListScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  // Underline tabs, each as wide as its label, on one full-width rule (same as the profile tabs).
   tab: {
-    alignItems: 'center',
     borderBottomColor: 'transparent',
     borderBottomWidth: 2,
-    flex: 1,
     justifyContent: 'center',
+    marginBottom: -1,
     minHeight: clayDimensions.minTouchTarget,
   },
   tabActive: {
@@ -82,14 +82,19 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: clayColors.caption,
+    fontFamily: fontFamilies.medium,
+    fontSize: 14,
   },
   tabTextActive: {
-    color: clayColors.primary,
-    fontFamily: fontFamilies.bold,
+    color: clayColors.text,
+    fontFamily: fontFamilies.semiBold,
   },
   tabs: {
+    backgroundColor: clayColors.canvas,
     borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
+    columnGap: claySpacing.xl,
     flexDirection: 'row',
+    paddingHorizontal: clayDimensions.gutter,
   },
 });

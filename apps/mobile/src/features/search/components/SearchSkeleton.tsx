@@ -1,101 +1,65 @@
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { searchColors, searchRadii } from '../searchTheme';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, clayRadii } from '../../../theme/spacing';
 
 const SKELETON_ITEMS = [1, 2, 3, 4, 5];
 
+/** The final row layout with flat grey blocks in place of the data; nothing moves. */
 export function SearchSkeleton() {
-  const pulseAnim = useRef(new Animated.Value(0.4)).current;
-
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          duration: 700,
-          toValue: 0.85,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          duration: 700,
-          toValue: 0.4,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    pulseLoop.start();
-
-    return () => {
-      pulseLoop.stop();
-    };
-  }, [pulseAnim]);
-
   return (
-    <View style={styles.container}>
+    <View accessibilityLabel="Đang tải" accessibilityRole="progressbar">
       {SKELETON_ITEMS.map((item) => (
-        <Animated.View key={item} style={[styles.skeletonRow, { opacity: pulseAnim }]}>
-          <View style={styles.avatarSkeleton} />
-          <View style={styles.infoSkeleton}>
+        <View key={item} style={styles.row}>
+          <View style={styles.avatar} />
+          <View style={styles.info}>
             <View style={styles.titleLine} />
             <View style={styles.subtitleLine} />
-            <View style={styles.bioLine} />
           </View>
-          <View style={styles.buttonSkeleton} />
-        </Animated.View>
+          <View style={styles.button} />
+        </View>
       ))}
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
-  avatarSkeleton: {
-    backgroundColor: searchColors.surfaceWell,
-    borderRadius: 25,
-    height: 50,
-    width: 50,
+  avatar: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.avatar,
+    height: 40,
+    width: 40,
   },
-  bioLine: {
-    backgroundColor: searchColors.border,
-    borderRadius: 4,
-    height: 10,
-    marginTop: 4,
-    width: '60%',
+  button: {
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.control,
+    height: 36,
+    width: 96,
   },
-  buttonSkeleton: {
-    backgroundColor: searchColors.surfaceWell,
-    borderRadius: searchRadii.button,
-    height: 34,
-    width: 88,
-  },
-  container: {
-    paddingTop: 8,
-  },
-  infoSkeleton: {
+  info: {
     flex: 1,
+    gap: 6,
     marginHorizontal: 12,
   },
-  skeletonRow: {
+  row: {
     alignItems: 'center',
-    borderBottomColor: searchColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    backgroundColor: clayColors.surface,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    minHeight: 72,
+    paddingHorizontal: clayDimensions.gutter,
   },
   subtitleLine: {
-    backgroundColor: searchColors.border,
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: 4,
-    height: 11,
-    marginTop: 6,
-    width: '40%',
+    height: 13,
+    width: '45%',
   },
   titleLine: {
-    backgroundColor: searchColors.surfaceWell,
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: 4,
-    height: 14,
-    width: '70%',
+    height: 15,
+    width: '65%',
   },
 });
-

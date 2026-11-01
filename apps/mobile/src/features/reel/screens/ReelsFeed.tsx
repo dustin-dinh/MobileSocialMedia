@@ -11,13 +11,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionSheet } from '../../../components/common/ActionSheet';
-import { LoadError } from '../../../components/common/LoadError';
 import { showToast } from '../../../components/common/toast';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { followApi } from '../../../services/followApi';
 import { clayColors } from '../../../theme/colors';
+import { claySpacing } from '../../../theme/spacing';
 import { useAuthSession } from '../../auth/authSession';
 import { CommentModal } from '../../comment/components/CommentModal';
 import { feedEvents } from '../../feed/feedEvents';
@@ -36,6 +36,8 @@ import type { ReelViewStats } from '../types';
 const PREFETCH_REMAINING = 3;
 const SAMPLE_NOTICE = 'Đây là video mẫu. Tính năng này hoạt động khi có video thật.';
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 80 };
+// Media viewers keep a black ground with white text (the rest of the app is light).
+const MEDIA_GROUND = '#000000';
 
 type ReelRowProps = {
   bottomInset: number;
@@ -101,13 +103,6 @@ const ReelRow = memo(function ReelRow({
         onToggleSave={() => onAction('save', post)}
         post={post}
       />
-      {post.isSample ? (
-        <View pointerEvents="none" style={styles.sampleBadge}>
-          <ClayText style={styles.sampleBadgeText} variant="meta">
-            Video mẫu
-          </ClayText>
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -409,8 +404,20 @@ export function ReelsFeed({ bottomInset = 12, initialPost, isActive }: ReelsFeed
       {isLoading || height === 0 ? (
         <ActivityIndicator color={clayColors.onPrimary} size="large" style={styles.fill} />
       ) : loadFailed && reels.length === 0 ? (
-        <View style={styles.lightPanel}>
-          <LoadError onRetry={handleRefresh} />
+        <View style={[styles.endCard, styles.fill]}>
+          <ClayText style={styles.endText} variant="heading">
+            Không tải được video
+          </ClayText>
+          <ClayText style={styles.endSubtext} variant="body">
+            Kiểm tra kết nối mạng rồi thử lại.
+          </ClayText>
+          <ClayButton
+            accessibilityLabel="Thử tải lại video"
+            onPress={handleRefresh}
+            size="sm"
+            title="Thử lại"
+            variant="secondary"
+          />
         </View>
       ) : (
         <FlatList
@@ -504,18 +511,17 @@ export function ReelsFeed({ bottomInset = 12, initialPost, isActive }: ReelsFeed
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: clayColors.text,
+    backgroundColor: MEDIA_GROUND,
     flex: 1,
   },
   endCard: {
     alignItems: 'center',
-    gap: 12,
+    gap: claySpacing.md,
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: claySpacing.xxl,
   },
   endSubtext: {
     color: clayColors.onPrimary,
-    opacity: 0.8,
     textAlign: 'center',
   },
   endText: {
@@ -525,24 +531,8 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
-  lightPanel: {
-    backgroundColor: clayColors.canvas,
-    flex: 1,
-  },
   row: {
-    backgroundColor: clayColors.text,
+    backgroundColor: MEDIA_GROUND,
     width: '100%',
-  },
-  sampleBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderRadius: 10,
-    left: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    position: 'absolute',
-    top: 16,
-  },
-  sampleBadgeText: {
-    color: clayColors.onPrimary,
   },
 });

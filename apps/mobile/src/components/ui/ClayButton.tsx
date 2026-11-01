@@ -12,7 +12,12 @@ import { clayColors } from '../../theme/colors';
 import { clayRadii, clayDimensions } from '../../theme/spacing';
 import { ClayText } from './ClayText';
 
-export type ClayButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'pill';
+/**
+ * primary: the brand hue, one per screen. tonal: the hue's pale tint with its
+ * dark ink, for an action repeated down a list (Follow). secondary: white with
+ * a 1px edge. ghost: text only. destructive: the pale negative pair.
+ */
+export type ClayButtonVariant = 'primary' | 'tonal' | 'secondary' | 'ghost' | 'destructive' | 'pill';
 
 export type ClayButtonProps = {
   accessibilityLabel: string;
@@ -86,17 +91,20 @@ export function ClayButton({
           size === 'sm' && styles.sizeSm,
           size === 'lg' && styles.sizeLg,
           variant === 'primary' && styles.primary,
+          variant === 'tonal' && styles.tonal,
           variant === 'secondary' && styles.secondary,
           variant === 'ghost' && styles.ghost,
           variant === 'destructive' && styles.destructive,
           variant === 'pill' && styles.pill,
           pressed && !isDisabled && (
             variant === 'primary' ? styles.primaryPressed :
+            variant === 'tonal' ? styles.tonalPressed :
             variant === 'secondary' ? styles.secondaryPressed :
             variant === 'destructive' ? styles.destructivePressed :
             styles.ghostPressed
           ),
-          isDisabled && styles.disabled,
+          // Disabled stays legible: a grey well with caption text, never faded brand colour.
+          isDisabled && !isButtonLoading && (variant === 'ghost' ? null : styles.disabled),
           style,
         ]}
       >
@@ -118,10 +126,12 @@ export function ClayButton({
                 style={[
                   styles.labelBase,
                   variant === 'primary' && styles.primaryLabel,
+                  variant === 'tonal' && styles.tonalLabel,
                   variant === 'secondary' && styles.secondaryLabel,
                   variant === 'ghost' && styles.ghostLabel,
                   variant === 'destructive' && styles.destructiveLabel,
                   variant === 'pill' && styles.pillLabel,
+                  isDisabled && !isButtonLoading && styles.disabledLabel,
                   labelStyle,
                 ]}
               >
@@ -161,9 +171,15 @@ const styles = StyleSheet.create({
   primaryPressed: {
     backgroundColor: clayColors.primaryPressed,
   },
+  tonal: {
+    backgroundColor: clayColors.primarySoft,
+  },
+  tonalPressed: {
+    backgroundColor: clayColors.primaryTrack,
+  },
   secondary: {
     backgroundColor: clayColors.surfaceHigh,
-    borderColor: clayColors.border,
+    borderColor: clayColors.control,
     borderWidth: 1,
   },
   secondaryPressed: {
@@ -185,18 +201,23 @@ const styles = StyleSheet.create({
   },
   pill: {
     backgroundColor: clayColors.surfaceHigh,
-    borderColor: clayColors.border,
+    borderColor: clayColors.control,
     borderRadius: clayRadii.pill,
     borderWidth: 1,
   },
   disabled: {
-    opacity: 0.5,
+    backgroundColor: clayColors.surfaceWell,
+    borderColor: clayColors.surfaceWell,
   },
-  labelBase: {
-    fontSize: 15,
+  disabledLabel: {
+    color: clayColors.caption,
   },
+  labelBase: {},
   primaryLabel: {
     color: clayColors.onPrimary,
+  },
+  tonalLabel: {
+    color: clayColors.primaryInk,
   },
   secondaryLabel: {
     color: clayColors.text,
@@ -205,7 +226,7 @@ const styles = StyleSheet.create({
     color: clayColors.primary,
   },
   destructiveLabel: {
-    color: clayColors.error,
+    color: clayColors.errorInk,
   },
   pillLabel: {
     color: clayColors.text,

@@ -8,7 +8,7 @@ import type { MainStackParamList } from '../../../navigation/types';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
+import { clayDimensions, clayRadii } from '../../../theme/spacing';
 import { ReelsFeed } from './ReelsFeed';
 
 type ReelViewerScreenProps = NativeStackScreenProps<MainStackParamList, 'ReelViewer'>;
@@ -35,7 +35,7 @@ export function ReelViewerScreen({ route }: ReelViewerScreenProps) {
         accessibilityRole="button"
         hitSlop={8}
         onPress={navigation.back}
-        style={[styles.backButton, { top: insets.top + 12 }]}
+        style={[styles.backButton, { top: insets.top + clayDimensions.gutter }]}
       >
         <ClayIcon color={clayColors.onPrimary} name="CaretLeft" size={22} weight="bold" />
       </Pressable>
@@ -44,18 +44,20 @@ export function ReelViewerScreen({ route }: ReelViewerScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  // A neutral disc keeps the white glyph readable on a bright frame; same as the mute button.
   backButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderRadius: clayDimensions.minTouchTarget / 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: clayRadii.pill,
     height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    left: 12,
+    left: clayDimensions.gutter,
     position: 'absolute',
     width: clayDimensions.minTouchTarget,
   },
   container: {
-    backgroundColor: clayColors.text,
+    // Media viewers keep a black ground.
+    backgroundColor: '#000000',
     flex: 1,
   },
 });

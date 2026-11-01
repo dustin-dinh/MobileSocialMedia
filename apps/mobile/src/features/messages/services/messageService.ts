@@ -78,43 +78,116 @@ export type OutgoingMessage = {
   image?: { fileName?: string | null; mimeType?: string | null; uri: string };
 };
 
-const MOCK_PEER: PostAuthor = {
-  avatarUrl: null,
-  displayName: 'Mai Anh',
-  id: 'mock-peer-1',
-  username: 'maianh',
-};
-const mockMessages: Message[] = [
-  {
-    content: 'Chào bạn, cuối tuần này đi cà phê không?',
-    conversationId: 'mock-conversation-1',
-    createdAt: new Date(Date.now() - 3_600_000).toISOString(),
-    id: 'mock-message-1',
-    imageUrl: null,
-    senderId: MOCK_PEER.id,
-  },
-];
+// Mock inbox for UI work and demos: four accepted conversations (two unread) and one
+// request from a stranger, each with its own messages. It also shows the safety marks:
+// a blurred sensitive image and a message the scam check flagged.
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}?w=120&h=120&fit=crop&crop=face`;
 
-function mockConversation(): Conversation {
+type MockThread = Omit<Conversation, 'lastMessage' | 'lastMessageAt'> & { messages: Message[] };
+
+function thread(
+  id: string,
+  peer: PostAuthor,
+  lines: [from: 'me' | 'peer', text: string, minutes: number, flags?: Partial<Message>][],
+  extra: Partial<MockThread> = {},
+): MockThread {
   return {
     anonymous: null,
     canSendImages: true,
     closed: false,
-    id: 'mock-conversation-1',
+    id,
     isRequest: false,
+    peer,
     status: 'ACCEPTED',
-    lastMessage: mockMessages[0] ?? null,
-    lastMessageAt: mockMessages[0]?.createdAt ?? new Date().toISOString(),
-    peer: MOCK_PEER,
     unreadCount: 0,
+    ...extra,
+    messages: lines.map(([from, content, minutes, flags], i) => ({
+      content,
+      conversationId: id,
+      createdAt: minutesAgo(minutes),
+      id: `${id}-m${i}`,
+      imageUrl: null,
+      senderId: from === 'me' ? 'user-001' : peer.id,
+      ...flags,
+    })),
   };
 }
+
+const mockThreads: MockThread[] = [
+  thread(
+    'mock-conversation-1',
+    { avatarUrl: null, displayName: 'Mai Anh', id: 'mock-peer-1', username: 'maianh' },
+    [['peer', 'Chào bạn, cuối tuần này đi cà phê không?', 60]],
+    { unreadCount: 1 },
+  ),
+  thread(
+    'mock-conversation-2',
+    { avatarUrl: unsplash('1494790108377-be9c29b29330'), displayName: 'Minh Trần', id: 'user-003', username: 'minhtran' },
+    [
+      ['peer', 'Ảnh ruộng bậc thang hôm qua đẹp quá, bạn chụp bằng máy gì vậy?', 95],
+      ['me', 'Mình chụp bằng điện thoại thôi, chỉnh màu nhẹ trên app.', 90],
+      ['peer', 'Gửi mình bản gốc được không? Mình muốn in ra treo phòng.', 14],
+      ['peer', '', 12, {
+        content: null,
+        imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=600&fit=crop',
+        sensitive: true,
+      }],
+    ],
+    { unreadCount: 2 },
+  ),
+  thread(
+    'mock-conversation-3',
+    { avatarUrl: unsplash('1438761681033-6461ffad8d80'), displayName: 'Linh Phạm', id: 'user-005', username: 'linhpham' },
+    [
+      ['me', 'Thứ Sáu này team họp lúc mấy giờ nhỉ?', 300],
+      ['peer', '9 giờ sáng nha, phòng họp tầng 3.', 280],
+    ],
+  ),
+  thread(
+    'mock-conversation-4',
+    { avatarUrl: unsplash('1500648767791-00dcc994a43e'), displayName: 'Đức Hoàng', id: 'user-006', username: 'duchoang' },
+    [
+      ['peer', 'Bài viết về race condition hay lắm, cảm ơn bạn.', 2_900],
+      ['me', 'Cảm ơn bạn đã đọc!', 2_880],
+    ],
+  ),
+  thread(
+    'mock-request-1',
+    { avatarUrl: null, displayName: 'Quốc Bảo', id: 'mock-stranger-1', username: 'quocbao.92' },
+    [
+      ['peer', 'Chào bạn, mình thấy bạn qua bài viết về Đà Nẵng, cho mình làm quen nhé.', 40],
+      ['peer', 'Bạn chuyển trước 500k để giữ chỗ nhé, rồi gửi mình mã OTP ngân hàng để xác nhận.', 38, { warning: true }],
+    ],
+    { isRequest: true, status: 'PENDING', unreadCount: 1 },
+  ),
+];
+
+function mockConversation(id = 'mock-conversation-1'): Conversation {
+  const found = mockThreads.find((t) => t.id === id) ?? mockThreads[0];
+  const { messages, ...conversation } = found;
+
+  return {
+    ...conversation,
+    lastMessage: messages[messages.length - 1] ?? null,
+    lastMessageAt: messages[messages.length - 1]?.createdAt ?? new Date().toISOString(),
+  };
+}
+
+function mockInbox(): Conversation[] {
+  return mockThreads
+    .map((t) => mockConversation(t.id))
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+}
+
+/** Newest first, as the API pages them. */
+const mockMessagesOf = (id: string) => [...(mockThreads.find((t) => t.id === id)?.messages ?? [])].reverse();
 
 export const messageService = {
   /** Conversations that already have messages, newest first. */
   async list(): Promise<Conversation[]> {
     if (USE_MOCK_API) {
-      return [mockConversation()];
+      return mockInbox();
     }
 
     const response = await httpClient.requestJson<{ data: Conversation[] }>({
@@ -165,9 +238,9 @@ export const messageService = {
   async getMessages(conversationId: string, before?: string): Promise<MessagePage> {
     if (USE_MOCK_API) {
       return {
-        conversation: mockConversation(),
+        conversation: mockConversation(conversationId),
         hasMore: false,
-        messages: before ? [] : [...mockMessages],
+        messages: before ? [] : mockMessagesOf(conversationId),
         peerReadAt: null,
       };
     }
@@ -235,7 +308,7 @@ export const messageService = {
         senderId,
       };
 
-      mockMessages.unshift(sent);
+      mockThreads.find((t) => t.id === conversationId)?.messages.push(sent);
 
       return sent;
     }
@@ -283,7 +356,11 @@ export const messageService = {
   /** Unread conversations in the main inbox (the tab badge) and pending requests. */
   async getUnreadCounts(): Promise<UnreadCounts> {
     if (USE_MOCK_API) {
-      return { count: 0, requests: 0 };
+      // Counted from the mock inbox so the tab badge and the folders agree.
+      return {
+        count: mockThreads.filter((t) => !t.isRequest && t.unreadCount > 0).length,
+        requests: mockThreads.filter((t) => t.isRequest).length,
+      };
     }
 
     const response = await httpClient.requestJson<{ data: { count: number; requests?: number } }>({

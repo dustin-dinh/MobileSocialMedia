@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
@@ -57,6 +58,7 @@ export function PostOptionsModal({
   onShare,
   visible,
 }: PostOptionsModalProps) {
+  const insets = useSafeAreaInsets();
   const authorOptions: OptionItem[] = [
     {
       description: 'Chỉnh sửa nội dung văn bản bài viết',
@@ -159,7 +161,7 @@ export function PostOptionsModal({
           }}
           style={styles.sheetWrap}
         >
-          <ClaySurface variant="modal" style={styles.sheet}>
+          <ClaySurface variant="modal" style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Handle bar */}
             <View style={styles.handleWrap}>
               <View style={styles.handle} />
@@ -167,7 +169,7 @@ export function PostOptionsModal({
 
             {/* Title */}
             <View style={styles.header}>
-              <ClayText variant="title" style={styles.headerTitle}>
+              <ClayText variant="heading" style={styles.headerTitle}>
                 {isAuthor ? 'Quản lý bài viết của bạn' : 'Tuỳ chọn bài viết'}
               </ClayText>
             </View>
@@ -184,20 +186,10 @@ export function PostOptionsModal({
                     accessibilityRole="button"
                     key={item.key}
                     onPress={item.onPress}
-                    style={styles.optionRow}
+                    style={({ pressed }) => [styles.optionRow, pressed && styles.optionRowPressed]}
                   >
-                    <View
-                      style={[
-                        styles.iconWrap,
-                        item.isDestructive && styles.iconWrapDestructive,
-                      ]}
-                    >
-                      <ClayIcon
-                        color={iconColor}
-                        name={item.icon}
-                        size={22}
-                        weight={item.isDestructive ? 'bold' : 'regular'}
-                      />
+                    <View style={styles.iconWrap}>
+                      <ClayIcon color={iconColor} name={item.icon} size={20} weight="regular" />
                     </View>
 
                     <View style={styles.optionContent}>
@@ -224,7 +216,7 @@ export function PostOptionsModal({
 
 const styles = StyleSheet.create({
   handle: {
-    backgroundColor: clayColors.border,
+    backgroundColor: clayColors.control,
     borderRadius: clayRadii.pill,
     height: 4,
     width: 36,
@@ -234,27 +226,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   header: {
-    marginBottom: 12,
-    paddingHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: clayDimensions.gutter,
   },
   headerTitle: {
     color: clayColors.text,
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: clayRadii.control,
-    height: clayDimensions.minTouchTarget,
-    justifyContent: 'center',
-    marginRight: 14,
-    width: clayDimensions.minTouchTarget,
-  },
-  iconWrapDestructive: {
-    backgroundColor: clayColors.errorBg,
+    marginRight: 16,
+    width: 24,
   },
   list: {
-    paddingBottom: 24,
-    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
   optionContent: {
     flex: 1,
@@ -266,17 +250,18 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 15,
   },
+  optionRowPressed: {
+    backgroundColor: clayColors.surfaceWell,
+  },
   optionRow: {
     alignItems: 'center',
-    borderRadius: clayRadii.control,
     flexDirection: 'row',
-    marginBottom: 6,
     minHeight: 56,
-    paddingHorizontal: 12,
+    paddingHorizontal: clayDimensions.gutter,
     paddingVertical: 8,
   },
   overlay: {
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.4)',
     flex: 1,
     justifyContent: 'flex-end',
   },

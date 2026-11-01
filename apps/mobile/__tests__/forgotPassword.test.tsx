@@ -37,8 +37,8 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
       </TestWrapper>,
     );
 
-    expect(getByText('Forgot password')).toBeTruthy();
-    expect(getByPlaceholderText('you@example.com')).toBeTruthy();
+    expect(getByText('Quên mật khẩu')).toBeTruthy();
+    expect(getByPlaceholderText('ten.ban@gmail.com')).toBeTruthy();
     expect(getByLabelText('Email input')).toBeTruthy();
     expect(getByLabelText('Send reset code')).toBeTruthy();
     expect(getByLabelText('Back')).toBeTruthy();
@@ -56,7 +56,7 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
     });
 
     await waitFor(() => {
-      expect(getByText('Enter your email address.')).toBeTruthy();
+      expect(getByText('Nhập địa chỉ email.')).toBeTruthy();
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -69,12 +69,12 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
     );
 
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText('you@example.com'), 'invalid-email');
+      fireEvent.changeText(getByPlaceholderText('ten.ban@gmail.com'), 'invalid-email');
       fireEvent.press(getByLabelText('Send reset code'));
     });
 
     await waitFor(() => {
-      expect(getByText('Enter a valid email address.')).toBeTruthy();
+      expect(getByText('Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.')).toBeTruthy();
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -92,7 +92,7 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
     );
 
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText('you@example.com'), 'user@test.com');
+      fireEvent.changeText(getByPlaceholderText('ten.ban@gmail.com'), 'user@test.com');
       fireEvent.press(getByLabelText('Send reset code'));
     });
 
@@ -118,7 +118,7 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
     );
 
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText('you@example.com'), 'user@test.com');
+      fireEvent.changeText(getByPlaceholderText('ten.ban@gmail.com'), 'user@test.com');
       fireEvent.press(getByLabelText('Send reset code'));
     });
 
@@ -143,7 +143,7 @@ describe('ForgotPasswordScreen (Phase 2)', () => {
     );
 
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText('you@example.com'), 'user@test.com');
+      fireEvent.changeText(getByPlaceholderText('ten.ban@gmail.com'), 'user@test.com');
       fireEvent.press(getByLabelText('Send reset code'));
     });
 

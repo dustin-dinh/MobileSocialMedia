@@ -9,13 +9,13 @@ type Sample = { caption: string; name: string; url: string; username: string };
 
 const SAMPLES: Sample[] = [
   {
-    caption: 'Một buổi sáng trong vườn 🌸 #thiennhien #thugian',
+    caption: 'Một buổi sáng trong vườn 🌸 #thiennhien #thugian', // taste-skill-ignore: user-written caption in sample data, not interface text
     name: 'Mai Anh',
     url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
     username: 'maianh',
   },
   {
-    caption: 'Chú thỏ béo và khu rừng của chú 🐰 #hoathinh',
+    caption: 'Chú thỏ béo và khu rừng của chú 🐰 #hoathinh', // taste-skill-ignore: user-written caption in sample data, not interface text
     name: 'Blender Fan',
     url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     username: 'blenderfan',

@@ -10,29 +10,32 @@ import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { useIsScreenFocused } from '../../../navigation/useIsScreenFocused';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, claySpacing } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { useAuthSession } from '../../auth/authSession';
 import { notificationSocket } from '../../notifications/services/notificationSocket';
+import { FolderTabs } from '../../../components/ui/FolderTabs';
 import { PeerAvatar } from '../components/PeerAvatar';
 import { messageService, type Conversation } from '../services/messageService';
 import { unreadMessages } from '../unreadMessages';
 
 type Folder = 'inbox' | 'requests';
 
+const AVATAR_SIZE = 40;
+
 function preview(conversation: Conversation, currentUserId?: string): string {
   const message = conversation.lastMessage;
+
+  // Message requests never show their text before you open them: it may be a scam.
+  if (conversation.isRequest) {
+    return 'Muốn gửi tin nhắn cho bạn';
+  }
 
   if (!message) {
     return '';
   }
 
   const text = message.content ?? 'Đã gửi một ảnh';
-
-  // Message requests never show their text before you open them: it may be a scam.
-  if (conversation.isRequest) {
-    return 'Muốn gửi tin nhắn cho bạn';
-  }
 
   return message.senderId === currentUserId ? `Bạn: ${text}` : text;
 }
@@ -87,7 +90,9 @@ export function ConversationsScreen() {
   }, [load]);
 
   const requests = conversations.filter((conversation) => conversation.isRequest);
-  const shown = folder === 'requests' ? requests : conversations.filter((conversation) => !conversation.isRequest);
+  const inbox = conversations.filter((conversation) => !conversation.isRequest);
+  const shown = folder === 'requests' ? requests : inbox;
+  const unreadInbox = inbox.filter((conversation) => conversation.unreadCount > 0).length;
 
   const renderItem = useCallback(
     ({ item }: { item: Conversation }) => {
@@ -102,38 +107,35 @@ export function ConversationsScreen() {
           onPress={() => navigation.open('Chat', { conversationId: item.id, peer: item.peer })}
           style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         >
-          <PeerAvatar peer={item.peer} size={52} />
-          <View style={styles.rowText}>
-            <ClayText numberOfLines={1} style={hasUnread ? styles.nameUnread : styles.name} variant="body">
-              {name}
-            </ClayText>
+          <PeerAvatar peer={item.peer} size={AVATAR_SIZE} />
+          {/* The rule starts at the text column, so the avatars keep one clean edge. */}
+          <View style={styles.rowBody}>
+            <View style={styles.line}>
+              <ClayText numberOfLines={1} style={[styles.name, hasUnread && styles.nameUnread]} variant="body">
+                {name}
+              </ClayText>
+              <ClayText style={[styles.time, hasUnread && styles.timeUnread]} variant="meta">
+                {formatTimeAgo(item.lastMessageAt)}
+              </ClayText>
+            </View>
             {isHiddenSender ? (
               <View style={styles.tag}>
-                <ClayIcon color={clayColors.textSecondary} name="Mask" size={12} />
+                <ClayIcon color={clayColors.textSecondary} name="Mask" size={14} />
                 <ClayText style={styles.tagText} variant="meta">
                   Bạn đang nhắn ẩn danh
                 </ClayText>
               </View>
             ) : null}
-            <ClayText
-              numberOfLines={1}
-              style={hasUnread ? styles.previewUnread : styles.preview}
-              variant="caption"
-            >
-              {preview(item, user?.id)}
-            </ClayText>
-          </View>
-          <View style={styles.rowMeta}>
-            <ClayText style={styles.time} variant="meta">
-              {formatTimeAgo(item.lastMessageAt)}
-            </ClayText>
-            {hasUnread ? (
-              <View style={styles.badge}>
-                <ClayText style={styles.badgeText} variant="meta">
-                  {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                </ClayText>
-              </View>
-            ) : null}
+            <View style={styles.line}>
+              <ClayText
+                numberOfLines={1}
+                style={[styles.preview, hasUnread && styles.previewUnread]}
+                variant="caption"
+              >
+                {preview(item, user?.id)}
+              </ClayText>
+              {hasUnread ? <View style={styles.unreadDot} /> : null}
+            </View>
           </View>
         </Pressable>
       );
@@ -144,7 +146,9 @@ export function ConversationsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <ClayText variant="title">Tin nhắn</ClayText>
+        <ClayText level={1} variant="title">
+          Tin nhắn
+        </ClayText>
         <Pressable
           accessibilityLabel="Soạn tin nhắn mới"
           accessibilityRole="button"
@@ -156,69 +160,65 @@ export function ConversationsScreen() {
         </Pressable>
       </View>
 
-      <View accessibilityRole="tablist" style={styles.folders}>
-        {(['inbox', 'requests'] as const).map((key) => {
-          const isActive = folder === key;
-          const label = key === 'inbox' ? 'Tin nhắn' : `Tin nhắn chờ${requests.length ? ` (${requests.length})` : ''}`;
-
-          return (
-            <Pressable
-              accessibilityLabel={label}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              key={key}
-              onPress={() => setFolder(key)}
-              style={[styles.folder, isActive && styles.folderActive]}
-            >
-              <ClayText style={isActive ? styles.folderTextActive : styles.folderText} variant="caption">
-                {label}
-              </ClayText>
-            </Pressable>
-          );
-        })}
+      <View style={styles.folders}>
+        <FolderTabs
+          onChange={setFolder}
+          selected={folder}
+          tabs={[
+            {
+              accessibilityLabel: `Tin nhắn, ${unreadInbox} cuộc trò chuyện chưa đọc`,
+              count: unreadInbox,
+              key: 'inbox',
+              label: 'Tin nhắn',
+            },
+            {
+              accessibilityLabel: `Tin nhắn chờ, ${requests.length} tin`,
+              count: requests.length,
+              key: 'requests',
+              label: 'Tin nhắn chờ',
+            },
+          ]}
+        />
       </View>
 
       {isLoading ? (
         <ActivityIndicator color={clayColors.primary} style={styles.loading} />
       ) : loadFailed && conversations.length === 0 ? (
-        <LoadError onRetry={load} />
+        <LoadError message="Không tải được tin nhắn. Kiểm tra kết nối rồi thử lại." onRetry={load} />
       ) : (
         <FlatList
           data={shown}
           initialNumToRender={12}
           windowSize={9}
-          contentContainerStyle={shown.length === 0 ? styles.emptyContainer : undefined}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             folder === 'requests' ? (
-              <View style={styles.empty}>
-                <ClayIcon color={clayColors.caption} name="Inbox" size={44} />
-                <ClayText style={styles.emptyTitle} variant="heading">
-                  Không có tin nhắn chờ
-                </ClayText>
-                <ClayText style={styles.emptyText} variant="body">
-                  Tin nhắn từ người bạn chưa theo dõi và tin nhắn ẩn danh sẽ nằm ở đây cho tới khi bạn
-                  chấp nhận.
-                </ClayText>
-              </View>
+              <ClayText style={styles.emptyText} variant="body">
+                Không có tin nhắn chờ. Tin từ người bạn chưa theo dõi và tin ẩn danh sẽ chờ ở đây cho tới khi bạn
+                chấp nhận.
+              </ClayText>
             ) : (
               <View style={styles.empty}>
-                <ClayIcon color={clayColors.caption} name="ChatCircle" size={44} />
-                <ClayText style={styles.emptyTitle} variant="heading">
-                  Chưa có tin nhắn
-                </ClayText>
-                <ClayText style={styles.emptyText} variant="body">
-                  Nhắn tin riêng với bạn bè và những người bạn theo dõi.
+                <ClayText style={styles.emptyMessage} variant="body">
+                  Chưa có cuộc trò chuyện nào. Nhắn riêng cho người bạn đang theo dõi.
                 </ClayText>
                 <ClayButton
                   accessibilityLabel="Bắt đầu trò chuyện"
                   onPress={() => navigation.open('NewMessage')}
-                  style={styles.emptyButton}
+                  size="sm"
                   title="Bắt đầu trò chuyện"
                   variant="primary"
                 />
               </View>
             )
+          }
+          // Strangers and anonymous senders never land here unannounced: say where they wait.
+          ListFooterComponent={
+            folder === 'inbox' && shown.length > 0 ? (
+              <ClayText style={styles.footnote} variant="caption">
+                Tin từ người bạn chưa theo dõi và tin ẩn danh nằm trong Tin nhắn chờ.
+              </ClayText>
+            ) : null
           }
           refreshControl={
             <RefreshControl
@@ -236,73 +236,38 @@ export function ConversationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    alignItems: 'center',
-    backgroundColor: clayColors.primary,
-    borderRadius: 10,
-    height: 20,
-    justifyContent: 'center',
-    minWidth: 20,
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    color: clayColors.onPrimary,
-    fontFamily: fontFamilies.bold,
-  },
   container: {
     backgroundColor: clayColors.canvas,
     flex: 1,
   },
   empty: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
+    alignItems: 'flex-start',
+    gap: claySpacing.base,
+    padding: clayDimensions.gutter,
   },
-  emptyButton: {
-    marginTop: 20,
-  },
-  emptyContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
+  emptyMessage: {
+    color: clayColors.textSecondary,
   },
   emptyText: {
-    color: clayColors.caption,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  emptyTitle: {
-    marginTop: 12,
-  },
-  folder: {
-    alignItems: 'center',
-    borderRadius: 999,
-    justifyContent: 'center',
-    minHeight: 36,
-    paddingHorizontal: claySpacing.md,
-  },
-  folderActive: {
-    backgroundColor: clayColors.text,
-  },
-  folderText: {
     color: clayColors.textSecondary,
-    fontFamily: fontFamilies.semiBold,
-  },
-  folderTextActive: {
-    color: clayColors.canvas,
-    fontFamily: fontFamilies.bold,
+    padding: clayDimensions.gutter,
   },
   folders: {
-    flexDirection: 'row',
-    gap: claySpacing.sm,
-    paddingHorizontal: claySpacing.base,
-    paddingVertical: claySpacing.sm,
+    borderBottomColor: clayColors.border,
+    borderBottomWidth: 1,
+    paddingBottom: claySpacing.md,
+    paddingHorizontal: clayDimensions.gutter,
+  },
+  footnote: {
+    color: clayColors.caption,
+    padding: clayDimensions.gutter,
   },
   header: {
     alignItems: 'center',
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: claySpacing.base,
+    paddingLeft: clayDimensions.gutter,
+    paddingRight: claySpacing.xs,
     paddingVertical: claySpacing.sm,
   },
   headerButton: {
@@ -311,53 +276,69 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: clayDimensions.minTouchTarget,
   },
+  line: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: claySpacing.sm,
+  },
   loading: {
-    marginTop: 40,
+    marginTop: claySpacing.xxl,
   },
   name: {
     color: clayColors.text,
-    fontFamily: fontFamilies.semiBold,
+    flex: 1,
+    fontFamily: fontFamilies.medium,
   },
   nameUnread: {
-    color: clayColors.text,
     fontFamily: fontFamilies.bold,
   },
   preview: {
     color: clayColors.caption,
+    flex: 1,
+    fontFamily: fontFamilies.regular,
     marginTop: 2,
   },
   previewUnread: {
     color: clayColors.text,
-    fontFamily: fontFamilies.bold,
-    marginTop: 2,
+    fontFamily: fontFamilies.medium,
   },
   row: {
     alignItems: 'center',
+    backgroundColor: clayColors.surface,
     flexDirection: 'row',
     gap: claySpacing.md,
-    paddingHorizontal: claySpacing.base,
-    paddingVertical: claySpacing.md,
+    paddingLeft: clayDimensions.gutter,
   },
-  rowMeta: {
-    alignItems: 'flex-end',
-    gap: 6,
+  rowBody: {
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
+    flex: 1,
+    paddingRight: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
   rowPressed: {
     backgroundColor: clayColors.surfaceWell,
   },
-  rowText: {
-    flex: 1,
-  },
   tag: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 4,
+    gap: claySpacing.xs,
     marginTop: 2,
   },
   tagText: {
     color: clayColors.textSecondary,
   },
   time: {
+    ...tabularNums,
     color: clayColors.caption,
+  },
+  timeUnread: {
+    color: clayColors.text,
+  },
+  unreadDot: {
+    backgroundColor: clayColors.primary,
+    borderRadius: 4,
+    height: 8,
+    width: 8,
   },
 });

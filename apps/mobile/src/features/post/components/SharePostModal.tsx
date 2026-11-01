@@ -11,10 +11,12 @@ import * as Clipboard from 'expo-clipboard';
 
 import { showToast } from '../../../components/common/toast';
 import { SHARE_LINKS_ENABLED } from '../../../config/links';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
 import { clayRadii, clayDimensions } from '../../../theme/spacing';
 import type { Post } from '../../feed/types';
 
@@ -35,6 +37,7 @@ export function SharePostModal({
   post,
   visible,
 }: SharePostModalProps) {
+  const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
 
   // Uses the app's own scheme (see `scheme` in app.json): there is no web
@@ -112,7 +115,7 @@ export function SharePostModal({
           }}
           style={styles.sheetWrap}
         >
-          <ClaySurface variant="modal" style={styles.sheet}>
+          <ClaySurface variant="modal" style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Handle bar */}
             <View style={styles.handleWrap}>
               <View style={styles.handle} />
@@ -120,7 +123,7 @@ export function SharePostModal({
 
             {/* Header */}
             <View style={styles.header}>
-              <ClayText variant="title" style={styles.headerTitle}>
+              <ClayText variant="heading" style={styles.headerTitle}>
                 Chia sẻ bài viết
               </ClayText>
             </View>
@@ -144,10 +147,10 @@ export function SharePostModal({
                     )}
                   </View>
                   <View style={styles.previewAuthorMeta}>
-                    <ClayText variant="body" style={styles.previewDisplayName}>
+                    <ClayText numberOfLines={1} variant="body" style={styles.previewDisplayName}>
                       {post.author.displayName ?? post.author.username}
                     </ClayText>
-                    <ClayText variant="caption" style={styles.previewUsername}>
+                    <ClayText numberOfLines={1} variant="caption" style={styles.previewUsername}>
                       @{post.author.username}
                     </ClayText>
                   </View>
@@ -181,13 +184,13 @@ export function SharePostModal({
                   accessibilityLabel="Sao chép liên kết bài viết"
                   accessibilityRole="button"
                   onPress={handleCopyLink}
-                  style={styles.optionRow}
+                  style={({ pressed }) => [styles.optionRow, pressed && styles.optionRowPressed]}
                 >
-                  <View style={[styles.iconWrap, copied && styles.iconWrapActive]}>
+                  <View style={styles.iconWrap}>
                     <ClayIcon
-                      color={copied ? clayColors.primary : clayColors.text}
-                      name="LinkSimple"
-                      size={22}
+                      color={clayColors.text}
+                      name={copied ? 'Check' : 'LinkSimple'}
+                      size={20}
                       weight="regular"
                     />
                   </View>
@@ -209,13 +212,13 @@ export function SharePostModal({
                   }
                   accessibilityRole="button"
                   onPress={handleRepost}
-                  style={styles.optionRow}
+                  style={({ pressed }) => [styles.optionRow, pressed && styles.optionRowPressed]}
                 >
-                  <View style={[styles.iconWrap, post.isReposted && styles.iconWrapActive]}>
+                  <View style={styles.iconWrap}>
                     <ClayIcon
-                      color={post.isReposted ? clayColors.primary : clayColors.text}
+                      color={clayColors.text}
                       name="Repeat"
-                      size={22}
+                      size={20}
                       weight={post.isReposted ? 'bold' : 'regular'}
                     />
                   </View>
@@ -237,22 +240,22 @@ export function SharePostModal({
                   accessibilityLabel="Mở chia sẻ ứng dụng khác của hệ thống"
                   accessibilityRole="button"
                   onPress={handleSystemShare}
-                  style={styles.optionRow}
+                  style={({ pressed }) => [styles.optionRow, pressed && styles.optionRowPressed]}
                 >
                   <View style={styles.iconWrap}>
                     <ClayIcon
                       color={clayColors.text}
                       name="Export"
-                      size={22}
+                      size={20}
                       weight="regular"
                     />
                   </View>
                   <View style={styles.optionContent}>
                     <ClayText variant="body" style={styles.optionLabel}>
-                      Tuỳ chọn chia sẻ khác...
+                      Chia sẻ qua ứng dụng khác
                     </ClayText>
                     <ClayText variant="caption" style={styles.optionDescription}>
-                      Chia sẻ qua Zalo, Messenger, Facebook, hoặc AirDrop
+                      Zalo, Messenger, tin nhắn và các ứng dụng trên máy
                     </ClayText>
                   </View>
                 </Pressable>
@@ -267,7 +270,7 @@ export function SharePostModal({
 
 const styles = StyleSheet.create({
   handle: {
-    backgroundColor: clayColors.border,
+    backgroundColor: clayColors.control,
     borderRadius: clayRadii.pill,
     height: 4,
     width: 36,
@@ -278,26 +281,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: clayDimensions.gutter,
   },
   headerTitle: {
     color: clayColors.text,
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: clayRadii.control,
-    height: clayDimensions.minTouchTarget,
-    justifyContent: 'center',
-    marginRight: 14,
-    width: clayDimensions.minTouchTarget,
-  },
-  iconWrapActive: {
-    backgroundColor: clayColors.primarySoft,
+    marginRight: 16,
+    width: 24,
   },
   list: {
-    paddingBottom: 24,
-    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
   optionContent: {
     flex: 1,
@@ -310,17 +305,18 @@ const styles = StyleSheet.create({
     color: clayColors.text,
     fontSize: 15,
   },
+  optionRowPressed: {
+    backgroundColor: clayColors.surfaceWell,
+  },
   optionRow: {
     alignItems: 'center',
-    borderRadius: clayRadii.control,
     flexDirection: 'row',
-    marginBottom: 6,
     minHeight: 56,
-    paddingHorizontal: 12,
+    paddingHorizontal: clayDimensions.gutter,
     paddingVertical: 8,
   },
   overlay: {
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.4)',
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -329,18 +325,19 @@ const styles = StyleSheet.create({
   },
   previewAvatar: {
     height: 32,
-    marginRight: 8,
+    marginRight: 12,
     width: 32,
   },
   previewAvatarFallback: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
+    backgroundColor: clayColors.primarySoft,
     borderRadius: clayRadii.avatar,
     height: 32,
     justifyContent: 'center',
     width: 32,
   },
   previewAvatarImg: {
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: clayRadii.avatar,
     height: 32,
     width: 32,
@@ -350,23 +347,28 @@ const styles = StyleSheet.create({
   },
   previewContent: {
     color: clayColors.text,
-    marginTop: 6,
+    fontFamily: fontFamilies.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
   },
   previewDisplayName: {
     color: clayColors.text,
-    fontSize: 13,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: 14,
+    lineHeight: 20,
   },
   previewHeader: {
     alignItems: 'center',
     flexDirection: 'row',
   },
   previewInitials: {
-    color: clayColors.caption,
-    fontSize: 11,
+    color: clayColors.primaryInk,
+    fontSize: 12,
   },
   previewMediaWrap: {
-    borderRadius: clayRadii.control,
-    height: 60,
+    borderRadius: clayRadii.media,
+    height: 120,
     marginTop: 8,
     overflow: 'hidden',
     width: '100%',
@@ -377,11 +379,10 @@ const styles = StyleSheet.create({
   },
   previewUsername: {
     color: clayColors.caption,
-    fontSize: 11,
   },
   previewWrap: {
-    marginBottom: 12,
-    paddingHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: clayDimensions.gutter,
   },
   sheet: {
     borderBottomLeftRadius: 0,

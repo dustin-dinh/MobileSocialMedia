@@ -11,32 +11,45 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ClayEmoji } from '../../../components/icons/ClayEmoji';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayButton } from '../../../components/ui/ClayButton';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, claySpacing } from '../../../theme/spacing';
+import { AuthBrand } from '../../auth/components/AuthBrand';
 import { introStorage } from '../introStorage';
 
 type IntroScreenProps = NativeStackScreenProps<AuthStackParamList, 'Intro'>;
 
+// Each slide names real features: the safety marks are the product's own, so they get the last word.
 const SLIDES = [
   {
-    body: 'Đăng ảnh và suy nghĩ của bạn, chọn ai được xem từng bài viết.',
-    emoji: 'camera',
+    body: 'Đăng ảnh và video, chọn ai được xem từng bài viết.',
+    points: [
+      { icon: 'Camera', text: 'Bài viết ảnh và video' },
+      { icon: 'VideoCamera', text: 'Reels xem toàn màn hình' },
+      { icon: 'Sparkle', text: 'Tin tự ẩn sau 24 giờ' },
+    ],
     title: 'Chia sẻ khoảnh khắc',
   },
   {
-    body: 'Theo dõi bạn bè, thích, bình luận và đăng lại những bài viết bạn yêu thích.',
-    emoji: 'speech_balloon',
-    title: 'Kết nối với mọi người',
+    body: 'Nhắn tin riêng với bạn bè, và tự quyết ai được nhắn cho bạn.',
+    points: [
+      { icon: 'ChatCircle', text: 'Trò chuyện một-một với người bạn theo dõi' },
+      { icon: 'Inbox', text: 'Tin nhắn từ người lạ vào mục Tin nhắn chờ' },
+      { icon: 'Mask', text: 'Tin nhắn ẩn danh chỉ khi bạn bật' },
+    ],
+    title: 'Trò chuyện theo cách của bạn',
   },
   {
-    body: 'Nhận thông báo ngay khi có người tương tác, và khám phá những người bạn có thể quen.',
-    emoji: 'bell',
-    title: 'Không bỏ lỡ điều gì',
+    body: 'Mobile Social dành cho người từ 18 tuổi, với các lớp bảo vệ bật sẵn.',
+    points: [
+      { icon: 'EyeSlash', text: 'Ảnh nhạy cảm được làm mờ, chạm để xem' },
+      { icon: 'TriangleWarning', text: 'Cảnh báo tin nhắn có dấu hiệu lừa đảo' },
+      { icon: 'Prohibit', text: 'Chặn và báo cáo ngay trên bài viết, tin nhắn' },
+    ],
+    title: 'An toàn ngay từ đầu',
   },
 ] as const;
 
@@ -46,6 +59,8 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<(typeof SLIDES)[number]>>(null);
   const [index, setIndex] = useState(0);
+  // A horizontal list sizes its cells to their content: the slide takes the list's height so its copy can sit low.
+  const [listHeight, setListHeight] = useState<number>();
   const isLast = index === SLIDES.length - 1;
 
   const finish = () => {
@@ -68,8 +83,9 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom + 24, paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingBottom: insets.bottom + 16, paddingTop: insets.top + 8 }]}>
       <View style={styles.topBar}>
+        <AuthBrand />
         <Pressable
           accessibilityLabel="Bỏ qua phần giới thiệu"
           accessibilityRole="button"
@@ -77,7 +93,7 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
           onPress={finish}
           style={styles.skip}
         >
-          <ClayText style={styles.skipText} variant="caption">
+          <ClayText style={styles.skipText} variant="button">
             Bỏ qua
           </ClayText>
         </Pressable>
@@ -88,25 +104,37 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
         data={SLIDES}
         horizontal
         keyExtractor={(item) => item.title}
+        onLayout={(event) => setListHeight(event.nativeEvent.layout.height)}
         onMomentumScrollEnd={handleScrollEnd}
         pagingEnabled
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <ClaySurface style={styles.art} variant="flat">
-              <ClayEmoji name={item.emoji} size={96} />
-            </ClaySurface>
-            <ClayText style={styles.title} variant="title">
+        renderItem={({ item, index: slideIndex }) => (
+          <View style={[styles.slide, { height: listHeight, width }]}>
+            {/* Every slide stays mounted: only the one in view is the screen's h1. */}
+            <ClayText level={slideIndex === index ? 1 : 2} variant="title">
               {item.title}
             </ClayText>
             <ClayText style={styles.body} variant="body">
               {item.body}
             </ClayText>
+            <View style={styles.points}>
+              {item.points.map((point) => (
+                <View key={point.text} style={styles.point}>
+                  <ClayIcon color={clayColors.textSecondary} name={point.icon} size={20} />
+                  <ClayText style={styles.pointText} variant="body">
+                    {point.text}
+                  </ClayText>
+                </View>
+              ))}
+            </View>
           </View>
         )}
         showsHorizontalScrollIndicator={false}
       />
 
-      <View style={styles.dots}>
+      <View
+        accessibilityLabel={`Trang ${index + 1} trên ${SLIDES.length}`}
+        style={styles.dots}
+      >
         {SLIDES.map((slide, slideIndex) => (
           <View
             key={slide.title}
@@ -118,6 +146,7 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
       <ClayButton
         accessibilityLabel={isLast ? 'Bắt đầu sử dụng' : 'Xem trang tiếp theo'}
         onPress={handleNext}
+        size="lg"
         style={styles.next}
         title={isLast ? 'Bắt đầu' : 'Tiếp tục'}
         variant="primary"
@@ -127,61 +156,71 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  art: {
-    alignItems: 'center',
-    height: 140,
-    justifyContent: 'center',
-    width: 140,
-  },
   body: {
     color: clayColors.textSecondary,
-    marginTop: claySpacing.md,
-    textAlign: 'center',
+    marginTop: claySpacing.sm,
   },
   container: {
     backgroundColor: clayColors.canvas,
     flex: 1,
   },
   dot: {
-    backgroundColor: clayColors.border,
+    backgroundColor: clayColors.primaryTrack,
     borderRadius: 4,
     height: 8,
     width: 8,
   },
   dotActive: {
     backgroundColor: clayColors.primary,
-    width: 22,
+    width: 24,
   },
   dots: {
     flexDirection: 'row',
     gap: 8,
-    justifyContent: 'center',
     marginBottom: claySpacing.xl,
+    paddingHorizontal: clayDimensions.gutter,
   },
   next: {
-    marginHorizontal: claySpacing.xl,
+    marginHorizontal: clayDimensions.gutter,
+  },
+  point: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: claySpacing.md,
+    minHeight: clayDimensions.minTouchTarget,
+  },
+  pointText: {
+    flex: 1,
+  },
+  points: {
+    borderTopColor: clayColors.rule,
+    borderTopWidth: 1,
+    gap: claySpacing.xs,
+    marginTop: claySpacing.xl,
+    paddingTop: claySpacing.base,
   },
   skip: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -claySpacing.sm,
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: claySpacing.sm,
   },
   skipText: {
     color: clayColors.textSecondary,
   },
+  // Copy sits low, beside the button that moves it on; the space above is placed, not left over.
   slide: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: claySpacing.xxl,
-  },
-  title: {
-    color: clayColors.text,
-    marginTop: claySpacing.xxl,
-    textAlign: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: claySpacing.xl,
+    paddingHorizontal: clayDimensions.gutter,
   },
   topBar: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: clayDimensions.gutter,
   },
 });

@@ -9,7 +9,7 @@ type GoogleButtonProps = {
 };
 
 export function GoogleButton({
-  accessibilityLabel = 'Continue with Google',
+  accessibilityLabel = 'Tiếp tục với Google',
   disabled = false,
   isLoading = false,
   onPress,
@@ -18,12 +18,12 @@ export function GoogleButton({
     <ClayButton
       accessibilityLabel={accessibilityLabel}
       variant="secondary"
-      label="Continue with Google"
+      label="Tiếp tục với Google"
       icon={<GoogleLogo size={20} />}
       isLoading={isLoading}
       disabled={disabled}
       onPress={onPress}
-      style={{ minHeight: 52, width: '100%' }}
+      style={{ minHeight: 50, width: '100%' }}
     />
   );
 }

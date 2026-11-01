@@ -1,23 +1,25 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
+
 import { clayColors } from '../../../theme/colors';
-import { fontFamilies } from '../../../theme/typography';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { clayRadii } from '../../../theme/spacing';
 import { ClayText } from '../../../components/ui/ClayText';
 
-export function AuthBrand() {
+type AuthBrandProps = {
+  /** 1 where the product name is the screen's title (Splash). */
+  level?: 1;
+};
+
+/** The product's lockup: the raspberry "MS" mark beside the name. */
+export function AuthBrand({ level }: AuthBrandProps) {
   return (
     <View style={styles.container}>
-      <ClaySurface variant="raisedPrimary" borderRadius={16} style={styles.mark}>
-        <ClayText variant="title" style={styles.markText}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.mark}>
+        <ClayText style={styles.markText} variant="caption" weight="bold">
           MS
         </ClayText>
-      </ClaySurface>
-      <ClayText variant="title" style={styles.name}>
+      </View>
+      <ClayText level={level} variant="heading">
         Mobile Social
-      </ClayText>
-      <ClayText variant="caption" style={styles.tagline}>
-        Share moments. Stay connected.
       </ClayText>
     </View>
   );
@@ -26,25 +28,18 @@ export function AuthBrand() {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
   },
   mark: {
     alignItems: 'center',
-    height: 56,
+    backgroundColor: clayColors.primary,
+    borderRadius: clayRadii.control,
+    height: 32,
     justifyContent: 'center',
-    width: 56,
+    width: 32,
   },
   markText: {
     color: clayColors.onPrimary,
-    fontSize: 20,
-    fontFamily: fontFamilies.bold,
-    letterSpacing: 1,
-  },
-  name: {
-    marginTop: 14,
-    textAlign: 'center',
-  },
-  tagline: {
-    marginTop: 4,
-    textAlign: 'center',
   },
 });

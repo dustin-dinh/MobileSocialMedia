@@ -47,7 +47,7 @@ export function SavedPostsScreen() {
     <View style={styles.container}>
       <ScreenHeader onBack={navigation.back} title="Bài viết đã lưu" />
       {list.isLoading ? (
-        <ActivityIndicator color={feedColors.primary} size="large" style={styles.flex} />
+        <ActivityIndicator color={feedColors.caption} size="large" style={styles.flex} />
       ) : list.loadFailed && list.posts.length === 0 ? (
         <LoadError onRetry={list.refresh} />
       ) : (
@@ -59,7 +59,7 @@ export function SavedPostsScreen() {
           keyExtractor={postKey}
           ListEmptyComponent={
             <ClayText style={styles.empty} variant="body">
-              Bạn chưa lưu bài viết nào. Bấm biểu tượng dấu trang trên một bài viết để lưu lại.
+              Chưa có bài viết đã lưu. Chọn Lưu bài viết trong menu của một bài viết để đọc lại ở đây.
             </ClayText>
           }
           ListFooterComponent={
@@ -102,10 +102,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   empty: {
-    color: feedColors.caption,
-    paddingHorizontal: 32,
-    paddingVertical: 48,
-    textAlign: 'center',
+    backgroundColor: feedColors.surface,
+    color: feedColors.textSecondary,
+    paddingHorizontal: feedSpacing.cardPadding,
+    paddingVertical: 24,
   },
   flex: {
     flex: 1,
@@ -113,6 +113,6 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
     paddingBottom: 48,
-    paddingTop: feedSpacing.cardGap / 2,
+    paddingTop: feedSpacing.cardGap,
   },
 });

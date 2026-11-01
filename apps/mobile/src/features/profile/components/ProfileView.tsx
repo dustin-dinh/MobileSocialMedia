@@ -14,8 +14,10 @@ import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { ListFooter } from '../../../components/common/ListFooter';
 import { LoadError } from '../../../components/common/LoadError';
 import { showToast } from '../../../components/common/toast';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import { SHARE_LINKS_ENABLED } from '../../../config/links';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { ApiError } from '../../../services/apiError';
 import { followApi } from '../../../services/followApi';
@@ -298,12 +300,24 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
     <LoadError onRetry={list.refresh} />
   ) : isOwn && tab === 'posts' ? (
     <ProfileEmptyPosts onCreatePost={onCreatePost ?? (() => undefined)} />
+  ) : isLocked && !profile.isBlocked ? (
+    <View style={styles.lockedBlock}>
+      <View style={styles.lockedTitleRow}>
+        <ClayIcon color={profileColors.text} name="LockKey" size={16} />
+        <ClayText level={2} variant="heading">
+          Tài khoản riêng tư
+        </ClayText>
+      </View>
+      <ClayText style={styles.lockedText} variant="body">
+        {profile.followRequested
+          ? `Đã gửi yêu cầu theo dõi. Bài viết sẽ hiện ở đây khi ${displayName} chấp nhận.`
+          : `Chỉ người được ${displayName} chấp nhận mới xem được bài viết. Theo dõi để gửi yêu cầu.`}
+      </ClayText>
+    </View>
   ) : (
     <ClayText variant="body" style={styles.emptyText}>
       {profile.isBlocked
         ? 'Bạn đã chặn người dùng này.'
-        : isLocked
-          ? 'Đây là tài khoản riêng tư. Theo dõi để xem bài viết của họ.'
         : tab === 'posts'
           ? 'Chưa có bài viết nào.'
           : 'Chưa đăng lại bài viết nào.'}
@@ -461,16 +475,33 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: profileColors.caption,
-    paddingHorizontal: 32,
-    paddingVertical: 48,
-    textAlign: 'center',
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xxl,
   },
   list: {
     flex: 1,
   },
   listContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: claySpacing.xl,
+  },
+  lockedBlock: {
+    backgroundColor: profileColors.surface,
+    borderColor: profileColors.border,
+    borderRadius: clayRadii.card,
+    borderWidth: 1,
+    marginHorizontal: clayDimensions.gutter,
+    marginTop: claySpacing.base,
+    padding: claySpacing.base,
+  },
+  lockedText: {
+    color: profileColors.textSecondary,
+    marginTop: claySpacing.xs,
+  },
+  lockedTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: claySpacing.sm,
   },
   listLoading: {
     paddingVertical: 48,

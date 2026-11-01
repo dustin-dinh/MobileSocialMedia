@@ -6,7 +6,7 @@ export type AuthStackParamList = {
   /** Product introduction, shown only on the very first launch. */
   Intro: undefined;
   Legal: {
-    doc: 'privacy' | 'terms';
+    doc: 'privacy' | 'terms' | 'community';
   };
   Login:
     | {
@@ -57,7 +57,7 @@ export type MainStackParamList = {
   NewMessage: undefined;
   Notifications: undefined;
   Legal: {
-    doc: 'privacy' | 'terms';
+    doc: 'privacy' | 'terms' | 'community';
   };
   PostDetail: {
     /** Scroll to and highlight this comment (opened from a notification). */

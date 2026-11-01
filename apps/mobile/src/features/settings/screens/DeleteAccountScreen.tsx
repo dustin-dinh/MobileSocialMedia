@@ -4,11 +4,10 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { ScreenHeader } from '../../../components/common/ScreenHeader';
 import { ClayButton } from '../../../components/ui/ClayButton';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
-import { claySpacing } from '../../../theme/spacing';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { useAuthSession } from '../../auth/authSession';
 import { AuthTextInput } from '../../auth/components/AuthTextInput';
 import { FormMessage } from '../../auth/components/FormMessage';
@@ -61,16 +60,19 @@ export function DeleteAccountScreen() {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ClaySurface style={styles.warning} variant="inset">
-            <ClayText style={styles.warningTitle} variant="heading">
+          <View style={styles.warning}>
+            <ClayText level={2} style={styles.warningTitle} variant="heading">
               Hành động này không thể hoàn tác
             </ClayText>
             {CONSEQUENCES.map((line) => (
-              <ClayText key={line} style={styles.warningLine} variant="body">
-                – {line}
-              </ClayText>
+              <View key={line} style={styles.warningItem}>
+                <View style={styles.warningMark} />
+                <ClayText style={styles.warningLine} variant="body">
+                  {line}
+                </ClayText>
+              </View>
             ))}
-          </ClaySurface>
+          </View>
 
           <AuthTextInput
             accessibilityLabel={hasPassword ? 'Mật khẩu để xác nhận' : 'Tên người dùng để xác nhận'}
@@ -97,7 +99,7 @@ export function DeleteAccountScreen() {
             onPress={() => setIsConfirmVisible(true)}
             style={styles.deleteButton}
             title="Xoá tài khoản"
-            variant="primary"
+            variant="destructive"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -122,25 +124,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: claySpacing.lg,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.base,
   },
   deleteButton: {
-    backgroundColor: clayColors.error,
     marginTop: claySpacing.sm,
+    minHeight: 52,
   },
   flex: {
     flex: 1,
   },
+  // The consequences on a plain card; the negative colour only on the title and the action.
   warning: {
-    marginBottom: claySpacing.lg,
+    backgroundColor: clayColors.surface,
+    borderColor: clayColors.border,
+    borderRadius: clayRadii.card,
+    borderWidth: 1,
+    gap: claySpacing.sm,
+    marginBottom: claySpacing.xl,
     padding: claySpacing.base,
   },
+  warningItem: {
+    flexDirection: 'row',
+    gap: claySpacing.md,
+  },
   warningLine: {
-    color: clayColors.textSecondary,
-    marginTop: claySpacing.xs,
+    color: clayColors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  warningMark: {
+    backgroundColor: clayColors.text,
+    borderRadius: 1,
+    height: 5,
+    marginTop: 10,
+    width: 5,
   },
   warningTitle: {
-    color: clayColors.error,
-    marginBottom: claySpacing.xs,
+    color: clayColors.errorInk,
   },
 });

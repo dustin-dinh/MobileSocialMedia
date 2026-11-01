@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'r
 
 import { useAppNavigation } from '../../navigation/useAppNavigation';
 import { clayColors } from '../../theme/colors';
+import { clayDimensions } from '../../theme/spacing';
 import { ClayText } from '../ui/ClayText';
 import { ListFooter } from './ListFooter';
 import { LoadError } from './LoadError';
@@ -152,10 +153,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   empty: {
-    color: clayColors.caption,
-    paddingHorizontal: 32,
-    paddingVertical: 48,
-    textAlign: 'center',
+    color: clayColors.textSecondary,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: 24,
   },
   loading: {
     flex: 1,

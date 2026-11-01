@@ -1,131 +1,82 @@
 import { type RefObject, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, type TextInputProps, View, ViewStyle, Platform } from 'react-native';
+import { Pressable, StyleSheet, type TextInput, type TextInputProps } from 'react-native';
 
 import { clayColors } from '../../../theme/colors';
-import { clayRadii, clayDimensions } from '../../../theme/spacing';
-import { ClayText } from '../../../components/ui/ClayText';
+import { clayDimensions } from '../../../theme/spacing';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayInput } from '../../../components/ui/ClayInput';
+import { ClayText } from '../../../components/ui/ClayText';
 
 type AuthTextInputProps = TextInputProps & {
   error?: string;
+  /** Help under the field, hidden while an error is shown. */
+  hint?: string;
   inputRef?: RefObject<TextInput | null>;
   label: string;
   password?: boolean;
 };
 
+/** The app's text field (label above, 1px control edge) with a show/hide toggle for passwords. */
 export function AuthTextInput({
   accessibilityLabel,
   error,
-  inputRef,
+  hint,
   label,
-  onBlur,
-  onFocus,
   password = false,
-  style,
   ...inputProps
 }: AuthTextInputProps) {
-  const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const isInvalid = Boolean(error);
 
   return (
-    <View style={styles.container}>
-      <ClayText variant="caption" style={styles.label}>
-        {label}
-      </ClayText>
-      <View
-        style={[
-          styles.inputShell,
-          isFocused ? styles.inputShellFocused : undefined,
-          isInvalid ? styles.inputShellInvalid : undefined,
-        ]}
-      >
-        <TextInput
-          {...inputProps}
-          accessibilityLabel={accessibilityLabel ?? label}
-          accessibilityHint={error}
-          onBlur={(event) => {
-            setIsFocused(false);
-            onBlur?.(event);
-          }}
-          onFocus={(event) => {
-            setIsFocused(true);
-            onFocus?.(event);
-          }}
-          placeholderTextColor={clayColors.caption}
-          ref={inputRef}
-          secureTextEntry={password ? !isPasswordVisible : inputProps.secureTextEntry}
-          style={[styles.input, password ? styles.passwordInput : undefined, style]}
-        />
-        {password ? (
-          <Pressable
-            accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => setIsPasswordVisible((visible) => !visible)}
-            style={styles.visibilityAction}
-          >
-            <ClayIcon
-              name={isPasswordVisible ? 'EyeClosed' : 'Eye'}
-              size={20}
-              weight="regular"
-              color={clayColors.primary}
-            />
-          </Pressable>
-        ) : null}
-      </View>
-      {error ? (
-        <ClayText accessibilityLiveRegion="polite" variant="caption" style={styles.errorText}>
-          {error}
+    <>
+      <ClayInput
+        {...inputProps}
+        accessibilityHint={error}
+        accessibilityLabel={accessibilityLabel ?? label}
+        containerStyle={hint && !error ? styles.withHint : undefined}
+        error={error}
+        label={label}
+        rightAction={
+          password ? (
+            <Pressable
+              accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setIsPasswordVisible((visible) => !visible)}
+              style={styles.visibilityAction}
+            >
+              <ClayIcon
+                color={clayColors.caption}
+                name={isPasswordVisible ? 'EyeSlash' : 'Eye'}
+                size={20}
+              />
+            </Pressable>
+          ) : undefined
+        }
+        secureTextEntry={password ? !isPasswordVisible : inputProps.secureTextEntry}
+      />
+      {hint && !error ? (
+        <ClayText variant="meta" style={styles.hint}>
+          {hint}
         </ClayText>
       ) : null}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  hint: {
     marginBottom: 16,
-  },
-  errorText: {
-    color: clayColors.error,
     marginTop: 6,
-  },
-  input: {
-    color: clayColors.text,
-    flex: 1,
-    fontSize: 15,
-    minHeight: clayDimensions.minTouchTarget + 6,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
-  },
-  inputShell: {
-    alignItems: 'center',
-    backgroundColor: clayColors.surfaceHigh,
-    borderColor: clayColors.border,
-    borderRadius: clayRadii.control,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginTop: 6,
-    minHeight: clayDimensions.minTouchTarget + 6,
-  } as ViewStyle,
-  inputShellFocused: {
-    borderColor: clayColors.primary,
-  },
-  inputShellInvalid: {
-    borderColor: clayColors.error,
-  },
-  label: {
-    color: clayColors.text,
-  },
-  passwordInput: {
-    paddingRight: 4,
   },
   visibilityAction: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -12,
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
-    paddingHorizontal: 10,
+  },
+  withHint: {
+    marginBottom: 0,
   },
 });

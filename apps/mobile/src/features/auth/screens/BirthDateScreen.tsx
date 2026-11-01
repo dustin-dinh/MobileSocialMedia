@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { showToast } from '../../../components/common/toast';
-import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
-import { claySpacing } from '../../../theme/spacing';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { accountService } from '../../settings/accountService';
 import { useAuthSession } from '../authSession';
 import { birthDateProblem, formatBirthDateInput, parseBirthDateInput } from '../birthDate';
+import { AuthBrand } from '../components/AuthBrand';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { PrimaryButton } from '../components/PrimaryButton';
 
@@ -80,15 +80,22 @@ export function BirthDateScreen() {
 
   if (isLocked) {
     return (
-      <View style={[styles.container, styles.locked, { paddingTop: insets.top + claySpacing.xl }]}>
-        <ClayIcon color={clayColors.primary} name="LockKey" size={56} />
-        <ClayText style={styles.title} variant="title">
-          Chưa đủ 18 tuổi
+      <View style={[styles.container, styles.content, { paddingBottom: insets.bottom + claySpacing.base, paddingTop: insets.top + claySpacing.sm }]}>
+        <View style={styles.topRow}>
+          <AuthBrand />
+        </View>
+        <ClayText level={1} style={styles.title} variant="title">
+          Tài khoản đang bị khoá
         </ClayText>
         <ClayText style={styles.text} variant="body">
-          Ứng dụng chỉ dành cho người từ 18 tuổi trở lên, nên tài khoản này đã bị khoá. Dữ liệu của
-          bạn không bị xoá. Nếu bạn khai nhầm ngày sinh, hãy liên hệ bộ phận hỗ trợ.
+          Mobile Social chỉ dành cho người từ 18 tuổi trở lên. Theo ngày sinh bạn vừa khai, bạn chưa đủ
+          18 tuổi nên tài khoản này đã bị khoá.
         </ClayText>
+        <View style={styles.notice}>
+          <ClayText style={styles.noticeText} variant="caption">
+            Dữ liệu của bạn không bị xoá. Nếu bạn khai nhầm ngày sinh, hãy liên hệ bộ phận hỗ trợ.
+          </ClayText>
+        </View>
         <PrimaryButton label="Đăng xuất" onPress={() => void signOut().catch(() => undefined)} />
       </View>
     );
@@ -100,15 +107,18 @@ export function BirthDateScreen() {
       style={styles.container}
     >
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + claySpacing.xl }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + claySpacing.base, paddingTop: insets.top + claySpacing.sm }]}
         keyboardShouldPersistTaps="handled"
       >
-        <ClayText style={styles.title} variant="title">
+        <View style={styles.topRow}>
+          <AuthBrand />
+        </View>
+        <ClayText level={1} style={styles.title} variant="title">
           Ngày sinh của bạn
         </ClayText>
         <ClayText style={styles.text} variant="body">
-          Ứng dụng chỉ dành cho người từ 18 tuổi trở lên. Ngày sinh không hiện với người khác và chỉ
-          khai một lần, không đổi được sau này.
+          Mobile Social chỉ dành cho người từ 18 tuổi trở lên. Ngày sinh không hiện với người khác và
+          chỉ khai một lần, không đổi được sau này.
         </ClayText>
         <AuthTextInput
           accessibilityLabel="Ngày sinh, dạng ngày tháng năm"
@@ -132,9 +142,17 @@ export function BirthDateScreen() {
           label="Tiếp tục"
           onPress={handleContinue}
         />
-        <ClayText style={styles.signOut} variant="caption" onPress={() => void signOut().catch(() => undefined)}>
-          Đăng xuất
-        </ClayText>
+        <Pressable
+          accessibilityLabel="Đăng xuất"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => void signOut().catch(() => undefined)}
+          style={styles.signOut}
+        >
+          <ClayText style={styles.signOutText} variant="button">
+            Đăng xuất
+          </ClayText>
+        </Pressable>
       </ScrollView>
 
       <ConfirmModal
@@ -157,26 +175,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: claySpacing.lg,
+    flexGrow: 1,
+    paddingHorizontal: clayDimensions.gutter,
   },
-  locked: {
-    alignItems: 'center',
-    gap: claySpacing.md,
-    paddingHorizontal: claySpacing.lg,
+  notice: {
+    backgroundColor: clayColors.warningBg,
+    borderColor: clayColors.warningBorder,
+    borderRadius: clayRadii.control,
+    borderWidth: 1,
+    marginBottom: claySpacing.xl,
+    paddingHorizontal: claySpacing.md,
+    paddingVertical: 10,
+  },
+  noticeText: {
+    color: clayColors.warningInk,
   },
   signOut: {
-    color: clayColors.caption,
-    marginTop: claySpacing.lg,
-    padding: claySpacing.sm,
-    textAlign: 'center',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    marginTop: claySpacing.sm,
+    minHeight: clayDimensions.minTouchTarget,
+  },
+  signOutText: {
+    color: clayColors.textSecondary,
   },
   text: {
     color: clayColors.textSecondary,
-    marginBottom: claySpacing.lg,
+    marginBottom: claySpacing.xl,
     marginTop: claySpacing.sm,
-    textAlign: 'center',
   },
   title: {
-    textAlign: 'center',
+    marginTop: claySpacing.xl,
+  },
+  topRow: {
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
   },
 });

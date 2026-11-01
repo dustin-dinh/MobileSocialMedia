@@ -13,13 +13,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NotificationEmptyState } from '../components/NotificationEmptyState';
 import { NotificationItem } from '../components/NotificationItem';
 import { NotificationSkeleton } from '../components/NotificationSkeleton';
-import { notificationsColors, notificationsRadii } from '../notificationsTheme';
 import { notificationService } from '../services/notificationService';
 import { notificationSocket } from '../services/notificationSocket';
 import { unreadStore } from '../unreadStore';
+import { FolderTabs } from '../../../components/ui/FolderTabs';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { fontFamilies } from '../../../theme/typography';
 import type { AppNotification } from '../types';
 
 type FilterTab = 'all' | 'unread';
@@ -30,6 +34,7 @@ export function NotificationsScreen() {
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -40,8 +45,10 @@ export function NotificationsScreen() {
     try {
       const data = await notificationService.getNotifications();
       setNotifications(data);
+      setLoadFailed(false);
     } catch (error) {
       console.error('Failed to load notifications:', error);
+      setLoadFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -193,104 +200,61 @@ export function NotificationsScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {/* ── Top Header ────────────────────────────────────── */}
       <View style={styles.header}>
-        <View style={styles.titleWrap}>
-          <Pressable
-            accessibilityLabel="Quay lại"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={navigation.back}
-            style={styles.backButton}
-          >
-            <ClayIcon color={notificationsColors.text} name="CaretLeft" size={22} weight="bold" />
-          </Pressable>
-          <ClayText variant="title" style={styles.headerTitle}>Thông báo</ClayText>
-          {unreadCount > 0 ? (
-            <View style={styles.unreadBadge}>
-              <ClayText variant="meta" style={styles.unreadBadgeText}>{unreadCount}</ClayText>
-            </View>
-          ) : null}
-        </View>
-
+        <Pressable
+          accessibilityLabel="Quay lại"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={navigation.back}
+          style={styles.backButton}
+        >
+          <ClayIcon color={clayColors.text} name="CaretLeft" size={22} weight="bold" />
+        </Pressable>
+        <ClayText level={1} numberOfLines={1} style={styles.headerTitle} variant="heading">
+          Thông báo
+        </ClayText>
         <Pressable
           accessibilityLabel="Đọc tất cả thông báo"
           accessibilityRole="button"
+          accessibilityState={{ disabled: !hasUnread || isMarkingAll }}
           disabled={!hasUnread || isMarkingAll}
-          hitSlop={12}
+          hitSlop={8}
           onPress={handleMarkAllAsRead}
-          style={({ pressed }) => [
-            styles.markAllButton,
-            pressed && hasUnread ? styles.markAllButtonPressed : undefined,
-          ]}
+          style={({ pressed }) => [styles.markAllButton, pressed && styles.markAllButtonPressed]}
         >
           {isMarkingAll ? (
-            <ActivityIndicator size="small" color={notificationsColors.primary} />
+            <ActivityIndicator color={clayColors.text} size="small" />
           ) : (
-            <ClayText
-              variant="caption"
-              style={[
-                styles.markAllText,
-                !hasUnread && styles.markAllTextDisabled,
-              ]}
-            >
+            <ClayText style={[styles.markAllText, !hasUnread && styles.markAllTextDisabled]} variant="button">
               Đọc tất cả
             </ClayText>
           )}
         </Pressable>
       </View>
 
-      {/* ── Filter Pills ──────────────────────────────────── */}
-      <View style={styles.pillsContainer}>
-        <Pressable
-          accessibilityLabel={`Tất cả thông báo, ${notifications.length} mục`}
-          accessibilityRole="button"
-          onPress={() => setActiveTab('all')}
-          style={[
-            styles.pill,
-            activeTab === 'all' ? styles.pillActive : styles.pillInactive,
+      <View style={styles.filters}>
+        <FolderTabs
+          onChange={setActiveTab}
+          selected={activeTab}
+          tabs={[
+            {
+              accessibilityLabel: `Tất cả thông báo, ${notifications.length} mục`,
+              count: notifications.length,
+              key: 'all',
+              label: 'Tất cả',
+            },
+            {
+              accessibilityLabel: `Thông báo chưa đọc, ${unreadCount} mục`,
+              count: unreadCount,
+              key: 'unread',
+              label: 'Chưa đọc',
+            },
           ]}
-        >
-          <ClayText
-            variant="caption"
-            style={[
-              styles.pillText,
-              activeTab === 'all' ? styles.pillTextActive : styles.pillTextInactive,
-            ]}
-          >
-            Tất cả ({notifications.length})
-          </ClayText>
-        </Pressable>
-
-        <Pressable
-          accessibilityLabel={`Thông báo chưa đọc, ${unreadCount} mục`}
-          accessibilityRole="button"
-          onPress={() => setActiveTab('unread')}
-          style={[
-            styles.pill,
-            activeTab === 'unread' ? styles.pillActive : styles.pillInactive,
-          ]}
-        >
-          <ClayText
-            variant="caption"
-            style={[
-              styles.pillText,
-              activeTab === 'unread' ? styles.pillTextActive : styles.pillTextInactive,
-            ]}
-          >
-            Chưa đọc ({unreadCount})
-          </ClayText>
-        </Pressable>
+        />
       </View>
 
-      {/* ── Notifications List ────────────────────────────── */}
       <FlatList
-        contentContainerStyle={[
-          displayedNotifications.length === 0
-            ? styles.emptyListContent
-            : styles.listContent,
-          { paddingBottom: 24 },
-        ]}
+        contentContainerStyle={styles.listContent}
         data={isLoading ? [] : displayedNotifications}
         keyExtractor={(item) => item.id}
         initialNumToRender={6}
@@ -300,16 +264,29 @@ export function NotificationsScreen() {
         ListEmptyComponent={
           isLoading ? (
             <NotificationSkeleton />
+          ) : loadFailed ? (
+            <View style={styles.error}>
+              <ClayText style={styles.errorText} variant="body">
+                Không tải được thông báo. Kiểm tra kết nối rồi thử lại.
+              </ClayText>
+              <ClayButton
+                accessibilityLabel="Thử tải lại thông báo"
+                onPress={() => void loadNotifications()}
+                size="sm"
+                title="Thử lại"
+                variant="secondary"
+              />
+            </View>
           ) : (
             <NotificationEmptyState activeTab={activeTab} />
           )
         }
         refreshControl={
           <RefreshControl
-            colors={[notificationsColors.primary]}
+            colors={[clayColors.primary]}
             onRefresh={handleRefresh}
             refreshing={isRefreshing}
-            tintColor={notificationsColors.primary}
+            tintColor={clayColors.primary}
           />
         }
         renderItem={({ item }) => (
@@ -327,117 +304,66 @@ export function NotificationsScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
-  emptyListContent: {
-    flexGrow: 1,
+  backButton: {
+    alignItems: 'center',
+    height: clayDimensions.minTouchTarget,
+    justifyContent: 'center',
+    width: clayDimensions.minTouchTarget,
   },
+  error: {
+    alignItems: 'flex-start',
+    gap: claySpacing.md,
+    padding: clayDimensions.gutter,
+  },
+  errorText: {
+    color: clayColors.textSecondary,
+  },
+  filters: {
+    borderBottomColor: clayColors.border,
+    borderBottomWidth: 1,
+    paddingBottom: claySpacing.md,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: claySpacing.xs,
+  },
+  // Same bar as ScreenHeader, with a text action on the right instead of an icon.
   header: {
     alignItems: 'center',
-    backgroundColor: notificationsColors.canvas,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: claySpacing.sm,
+    paddingVertical: claySpacing.sm,
   },
   headerTitle: {
-    color: notificationsColors.text,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 24,
-    letterSpacing: -0.4,
+    flex: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: 18,
+    lineHeight: 24,
   },
   list: {
-    backgroundColor: notificationsColors.canvas,
     flex: 1,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: claySpacing.xl,
   },
   markAllButton: {
     alignItems: 'center',
+    borderRadius: clayRadii.control,
     justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: 12,
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: claySpacing.sm,
   },
   markAllButtonPressed: {
-    opacity: 0.7,
+    backgroundColor: clayColors.surfaceWell,
   },
+  // Ink, not the brand hue: a header action is chrome, and ink reads at full contrast.
   markAllText: {
-    color: notificationsColors.primary,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 14,
+    color: clayColors.text,
   },
   markAllTextDisabled: {
-    color: notificationsColors.caption,
-    opacity: 0.5,
-  },
-  pill: {
-    borderRadius: notificationsRadii.pill,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  pillActive: {
-    backgroundColor: notificationsColors.primary,
-  },
-  pillInactive: {
-    backgroundColor: notificationsColors.surface,
-    borderColor: notificationsColors.border,
-    borderWidth: 1.5,
-  },
-  pillText: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 13,
-  },
-  pillTextActive: {
-    color: notificationsColors.onPrimary,
-  },
-  pillTextInactive: {
-    color: notificationsColors.textSecondary,
-  },
-  pillsContainer: {
-    backgroundColor: notificationsColors.canvas,
-    borderBottomColor: notificationsColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 10,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
+    color: clayColors.caption,
   },
   screen: {
-    backgroundColor: notificationsColors.canvas,
+    backgroundColor: clayColors.canvas,
     flex: 1,
-  },
-  backButton: {
-    alignItems: 'center',
-    height: 44,
-    justifyContent: 'center',
-    marginLeft: -12,
-    width: 44,
-  },
-  titleWrap: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  unreadBadge: {
-    alignItems: 'center',
-    backgroundColor: notificationsColors.primary,
-    borderRadius: 12,
-    justifyContent: 'center',
-    marginLeft: 8,
-    minWidth: 22,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  unreadBadgeText: {
-    color: notificationsColors.onPrimary,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 11,
-    textAlign: 'center',
   },
 });

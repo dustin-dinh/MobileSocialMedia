@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Post } from '../../feed/types';
 import { commentColors, commentRadii } from '../commentTheme';
 import { clayColors } from '../../../theme/colors';
-import { fontFamilies } from '../../../theme/typography';
-import { clayDimensions } from '../../../theme/spacing';
+import { tabularNums } from '../../../theme/typography';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { ToastHost } from '../../../components/common/toast';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
@@ -75,13 +75,9 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
                 <ClayText variant="heading" style={styles.headerTitle}>
                   Bình luận
                 </ClayText>
-                {count > 0 ? (
-                  <View style={styles.countBadge}>
-                    <ClayText variant="caption" style={styles.countBadgeText}>
-                      {count}
-                    </ClayText>
-                  </View>
-                ) : null}
+                <ClayText variant="caption" style={tabularNums}>
+                  {count}
+                </ClayText>
               </View>
 
               <Pressable
@@ -91,7 +87,7 @@ export function CommentModal({ onClose, post, visible }: CommentModalProps) {
                 onPress={onClose}
                 style={styles.closeButton}
               >
-                <ClayIcon name="X" size={16} weight="bold" color={clayColors.caption} />
+                <ClayIcon name="X" size={20} color={clayColors.text} />
               </Pressable>
             </View>
 
@@ -123,54 +119,39 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: 14,
-    height: 28,
+    height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget,
-    minWidth: clayDimensions.minTouchTarget,
-    width: 28,
-  },
-  countBadge: {
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: 10,
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: clayColors.border,
-  },
-  countBadgeText: {
-    color: clayColors.textSecondary,
-    fontSize: 12,
-    fontFamily: fontFamilies.bold,
+    // The glyph, not its touch area, lines up with the right margin.
+    marginRight: -12,
+    width: clayDimensions.minTouchTarget,
   },
   handle: {
-    backgroundColor: clayColors.border,
-    borderRadius: 3,
-    height: 5,
-    width: 40,
+    backgroundColor: clayColors.control,
+    borderRadius: 2,
+    height: 4,
+    width: 36,
   },
   handleContainer: {
     alignItems: 'center',
-    paddingBottom: 6,
-    paddingTop: 10,
+    paddingBottom: 4,
+    paddingTop: 8,
   },
   header: {
     alignItems: 'center',
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: 12,
-    paddingHorizontal: 16,
+    paddingBottom: 4,
+    paddingHorizontal: clayDimensions.gutter,
   },
   headerTitle: {
-    fontSize: 17,
+    color: clayColors.text,
   },
   headerTitleWrap: {
-    alignItems: 'center',
+    alignItems: 'baseline',
     flexDirection: 'row',
+    gap: claySpacing.sm,
   },
   keyboardContainer: {
     justifyContent: 'flex-end',

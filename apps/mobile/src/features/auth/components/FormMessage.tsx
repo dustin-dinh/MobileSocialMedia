@@ -23,7 +23,7 @@ export function FormMessage({ message, tone = 'info' }: FormMessageProps) {
     >
       <ClayText
         variant="caption"
-        style={[styles.message, isError ? styles.errorMessage : styles.infoMessage]}
+        style={isError ? styles.errorMessage : styles.infoMessage}
       >
         {message}
       </ClayText>
@@ -32,31 +32,23 @@ export function FormMessage({ message, tone = 'info' }: FormMessageProps) {
 }
 
 const styles = StyleSheet.create({
+  // Pale status pairs: tint ground, dark ink of the same hue, no edge.
   container: {
     borderRadius: clayRadii.control,
     marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   errorContainer: {
     backgroundColor: clayColors.errorBg,
-    borderColor: clayColors.error,
   },
   errorMessage: {
-    color: clayColors.error,
-    fontWeight: '700',
+    color: clayColors.errorInk,
   },
   infoContainer: {
     backgroundColor: clayColors.primarySoft,
-    borderColor: clayColors.primary,
   },
   infoMessage: {
-    color: clayColors.primary,
-    fontWeight: '700',
-  },
-  message: {
-    fontSize: 13,
-    lineHeight: 18,
+    color: clayColors.primaryInk,
   },
 });

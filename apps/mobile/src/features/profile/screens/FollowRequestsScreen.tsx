@@ -34,7 +34,8 @@ export function FollowRequestsScreen() {
             onPress={() => void answer(user.id, true, reload)}
             size="sm"
             title="Chấp nhận"
-            variant="primary"
+            // Repeated down the list, so the pale tonal style rather than a filled primary.
+            variant="tonal"
           />
           <ClayButton
             accessibilityLabel={`Xoá yêu cầu của @${user.username}`}

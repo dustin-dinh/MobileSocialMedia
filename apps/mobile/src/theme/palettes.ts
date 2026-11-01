@@ -1,22 +1,43 @@
+/**
+ * The app's one palette ("accent ladder", taste-skill app style): one brand hue,
+ * raspberry #CC2F6E, at full strength only on small marks (the primary button,
+ * the active tab, a like, an unread count); its pale tints carry every area
+ * (selected rows, badges, the request bar). Everything else is ink and greys.
+ * The ground is a pale tint of the hue, one clear step below white, so posts
+ * and rows separate by tone alone and page and tints read as one family.
+ * Every text colour reaches 4.5:1 on the surface it sits on.
+ */
 export interface ColorPalette {
+  /** Page ground, behind lists and between blocks. */
   canvas: string;
+  /** Blocks on the ground: posts, list rows, sheets. */
   surface: string;
+  /** Same as surface; kept for older call sites. */
   surfaceHigh: string;
+  /** One tone step off the ground: wells, pressed rows, neutral chips. */
   surfaceWell: string;
+  /** 1px edges of cards and controls at rest. */
   border: string;
+  /** Row rules inside lists, one step lighter than border. */
+  rule: string;
+  /** Borders of inputs and outlined buttons, one step darker than border. */
+  control: string;
   text: string;
   textSecondary: string;
+  /** Meta text: times, counts, labels. Still 4.5:1 on the ground. */
   caption: string;
-  shadowDark: string;
-  shadowLight: string;
-  shadowDarkPressed: string;
   tabBarBg: string;
   tabBarIcon: string;
   tabBarIconActive: string;
-  tabBarActiveDot: string;
+  /** The brand hue: small marks only. */
   primary: string;
   primaryPressed: string;
+  /** Palest tint: selected rows, accent pills, request bar. */
   primarySoft: string;
+  /** Mid tint: progress tracks, selected borders. */
+  primaryTrack: string;
+  /** Dark ink of the hue, for text on primarySoft. */
+  primaryInk: string;
   onPrimary: string;
   liked: string;
   saved: string;
@@ -24,84 +45,42 @@ export interface ColorPalette {
   error: string;
   errorPressed: string;
   errorBg: string;
+  errorInk: string;
+  warningBg: string;
+  warningBorder: string;
+  warningInk: string;
 }
 
-export type PaletteName = 'blush' | 'paper' | 'ink';
-
-const commonColors = {
+export const palette: ColorPalette = {
+  canvas: '#F6F1F3',
+  surface: '#FFFFFF',
+  surfaceHigh: '#FFFFFF',
+  surfaceWell: '#EEE7EA',
+  border: '#ECE4E7',
+  rule: '#F3EEF0',
+  control: '#D8CDD2',
+  text: '#141414',
+  textSecondary: '#5F5A5D',
+  caption: '#6B6467',
+  // White, so the brand-hue active label keeps 5:1 (it is 4.48:1 on the ground).
+  tabBarBg: '#FFFFFF',
+  tabBarIcon: '#6B6467',
+  tabBarIconActive: '#CC2F6E',
   primary: '#CC2F6E',
   primaryPressed: '#A82459',
-  primarySoft: '#F6CADB',
-  liked: '#E0457B',
-  saved: '#E3A02E',
-  success: '#4E9F7D',
-  error: '#C8413B',
-  errorPressed: '#B0332E',
-  errorBg: '#F8D9D3',
-} as const;
-
-export const blushPalette: ColorPalette = {
-  ...commonColors,
-  canvas: '#F3E9EC',
-  surface: '#FBF5F7',
-  surfaceHigh: '#FFFAFB',
-  surfaceWell: '#EADDE2',
-  border: '#E3D3DA',
-  text: '#3A2530',
-  textSecondary: '#6B5560',
-  caption: '#745D67',
-  shadowDark: 'rgba(100,60,85,0.22)',
-  shadowLight: 'rgba(255,255,255,0.85)',
-  shadowDarkPressed: 'rgba(100,60,85,0.12)',
-  tabBarBg: '#FBF5F7',
-  tabBarIcon: '#B9A3AD',
-  tabBarIconActive: '#CC2F6E',
-  tabBarActiveDot: '#CC2F6E',
-  onPrimary: '#FFF5F8',
-};
-
-export const paperPalette: ColorPalette = {
-  ...commonColors,
-  canvas: '#F1F0F3',
-  surface: '#FFFFFF',
-  surfaceHigh: '#FFFFFF',
-  surfaceWell: '#E7E5EA',
-  border: '#E2DFE5',
-  text: '#1F1A1D',
-  textSecondary: '#5E565B',
-  caption: '#6A6268',
-  shadowDark: 'rgba(60,45,70,0.20)',
-  shadowLight: 'rgba(255,255,255,0.95)',
-  shadowDarkPressed: 'rgba(60,45,70,0.12)',
-  tabBarBg: '#FFFFFF',
-  tabBarIcon: '#B4B0B8',
-  tabBarIconActive: '#CC2F6E',
-  tabBarActiveDot: '#CC2F6E',
+  primarySoft: '#FDF1F5',
+  primaryTrack: '#F7D9E5',
+  primaryInk: '#7A1D44',
   onPrimary: '#FFFFFF',
-};
-
-export const inkPalette: ColorPalette = {
-  ...commonColors,
-  canvas: '#F5F5F5',
-  surface: '#FFFFFF',
-  surfaceHigh: '#FFFFFF',
-  surfaceWell: '#E9E9EA',
-  border: '#E4E4E4',
-  text: '#121212',
-  textSecondary: '#555555',
-  caption: '#666666',
-  shadowDark: 'rgba(20,15,18,0.22)',
-  shadowLight: 'rgba(255,255,255,0.95)',
-  shadowDarkPressed: 'rgba(20,15,18,0.12)',
-  tabBarBg: '#1B1518',
-  tabBarIcon: '#7A7074',
-  tabBarIconActive: '#F06A9C',
-  tabBarActiveDot: '#F06A9C',
-  onPrimary: '#FFFFFF',
-};
-
-export const palettes: Record<PaletteName, ColorPalette> = {
-  blush: blushPalette,
-  paper: paperPalette,
-  ink: inkPalette,
+  // One hue family: a like is the brand hue, a save is ink.
+  liked: '#CC2F6E',
+  saved: '#141414',
+  success: '#247B50',
+  error: '#C4242A',
+  errorPressed: '#A11D22',
+  errorBg: '#FFEDEA',
+  errorInk: '#831C1E',
+  warningBg: '#FFFBEB',
+  warningBorder: '#FDE68A',
+  warningInk: '#92400E',
 };

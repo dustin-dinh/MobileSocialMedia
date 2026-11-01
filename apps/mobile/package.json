@@ -14,7 +14,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@expo-google-fonts/nunito": "^0.4.2",
+    "@expo-google-fonts/be-vietnam-pro": "^0.4.1",
     "@expo/metro-runtime": "~57.0.17",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "@react-navigation/bottom-tabs": "^7.18.18",

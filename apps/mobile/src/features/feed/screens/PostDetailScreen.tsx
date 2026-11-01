@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -12,15 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadError } from '../../../components/common/LoadError';
 import { ScreenHeader } from '../../../components/common/ScreenHeader';
 import { showToast } from '../../../components/common/toast';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { MainStackParamList } from '../../../navigation/types';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
-import { fontFamilies } from '../../../theme/typography';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
+import { tabularNums } from '../../../theme/typography';
 import { CommentThread } from '../../comment/components/CommentThread';
 import { PostCard } from '../components/PostCard';
 import { feedEvents } from '../feedEvents';
-import { feedSpacing } from '../feedTheme';
 import { feedService } from '../services/feedService';
 import type { Post } from '../types';
 
@@ -106,7 +108,7 @@ export function PostDetailScreen({ navigation, route }: PostDetailScreenProps) {
       ) : error === 'network' && !post ? (
         <LoadError onRetry={loadPost} />
       ) : !post ? (
-        <ActivityIndicator color={clayColors.primary} size="large" style={styles.flex} />
+        <ActivityIndicator color={clayColors.caption} size="large" style={styles.flex} />
       ) : (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -135,16 +137,29 @@ export function PostDetailScreen({ navigation, route }: PostDetailScreenProps) {
                   }
                   post={post}
                 />
-                {post.likesCount > 0 ? (
-                  <ClayText
-                    accessibilityRole="button"
-                    onPress={() => navigation.push('PostLikes', { postId })}
-                    style={styles.likesLink}
-                    variant="caption"
-                  >
-                    {post.likesCount} lượt thích · xem danh sách
-                  </ClayText>
-                ) : null}
+                <View style={styles.section}>
+                  {post.likesCount > 0 ? (
+                    <Pressable
+                      accessibilityHint="Xem danh sách người đã thích"
+                      accessibilityRole="button"
+                      onPress={() => navigation.push('PostLikes', { postId })}
+                      style={({ pressed }) => [styles.likesRow, pressed && styles.pressed]}
+                    >
+                      <ClayText style={[styles.likesText, tabularNums]} variant="body">
+                        {post.likesCount} lượt thích
+                      </ClayText>
+                      <ClayIcon color={clayColors.caption} name="CaretRight" size={16} />
+                    </Pressable>
+                  ) : null}
+                  <View style={styles.commentsHeading}>
+                    <ClayText level={2} variant="heading">
+                      Bình luận
+                    </ClayText>
+                    <ClayText style={tabularNums} variant="caption">
+                      {post.commentsCount}
+                    </ClayText>
+                  </View>
+                </View>
               </View>
             }
             post={post}
@@ -156,6 +171,14 @@ export function PostDetailScreen({ navigation, route }: PostDetailScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  commentsHeading: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: claySpacing.sm,
+    paddingBottom: claySpacing.xs,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: claySpacing.base,
+  },
   container: {
     backgroundColor: clayColors.canvas,
     flex: 1,
@@ -163,13 +186,26 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  likesLink: {
-    color: clayColors.primary,
-    fontFamily: fontFamilies.bold,
-    paddingHorizontal: feedSpacing.cardPadding + 4,
-    paddingVertical: 10,
+  likesRow: {
+    alignItems: 'center',
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: clayDimensions.minTouchTarget + 4,
+    paddingHorizontal: clayDimensions.gutter,
+  },
+  likesText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   postWrap: {
-    paddingTop: feedSpacing.cardGap / 2,
+    paddingTop: 0,
+  },
+  pressed: {
+    backgroundColor: clayColors.surfaceWell,
+  },
+  section: {
+    backgroundColor: clayColors.surface,
   },
 });

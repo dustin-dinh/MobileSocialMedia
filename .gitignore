@@ -42,3 +42,6 @@ yarn-error.*
 # Local operating-system and TypeScript artifacts
 .DS_Store
 *.tsbuildinfo
+
+# taste-skill working files (screenshots, sheets)
+.taste-skill/

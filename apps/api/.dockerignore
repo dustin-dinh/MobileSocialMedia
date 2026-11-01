@@ -1,0 +1,15 @@
+node_modules
+dist
+models
+src/generated
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.agents
+.claude
+.windsurf
+skills-lock.json
+README.md
+Dockerfile
+.dockerignore

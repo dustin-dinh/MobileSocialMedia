@@ -2,7 +2,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { clayColors } from '../../theme/colors';
 import { claySpacing } from '../../theme/spacing';
-import { ClayEmoji } from '../icons/ClayEmoji';
 import { ClayButton } from '../ui/ClayButton';
 import { ClayText } from '../ui/ClayText';
 
@@ -57,7 +56,6 @@ export function ListFooter({
   if (!hasMore && endMessage) {
     return (
       <View style={styles.container}>
-        <ClayEmoji name="sparkles" size={40} />
         <ClayText style={styles.text} variant="caption">
           {endMessage}
         </ClayText>

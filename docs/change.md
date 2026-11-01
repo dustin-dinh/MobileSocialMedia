@@ -1842,3 +1842,49 @@ From `docs/plan/src`: `python tools/flowgen.py specs/<id>.json ../flows/<id>.dra
 ### Files
 
 - `docs/plan/ke-hoach-tinh-nang.pdf`, `docs/plan/ke-hoach-tinh-nang.template.html`, `docs/plan/flows/`, `docs/plan/src/`, `docs/change.md`
+
+## 2026-11-01 - Frontend rebuilt with taste-skill; legal texts; deployment files
+
+### Task
+
+Owner (2026-11-01): reduce the scope to about 30% of Facebook for a sale (DEC-026), commit the current state, install taste-skill and rebuild the existing frontend first (owner reviews before parts 1 and 2), add a complete privacy policy and terms with a legal-drafting agent, and run independent work on parallel agents.
+
+### Changed - mobile UI (DEC-027)
+
+- taste-skill installed at `~/.claude/skills/design-taste-frontend` (MIT, scripts reviewed: they launch Chrome and fetch open image collections only).
+- Foundation (lead): one palette (`theme/palettes.ts`, brand `#CC2F6E` ladder, ground `#F6F1F3`), Be Vietnam Pro (`@expo-google-fonts/be-vietnam-pro` via `expo install`; Nunito removed), radii 8, no resting shadows, `ClayText level`, `ClayButton tonal` and a legible disabled state, left-aligned h1 in `ScreenHeader`, labelled bottom tabs, `ActionSheet` and `ConfirmModal` without tinted icon shapes, in-place `LoadError`, shared `FolderTabs`, Vietnamese `formatTimeAgo`, `ClayEmoji` and `assets/emoji/` deleted, `PlaceholderScreen` deleted, web 640px column in `App.tsx`, URLs for screens in `navigationRef.ts`, `EXPO_PUBLIC_MOCK_SIGNED_OUT` switch.
+- Screens (five agents, one folder group each): auth and onboarding (Vietnamese copy, product named on Login), feed/post/comments (full-width posts, one action row, error state for comments), messages/notifications (folders with counts, pale-tint bubbles, request bar, blur cover, scam notice), profile/settings/search/report (figures, sections, destructive last, report sheet with reasons), reels/stories (black viewers, neutral scrims).
+- Mock data: a five-conversation inbox with a blurred image and a flagged scam message, believable Vietnamese posts, a working avatar URL, no emoji in interface text.
+- Legal: `LegalScreen` renders `legalContent.ts`, generated from `docs/legal/*.md` by `scripts/build-legal-content.mjs` (DEC-028); new "Tiêu chuẩn cộng đồng" entry in Settings.
+- Tests updated for copy changed on purpose: `smoke` (tab labels, post placeholder, notification filters), `birthDate`, `forgotPassword`, `passwordReset`, `regression`, `verifyCode`; `jest.setup.js` mocks the new font.
+
+### Changed - other
+
+- `docs/legal/` (new): privacy policy, terms of use, community guidelines, README with placeholders, lawyer checklist and sources.
+- `apps/api/Dockerfile`, `apps/api/.dockerignore`, `docker-compose.prod.yml`, `apps/mobile/eas.json`, `docs/deploy.md` (new); `apps/api/package.json` `start:prod` now points at `dist/src/main` (the real build output).
+- `apps/api/src/main.ts`: CORS (from the web trial, already logged).
+- `docs/decisions.md`: DEC-026, DEC-027, DEC-028. `.gitignore`: `.taste-skill/`.
+
+### Checks
+
+- Mobile `tsc --noEmit` clean; `jest` 100 passed, 39 skipped. API `tsc --noEmit` clean.
+- taste-skill lint on `apps/mobile/src`: 30 FAIL / 5 WARN before, 0 FAIL / 3 WARN after (two clock paddings, the floating-layer shadow).
+- taste-skill inspector at 390px on 19 routable screens: the `no-title` FAIL that every screen had is gone; what remains is `font-count` (the four weights of one family register as four names in React Native), user-written emoji in mock posts, and 12-15px edge text inside 16px padding.
+- Docker image `mobilesocial-api:local` builds and starts until the database connection (deploy agent).
+
+### Platforms run
+
+- Web build only (Chrome/Edge at 390px, mock data). **Android: not run. iPhone: not run.** Native keyboard behaviour in Create and the comment composer, and the intro's `onLayout` sizing, are unverified on devices.
+
+### Open items found on the way
+
+- Post, story and avatar files are in the public bucket: a "Chỉ mình tôi" post's media opens for anyone with its link (legal agent). To fix in part 1.
+- Registration consent is one line without a checkbox; Google sign-in can create an account without showing it. To fix in part 1.
+- App Store guideline 1.2 is strict on anonymous chat: owner decision needed for iOS.
+- Intro screen has a large empty area above its copy; needs a real picture of the app.
+
+### Files
+
+- `apps/mobile/src/**`, `apps/mobile/__tests__/**`, `apps/mobile/jest.setup.js`, `apps/mobile/package.json`, `apps/mobile/pnpm-lock.yaml`, `apps/mobile/scripts/build-legal-content.mjs`, `apps/mobile/eas.json`
+- `apps/api/Dockerfile`, `apps/api/.dockerignore`, `apps/api/package.json`, `docker-compose.prod.yml`
+- `docs/legal/`, `docs/deploy.md`, `docs/decisions.md`, `docs/change.md`, `.gitignore`

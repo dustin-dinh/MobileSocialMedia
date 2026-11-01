@@ -8,6 +8,7 @@ import { followApi } from '../../services/followApi';
 import { clayColors } from '../../theme/colors';
 import { clayDimensions, claySpacing } from '../../theme/spacing';
 import { ClayButton } from '../ui/ClayButton';
+import { fontFamilies } from '../../theme/typography';
 import { ClayText } from '../ui/ClayText';
 import { showToast } from './toast';
 import { UserAvatar } from './UserAvatar';
@@ -93,7 +94,7 @@ export const UserRow = memo(function UserRow({ onPress, right, subtitle, user }:
             onPress={handleToggleFollow}
             size="sm"
             title={isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
-            variant={isFollowing ? 'secondary' : 'primary'}
+            variant={isFollowing ? 'secondary' : 'tonal'}
           />
         ))}
     </Pressable>
@@ -111,7 +112,9 @@ const styles = StyleSheet.create({
   },
   name: {
     color: clayColors.text,
+    fontFamily: fontFamilies.semiBold,
     fontSize: 15,
+    lineHeight: 20,
   },
   subtitle: {
     color: clayColors.caption,

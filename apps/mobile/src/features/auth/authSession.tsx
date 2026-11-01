@@ -46,13 +46,14 @@ const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 const SESSION_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
 // Mock mode bypasses login and jumps straight to MainTabNavigator for UI testing.
-export const BYPASS_AUTH_FOR_TESTING = USE_MOCK_API;
+// EXPO_PUBLIC_MOCK_SIGNED_OUT=true keeps mock data but starts signed out, to see the auth screens.
+export const BYPASS_AUTH_FOR_TESTING = USE_MOCK_API && process.env.EXPO_PUBLIC_MOCK_SIGNED_OUT !== 'true';
 
 const MOCK_TEST_USER: AuthUser = {
   avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&h=160&fit=crop&crop=face',
-  bio: 'Mobile Developer | React Native & Expo 📱✨',
+  bio: 'Lập trình viên mobile, React Native và Expo',
   displayName: 'Nguyễn Nhật Luân',
-  email: 'nhatluan@example.com',
+  email: 'luan@mobilesocial.vn',
   id: 'user-001',
   username: 'nhatluan',
 };

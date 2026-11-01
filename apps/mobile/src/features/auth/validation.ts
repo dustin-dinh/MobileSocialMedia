@@ -25,17 +25,17 @@ export function validateLogin(values: LoginFormValues): FieldErrors<keyof LoginF
   const errors: FieldErrors<keyof LoginFormValues> = {};
 
   if (!values.email.trim()) {
-    errors.email = 'Enter your email address.';
+    errors.email = 'Nhập địa chỉ email.';
   } else if (!EMAIL_PATTERN.test(values.email.trim())) {
-    errors.email = 'Enter a valid email address.';
+    errors.email = 'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.';
   }
 
   if (!values.password) {
-    errors.password = 'Enter your password.';
+    errors.password = 'Nhập mật khẩu.';
   } else if (values.password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at least ' + MIN_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu cần ít nhất ' + MIN_PASSWORD_LENGTH + ' ký tự.';
   } else if (values.password.length > MAX_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at most ' + MAX_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu tối đa ' + MAX_PASSWORD_LENGTH + ' ký tự.';
   }
 
   return errors;
@@ -47,33 +47,33 @@ export function validateRegister(
   const errors: FieldErrors<keyof RegisterFormValues> = {};
 
   if (!values.username.trim()) {
-    errors.username = 'Enter a username.';
+    errors.username = 'Nhập tên người dùng.';
   } else if (values.username.trim().length < 3 || values.username.trim().length > 30) {
-    errors.username = 'Username must be between 3 and 30 characters.';
+    errors.username = 'Tên người dùng dài từ 3 đến 30 ký tự.';
   } else if (!USERNAME_PATTERN.test(values.username.trim())) {
-    errors.username = 'Use letters, numbers, dots, or underscores only.';
+    errors.username = 'Chỉ dùng chữ không dấu, số, dấu chấm và gạch dưới.';
   }
 
   if (!values.email.trim()) {
-    errors.email = 'Enter your email address.';
+    errors.email = 'Nhập địa chỉ email.';
   } else if (!EMAIL_PATTERN.test(values.email.trim())) {
-    errors.email = 'Enter a valid email address.';
+    errors.email = 'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.';
   } else if (values.email.trim().length > 255) {
-    errors.email = 'Email must be at most 255 characters.';
+    errors.email = 'Email tối đa 255 ký tự.';
   }
 
   if (!values.password) {
-    errors.password = 'Enter a password.';
+    errors.password = 'Nhập mật khẩu.';
   } else if (values.password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at least ' + MIN_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu cần ít nhất ' + MIN_PASSWORD_LENGTH + ' ký tự.';
   } else if (values.password.length > MAX_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at most ' + MAX_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu tối đa ' + MAX_PASSWORD_LENGTH + ' ký tự.';
   }
 
   if (!values.confirmPassword) {
-    errors.confirmPassword = 'Confirm your password.';
+    errors.confirmPassword = 'Nhập lại mật khẩu.';
   } else if (values.confirmPassword !== values.password) {
-    errors.confirmPassword = 'Passwords do not match.';
+    errors.confirmPassword = 'Hai mật khẩu chưa khớp nhau.';
   }
 
   const birthProblem = birthDateProblem(values.birthDate);
@@ -86,10 +86,10 @@ export function validateRegister(
 }
 
 const REGISTER_BIRTH_DATE_ERRORS = {
-  future: 'Enter your real date of birth.',
-  invalid: 'Enter your date of birth as DD/MM/YYYY.',
-  missing: 'Enter your date of birth.',
-  underage: 'You must be at least 18 years old to use this app.',
+  future: 'Ngày sinh không thể ở tương lai.',
+  invalid: 'Nhập ngày sinh theo dạng NN/TT/NNNN, ví dụ 05/09/1998.',
+  missing: 'Nhập ngày sinh của bạn.',
+  underage: 'Bạn cần từ 18 tuổi trở lên để dùng Mobile Social.',
 } as const;
 
 export type ForgotPasswordFormValues = {
@@ -102,11 +102,11 @@ export function validateForgotPassword(
   const errors: FieldErrors<keyof ForgotPasswordFormValues> = {};
 
   if (!values.email.trim()) {
-    errors.email = 'Enter your email address.';
+    errors.email = 'Nhập địa chỉ email.';
   } else if (!EMAIL_PATTERN.test(values.email.trim())) {
-    errors.email = 'Enter a valid email address.';
+    errors.email = 'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.';
   } else if (values.email.trim().length > 255) {
-    errors.email = 'Email must be at most 255 characters.';
+    errors.email = 'Email tối đa 255 ký tự.';
   }
 
   return errors;
@@ -123,17 +123,17 @@ export function validateNewPassword(
   const errors: FieldErrors<keyof NewPasswordFormValues> = {};
 
   if (!values.password) {
-    errors.password = 'Enter a password.';
+    errors.password = 'Nhập mật khẩu.';
   } else if (values.password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at least ' + MIN_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu cần ít nhất ' + MIN_PASSWORD_LENGTH + ' ký tự.';
   } else if (values.password.length > MAX_PASSWORD_LENGTH) {
-    errors.password = 'Password must be at most ' + MAX_PASSWORD_LENGTH + ' characters.';
+    errors.password = 'Mật khẩu tối đa ' + MAX_PASSWORD_LENGTH + ' ký tự.';
   }
 
   if (!values.confirmPassword) {
-    errors.confirmPassword = 'Confirm your password.';
+    errors.confirmPassword = 'Nhập lại mật khẩu.';
   } else if (values.confirmPassword !== values.password) {
-    errors.confirmPassword = 'Passwords do not match.';
+    errors.confirmPassword = 'Hai mật khẩu chưa khớp nhau.';
   }
 
   return errors;
@@ -142,10 +142,10 @@ export function validateNewPassword(
 export function validateVerificationCode(code: string): string | undefined {
   const trimmed = code.trim();
   if (!trimmed) {
-    return 'Enter the 6-digit verification code.';
+    return 'Nhập mã xác minh gồm 6 chữ số.';
   }
   if (!/^\d{6}$/.test(trimmed)) {
-    return 'Verification code must be exactly 6 digits.';
+    return 'Mã xác minh gồm đúng 6 chữ số.';
   }
   return undefined;
 }

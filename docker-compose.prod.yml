@@ -1,0 +1,55 @@
+# Production-style stack: API container + one-shot migration job (+ optional MinIO).
+#
+#   cp apps/api/.env.example apps/api/.env.production    # then fill in real values
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile minio up -d --build   # with self-hosted MinIO
+#
+# No secrets here: everything comes from apps/api/.env.production (git-ignored).
+# Put a reverse proxy with HTTPS in front of port 3000. Guide: docs/deploy.md
+services:
+  # Applies prisma/migrations to DIRECT_URL, then exits. The API starts only if it succeeded.
+  migrate:
+    build:
+      context: apps/api
+      dockerfile: Dockerfile
+      target: migrate
+    env_file: apps/api/.env.production
+    restart: "no"
+
+  api:
+    build:
+      context: apps/api
+      dockerfile: Dockerfile
+      args:
+        SKIP_MODEL: ${SKIP_MODEL:-0}
+    image: mobilesocial-api:latest
+    env_file: apps/api/.env.production
+    environment:
+      PORT: 3000
+    ports:
+      # Bound to localhost: only the reverse proxy on this host reaches it.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_started
+        required: false # ignored unless the minio profile is on
+    restart: unless-stopped
+
+  # Only with --profile minio. For production prefer AWS S3 / Cloudflare R2 (see docs/deploy.md).
+  # Set MINIO_ROOT_USER / MINIO_ROOT_PASSWORD in apps/api/.env.production and use the same
+  # values for S3_ACCESS_KEY / S3_SECRET_KEY; S3_ENDPOINT=http://minio:9000.
+  minio:
+    profiles: ["minio"]
+    image: bitnamilegacy/minio:latest
+    env_file: apps/api/.env.production
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/bitnami/minio/data
+    restart: unless-stopped
+
+volumes:
+  minio-data:

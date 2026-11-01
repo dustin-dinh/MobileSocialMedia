@@ -1,14 +1,14 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ClayText } from '../../../components/ui/ClayText';
-import { authColors } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
 
 export function AuthDivider() {
   return (
     <View style={styles.container}>
       <View style={styles.line} />
       <ClayText variant="caption" style={styles.text}>
-        or
+        hoặc
       </ClayText>
       <View style={styles.line} />
     </View>
@@ -19,15 +19,14 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginVertical: 12,
+    marginVertical: 16,
   },
   line: {
-    backgroundColor: authColors.border,
+    backgroundColor: clayColors.border,
     flex: 1,
-    height: StyleSheet.hairlineWidth,
+    height: 1,
   },
   text: {
-    color: authColors.mutedText,
     marginHorizontal: 12,
   },
 });

@@ -36,7 +36,7 @@ export function NewMessageScreen() {
 
   return (
     <UserListScreen
-      emptyText="Hãy theo dõi ai đó để bắt đầu nhắn tin."
+      emptyText="Bạn chưa theo dõi ai. Hãy theo dõi một người để nhắn tin với họ."
       fetchPage={fetchPage}
       onPressUser={(peerId) => void handlePick(peerId)}
       // No follow button here: the whole row opens the chat.

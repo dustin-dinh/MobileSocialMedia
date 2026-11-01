@@ -20,15 +20,16 @@ export const PeerAvatar = memo(function PeerAvatar({ peer, size }: { peer: PostA
       accessibilityLabel="Người ẩn danh"
       style={[styles.mask, { borderRadius: size / 2, height: size, width: size }]}
     >
-      <ClayIcon color={clayColors.onPrimary} name="Mask" size={size * 0.5} />
+      <ClayIcon color={clayColors.surface} name="Mask" size={size * 0.5} />
     </View>
   );
 });
 
 const styles = StyleSheet.create({
+  // Ink, not a grey: the hidden sender reads as a deliberate mark, never as a missing photo.
   mask: {
     alignItems: 'center',
-    backgroundColor: clayColors.textSecondary,
+    backgroundColor: clayColors.text,
     justifyContent: 'center',
   },
 });

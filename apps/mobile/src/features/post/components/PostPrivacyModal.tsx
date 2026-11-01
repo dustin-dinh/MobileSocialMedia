@@ -5,10 +5,12 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
 import { clayRadii, clayDimensions } from '../../../theme/spacing';
 import type { PostPrivacy } from '../../feed/types';
 
@@ -53,6 +55,8 @@ export function PostPrivacyModal({
   onSelectPrivacy,
   visible,
 }: PostPrivacyModalProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       animationType="fade"
@@ -73,7 +77,7 @@ export function PostPrivacyModal({
           }}
           style={styles.sheetWrap}
         >
-          <ClaySurface variant="modal" style={styles.sheet}>
+          <ClaySurface variant="modal" style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Handle bar */}
             <View style={styles.handleWrap}>
               <View style={styles.handle} />
@@ -81,7 +85,7 @@ export function PostPrivacyModal({
 
             {/* Header */}
             <View style={styles.header}>
-              <ClayText variant="title" style={styles.title}>
+              <ClayText variant="heading" style={styles.title}>
                 Ai có thể xem bài viết này?
               </ClayText>
               <ClayText variant="caption" style={styles.subtitle}>
@@ -98,27 +102,24 @@ export function PostPrivacyModal({
                   <Pressable
                     accessibilityLabel={`Chọn quyền riêng tư: ${option.label}`}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                     key={option.key}
                     onPress={() => {
                       onSelectPrivacy(option.key);
                       onClose();
                     }}
-                    style={[
+                    style={({ pressed }) => [
                       styles.optionRow,
+                      pressed && styles.optionRowPressed,
                       isSelected && styles.optionRowSelected,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.iconWrap,
-                        isSelected && styles.iconWrapSelected,
-                      ]}
-                    >
+                    <View style={styles.iconWrap}>
                       <ClayIcon
-                        color={isSelected ? clayColors.primary : clayColors.text}
+                        color={isSelected ? clayColors.primaryInk : clayColors.text}
                         name={option.icon}
-                        size={22}
-                        weight={isSelected ? 'fill' : 'regular'}
+                        size={20}
+                        weight="regular"
                       />
                     </View>
 
@@ -190,7 +191,7 @@ export function PrivacyPill({
       </ClayText>
       {Boolean(onPress) && (
         <View style={styles.pillCaret}>
-          <ClayIcon color={clayColors.caption} name="CaretLeft" size={11} weight="bold" />
+          <ClayIcon color={clayColors.caption} name="CaretLeft" size={12} weight="bold" />
         </View>
       )}
     </Pressable>
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     width: clayDimensions.minTouchTarget,
   },
   handle: {
-    backgroundColor: clayColors.border,
+    backgroundColor: clayColors.control,
     borderRadius: clayRadii.pill,
     height: 4,
     width: 36,
@@ -215,20 +216,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   header: {
-    marginBottom: 16,
-    paddingHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: clayDimensions.gutter,
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: clayRadii.control,
-    height: clayDimensions.minTouchTarget,
-    justifyContent: 'center',
-    marginRight: 14,
-    width: clayDimensions.minTouchTarget,
-  },
-  iconWrapSelected: {
-    backgroundColor: clayColors.primarySoft,
+    marginRight: 16,
+    width: 24,
   },
   optionDescription: {
     color: clayColors.caption,
@@ -238,29 +232,30 @@ const styles = StyleSheet.create({
     color: clayColors.text,
   },
   optionLabelSelected: {
-    color: clayColors.primary,
+    color: clayColors.primaryInk,
+    fontFamily: fontFamilies.semiBold,
+  },
+  optionRowPressed: {
+    backgroundColor: clayColors.surfaceWell,
   },
   optionRow: {
     alignItems: 'center',
-    borderRadius: clayRadii.control,
     flexDirection: 'row',
-    marginBottom: 8,
-    minHeight: 60,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 56,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: 8,
   },
   optionRowSelected: {
-    backgroundColor: clayColors.surfaceHigh,
+    backgroundColor: clayColors.primarySoft,
   },
   optionTextWrap: {
     flex: 1,
   },
   optionsList: {
-    paddingHorizontal: 14,
-    paddingBottom: 20,
+    paddingBottom: 8,
   },
   overlay: {
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.4)',
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -288,7 +283,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
     borderTopLeftRadius: clayRadii.modal,
     borderTopRightRadius: clayRadii.modal,
-    paddingBottom: 16,
   },
   sheetWrap: {
     width: '100%',

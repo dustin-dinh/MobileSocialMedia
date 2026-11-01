@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  TextStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -21,14 +22,13 @@ import { useImagePicker } from '../hooks/useImagePicker';
 import { postService } from '../services/postService';
 import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
-import { clayRadii, clayDimensions } from '../../../theme/spacing';
+import { clayRadii, clayDimensions, claySpacing } from '../../../theme/spacing';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { showToast } from '../../../components/common/toast';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { Image as ExpoImage } from 'expo-image';
 import type { PostPrivacy } from '../../feed/types';
 import { PostPrivacyModal, PrivacyPill } from '../components/PostPrivacyModal';
@@ -96,7 +96,7 @@ function MediaPreview({ images, onRemove }: {
             style={styles.mediaRemoveBtn}
             hitSlop={6}
           >
-            <ClayIcon name="X" size={13} weight="bold" color={clayColors.onPrimary} />
+            <ClayIcon name="X" size={14} weight="bold" color={clayColors.onPrimary} />
           </Pressable>
         </View>
       ))}
@@ -142,7 +142,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     charCount > MAX_CONTENT_LENGTH
       ? clayColors.error
       : charCount >= CHAR_WARNING_THRESHOLD
-        ? clayColors.saved
+        ? clayColors.text
         : clayColors.caption;
 
   // ── Handlers ────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
   }, [canSubmit, clearImages, clearVideo, content, images, navigation, privacy, user, video]);
 
   // ── Render ──────────────────────────────────────────────────────────
-  const displayName = user?.displayName ?? user?.username ?? 'You';
+  const displayName = user?.displayName ?? user?.username ?? 'Bạn';
 
   return (
     <KeyboardAvoidingView
@@ -220,30 +220,30 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
     >
       {/* ── Header ────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 8) }]}>
+        <ClayText level={1} numberOfLines={1} variant="title" style={styles.headerTitle}>
+          Bài viết mới
+        </ClayText>
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel post"
           onPress={handleCancel}
           hitSlop={8}
-          style={styles.headerSideBtn}
+          style={({ pressed }) => [styles.headerSideBtn, pressed && styles.headerSidePressed]}
         >
           <ClayText variant="button" style={styles.cancelText}>
-            Cancel
+            Huỷ
           </ClayText>
         </Pressable>
-
-        <ClayText variant="heading" style={styles.headerTitle}>
-          New Post
-        </ClayText>
 
         <ClayButton
           accessibilityLabel="Publish post"
           variant="primary"
-          label="Post"
+          label="Đăng"
           disabled={!canSubmit}
           isLoading={isSubmitting}
           onPress={handleSubmit}
-          style={styles.postButton}
+          size="sm"
         />
       </View>
 
@@ -263,14 +263,16 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             />
           )}
           <View style={styles.authorInfo}>
-            <ClayText variant="heading" style={styles.authorName} numberOfLines={1}>
-              {displayName}
-            </ClayText>
-            {user && (
-              <ClayText variant="meta" style={styles.authorUsername}>
-                @{user.username}
+            <View style={styles.authorText}>
+              <ClayText variant="heading" style={styles.authorName} numberOfLines={1}>
+                {displayName}
               </ClayText>
-            )}
+              {user && (
+                <ClayText variant="caption" style={styles.authorUsername} numberOfLines={1}>
+                  @{user.username}
+                </ClayText>
+              )}
+            </View>
             <View style={styles.privacyPillWrap}>
               <PrivacyPill
                 privacy={privacy}
@@ -280,34 +282,33 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           </View>
         </View>
 
-        {/* Text input in inset container */}
-        <ClaySurface variant="inset" style={styles.inputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.textInput}
-            placeholder="What's on your mind?"
-            placeholderTextColor={clayColors.caption}
-            multiline
-            maxLength={MAX_CONTENT_LENGTH + 50}
-            value={content}
-            onChangeText={setContent}
-            editable={!isSubmitting}
-            autoFocus
-            textAlignVertical="top"
-          />
-        </ClaySurface>
+        {/* The writing area: the page itself, no box around it. */}
+        <TextInput
+          accessibilityLabel="Nội dung bài viết"
+          ref={inputRef}
+          style={[styles.textInput, webNoFocusBox]}
+          placeholder="Bạn đang nghĩ gì?"
+          placeholderTextColor={clayColors.caption}
+          multiline
+          maxLength={MAX_CONTENT_LENGTH + 50}
+          value={content}
+          onChangeText={setContent}
+          editable={!isSubmitting}
+          autoFocus
+          textAlignVertical="top"
+        />
 
         {/* Media preview */}
         <MediaPreview images={images} onRemove={removeImage} />
 
         {video ? (
-          <ClaySurface variant="inset" style={styles.videoChip}>
-            <ClayIcon name="VideoCamera" size={22} weight="regular" color={clayColors.primary} />
+          <View style={styles.videoChip}>
+            <ClayIcon name="VideoCamera" size={20} weight="regular" color={clayColors.text} />
             <View style={styles.videoChipText}>
               <ClayText variant="caption" numberOfLines={1}>
                 {video.fileName ?? 'Video đã chọn'}
               </ClayText>
-              <ClayText variant="meta">
+              <ClayText variant="meta" style={tabularNums}>
                 {Math.round(video.durationMs / 1000)} giây
                 {video.sizeBytes ? ` · ${(video.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : ''}
               </ClayText>
@@ -327,7 +328,7 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
             >
               <ClayIcon name="X" size={18} weight="bold" color={clayColors.caption} />
             </Pressable>
-          </ClaySurface>
+          </View>
         ) : null}
         {videoError ? (
           <ClayText variant="caption" style={styles.videoError} accessibilityLiveRegion="polite">
@@ -350,15 +351,9 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           ]}
           hitSlop={8}
         >
-          <ClayIcon name="Image" size={24} weight="regular" color={clayColors.primary} />
-          <ClayText
-            variant="button"
-            style={[
-              styles.toolbarLabel,
-              remainingSlots <= 0 && styles.toolbarLabelDisabled,
-            ]}
-          >
-            Photo {images.length > 0 ? `${images.length}/4` : ''}
+          <ClayIcon name="Image" size={20} weight="regular" color={clayColors.text} />
+          <ClayText variant="button" style={[styles.toolbarLabel, tabularNums]}>
+            {images.length > 0 ? `Ảnh ${images.length}/4` : 'Ảnh'}
           </ClayText>
         </Pressable>
 
@@ -373,13 +368,13 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
           ]}
           hitSlop={8}
         >
-          <ClayIcon name="VideoCamera" size={24} weight="regular" color={clayColors.primary} />
+          <ClayIcon name="VideoCamera" size={20} weight="regular" color={clayColors.text} />
           <ClayText variant="button" style={styles.toolbarLabel}>
             Video
           </ClayText>
         </Pressable>
 
-        <ClayText variant="caption" style={[styles.charCount, { color: charCountColor }]}>
+        <ClayText variant="caption" style={[styles.charCount, tabularNums, { color: charCountColor }]}>
           {charCount}/{MAX_CONTENT_LENGTH}
         </ClayText>
       </View>
@@ -409,28 +404,40 @@ export function CreateScreen({ navigation }: CreateScreenProps) {
 // Styles
 // ---------------------------------------------------------------------------
 
-const AVATAR_SIZE = 42;
+const AVATAR_SIZE = 40;
+const THUMB_SIZE = 120;
+
+// Web only: the browser draws its focus box with `outline-style: auto` whatever the width,
+// and React Native's style types have no `none`. The caret already marks focus here.
+const webNoFocusBox = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
 const styles = StyleSheet.create({
   authorBar: {
     alignItems: 'center',
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
   authorInfo: {
+    alignItems: 'flex-start',
     flex: 1,
-    marginLeft: 12,
+    flexDirection: 'row',
+    gap: claySpacing.sm,
+    justifyContent: 'space-between',
+    marginLeft: claySpacing.md,
   },
   authorName: {
     fontSize: 15,
+    lineHeight: 20,
+  },
+  authorText: {
+    flexShrink: 1,
   },
   authorUsername: {
-    marginTop: 1,
+    marginTop: 2,
   },
   privacyPillWrap: {
-    alignItems: 'flex-start',
-    marginTop: 4,
+    flexShrink: 0,
   },
   avatar: {
     borderRadius: AVATAR_SIZE / 2,
@@ -446,9 +453,9 @@ const styles = StyleSheet.create({
     borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitials: {
-    color: clayColors.primary,
+    color: clayColors.primaryInk,
     fontSize: 14,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
   },
   body: {
     flex: 1,
@@ -457,44 +464,46 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   cancelText: {
-    color: clayColors.caption,
+    color: clayColors.text,
   },
   charCount: {
-    fontSize: 13,
-    fontFamily: fontFamilies.bold,
+    color: clayColors.caption,
+    marginLeft: 'auto',
   },
   container: {
-    backgroundColor: clayColors.canvas,
+    backgroundColor: clayColors.surface,
     flex: 1,
   },
   header: {
     alignItems: 'center',
     backgroundColor: clayColors.surface,
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    paddingHorizontal: 16,
+    gap: claySpacing.xs,
+    paddingBottom: claySpacing.sm,
+    paddingHorizontal: clayDimensions.gutter,
   },
   headerSideBtn: {
+    alignItems: 'center',
+    borderRadius: clayRadii.control,
     justifyContent: 'center',
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
+    paddingHorizontal: claySpacing.md,
+  },
+  headerSidePressed: {
+    backgroundColor: clayColors.surfaceWell,
   },
   headerTitle: {
-    fontSize: 17,
-  },
-  inputContainer: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    minHeight: 140,
-    padding: 12,
-    borderRadius: clayRadii.control,
+    flex: 1,
+    fontSize: 20,
+    lineHeight: 26,
   },
   mediaRemoveBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(74,42,53,0.7)',
+    // Neutral scrim so the white cross reads on any photo.
+    backgroundColor: 'rgba(20, 20, 20, 0.6)',
     borderRadius: 12,
     height: 24,
     justifyContent: 'center',
@@ -504,62 +513,55 @@ const styles = StyleSheet.create({
     width: 24,
   },
   mediaRow: {
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: claySpacing.sm,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.md,
   },
   mediaScroll: {
     flexGrow: 0,
   },
   mediaThumbnail: {
-    borderRadius: 14,
-    height: 130,
-    width: 130,
+    borderRadius: clayRadii.media,
+    height: THUMB_SIZE,
+    width: THUMB_SIZE,
   },
   mediaThumbnailWrap: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: clayColors.border,
+    borderRadius: clayRadii.media,
     overflow: 'hidden',
-  },
-  postButton: {
-    minHeight: 38,
-    minWidth: 70,
-    paddingHorizontal: 16,
   },
   textInput: {
     color: clayColors.text,
+    flexGrow: 1,
     fontFamily: fontFamilies.regular,
     fontSize: 16,
     lineHeight: 24,
-    minHeight: 120,
-    padding: 0,
+    minHeight: 160,
+    // The caret marks focus in this borderless writing area; no web focus box.
+    outlineWidth: 0,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xs,
   },
   toolbar: {
     alignItems: 'center',
     backgroundColor: clayColors.surface,
-    borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: clayColors.rule,
+    borderTopWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
+    gap: claySpacing.xl,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: claySpacing.xs,
   },
   toolbarButton: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: claySpacing.sm,
     minHeight: clayDimensions.minTouchTarget,
-    paddingVertical: 4,
   },
   toolbarButtonDisabled: {
     opacity: 0.4,
   },
   toolbarLabel: {
-    color: clayColors.primary,
-  },
-  toolbarLabelDisabled: {
-    color: clayColors.caption,
+    color: clayColors.text,
   },
   progressFill: {
     backgroundColor: clayColors.primary,
@@ -567,7 +569,7 @@ const styles = StyleSheet.create({
     height: 4,
   },
   progressTrack: {
-    backgroundColor: clayColors.border,
+    backgroundColor: clayColors.primaryTrack,
     borderRadius: 2,
     height: 4,
     marginTop: 6,
@@ -575,18 +577,21 @@ const styles = StyleSheet.create({
   },
   videoChip: {
     alignItems: 'center',
+    backgroundColor: clayColors.surfaceWell,
+    borderRadius: clayRadii.media,
     flexDirection: 'row',
-    gap: 12,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingLeft: 14,
-    paddingVertical: 6,
+    gap: claySpacing.md,
+    marginHorizontal: clayDimensions.gutter,
+    marginTop: claySpacing.md,
+    paddingLeft: claySpacing.md,
+    paddingVertical: claySpacing.xs,
   },
   videoChipText: {
     flex: 1,
   },
   videoError: {
-    color: clayColors.error,
-    marginTop: 8,
+    color: clayColors.errorInk,
+    marginTop: claySpacing.sm,
+    paddingHorizontal: clayDimensions.gutter,
   },
 });

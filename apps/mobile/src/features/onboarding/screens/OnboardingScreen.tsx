@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,15 +15,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { showToast } from '../../../components/common/toast';
 import { UserAvatar } from '../../../components/common/UserAvatar';
 import { UserRow } from '../../../components/common/UserRow';
-import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { ClayButton } from '../../../components/ui/ClayButton';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayInput } from '../../../components/ui/ClayInput';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ApiError } from '../../../services/apiError';
 import { followApi } from '../../../services/followApi';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, claySpacing } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { tabularNums } from '../../../theme/typography';
 import { useAuthSession } from '../../auth/authSession';
 import { profileService } from '../../profile/services/profileService';
 import { suggestionReason } from '../../profile/suggestionReason';
@@ -52,17 +50,18 @@ export function OnboardingScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestedUser[] | null>(null);
   const [isFollowingAll, setIsFollowingAll] = useState(false);
+  const [suggestionsFailed, setSuggestionsFailed] = useState(false);
 
   const isSuggestionStep = step === STEP_COUNT - 1;
 
   useEffect(() => {
-    if (isSuggestionStep && suggestions === null) {
+    if (isSuggestionStep && suggestions === null && !suggestionsFailed) {
       profileService
         .getSuggestions(15)
         .then(setSuggestions)
-        .catch(() => setSuggestions([]));
+        .catch(() => setSuggestionsFailed(true));
     }
-  }, [isSuggestionStep, suggestions]);
+  }, [isSuggestionStep, suggestions, suggestionsFailed]);
 
   const finish = useCallback(async () => {
     setIsSaving(true);
@@ -170,14 +169,19 @@ export function OnboardingScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.container, { paddingBottom: insets.bottom + 16, paddingTop: insets.top + 12 }]}
+      style={[styles.container, { paddingBottom: insets.bottom + 16, paddingTop: insets.top + 8 }]}
     >
-      {/* ── Progress + skip ───────────────────────────── */}
+      {/* Step track and skip */}
       <View style={styles.topBar}>
         <View style={styles.progress}>
-          {Array.from({ length: STEP_COUNT }, (_, index) => (
-            <View key={index} style={[styles.progressDot, index <= step && styles.progressDotDone]} />
-          ))}
+          <ClayText style={tabularNums} variant="caption">
+            Bước {step + 1}/{STEP_COUNT}
+          </ClayText>
+          <View style={styles.progressTrack}>
+            {Array.from({ length: STEP_COUNT }, (_, index) => (
+              <View key={index} style={[styles.progressStep, index <= step && styles.progressStepDone]} />
+            ))}
+          </View>
         </View>
         <Pressable
           accessibilityLabel="Bỏ qua phần thiết lập"
@@ -187,7 +191,7 @@ export function OnboardingScreen() {
           onPress={finish}
           style={styles.skip}
         >
-          <ClayText style={styles.skipText} variant="caption">
+          <ClayText style={styles.skipText} variant="button">
             Bỏ qua
           </ClayText>
         </Pressable>
@@ -195,95 +199,96 @@ export function OnboardingScreen() {
 
       {step === 0 ? (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <ClayText style={styles.title} variant="title">
-            Chào mừng bạn!
+          <ClayText level={1} variant="title">
+            Hồ sơ của bạn
           </ClayText>
           <ClayText style={styles.subtitle} variant="body">
             Thêm ảnh và tên để bạn bè nhận ra bạn.
           </ClayText>
 
-          <Pressable
-            accessibilityLabel="Chọn ảnh đại diện"
-            accessibilityRole="button"
-            onPress={pickAvatar}
-            style={styles.avatarPicker}
-          >
-            <UserAvatar avatarUrl={previewUrl} name={displayName.trim() || username || '?'} size={104} />
-            <ClayText style={styles.link} variant="caption">
-              {previewUrl ? 'Đổi ảnh đại diện' : 'Thêm ảnh đại diện'}
-            </ClayText>
-          </Pressable>
-
-          <ClayText style={styles.label} variant="meta">
-            Tên hiển thị
-          </ClayText>
-          <ClaySurface style={styles.inputSurface} variant="inset">
-            <TextInput
-              accessibilityLabel="Tên hiển thị"
-              maxLength={50}
-              onChangeText={setDisplayName}
-              placeholder="Tên của bạn"
-              placeholderTextColor={clayColors.caption}
-              style={styles.input}
-              value={displayName}
+          <View style={styles.avatarRow}>
+            <UserAvatar avatarUrl={previewUrl} name={displayName.trim() || username || '?'} size={72} />
+            <ClayButton
+              accessibilityLabel="Chọn ảnh đại diện"
+              onPress={pickAvatar}
+              size="sm"
+              title={previewUrl ? 'Đổi ảnh đại diện' : 'Thêm ảnh đại diện'}
+              variant="secondary"
             />
-          </ClaySurface>
+          </View>
 
-          <ClayText style={styles.label} variant="meta">
-            Tên người dùng
-          </ClayText>
-          <ClaySurface style={styles.inputSurface} variant="inset">
-            <TextInput
-              accessibilityLabel="Tên người dùng"
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={30}
-              onChangeText={setUsername}
-              placeholder="ten.nguoi.dung"
-              placeholderTextColor={clayColors.caption}
-              style={styles.input}
-              value={username}
-            />
-          </ClaySurface>
+          <ClayInput
+            accessibilityLabel="Tên hiển thị"
+            label="Tên hiển thị"
+            maxLength={50}
+            onChangeText={setDisplayName}
+            placeholder="vd. Minh Anh"
+            value={displayName}
+          />
+          <ClayInput
+            accessibilityLabel="Tên người dùng"
+            autoCapitalize="none"
+            autoCorrect={false}
+            label="Tên người dùng"
+            maxLength={30}
+            onChangeText={setUsername}
+            placeholder="vd. minh.anh"
+            value={username}
+          />
         </ScrollView>
       ) : step === 1 ? (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <ClayEmoji name="memo" size={72} />
-          <ClayText style={styles.title} variant="title">
-            Giới thiệu đôi chút
+          <ClayText level={1} variant="title">
+            Giới thiệu bản thân
           </ClayText>
           <ClayText style={styles.subtitle} variant="body">
-            Một hai câu về bạn sẽ hiện trên trang cá nhân.
+            Một hai câu về bạn, hiện dưới tên trên trang cá nhân.
           </ClayText>
-          <ClaySurface style={[styles.inputSurface, styles.bioSurface]} variant="inset">
-            <TextInput
-              accessibilityLabel="Tiểu sử"
-              maxLength={160}
-              multiline
-              onChangeText={setBio}
-              placeholder="Bạn thích gì, đang làm gì..."
-              placeholderTextColor={clayColors.caption}
-              style={[styles.input, styles.bioInput]}
-              textAlignVertical="top"
-              value={bio}
-            />
-          </ClaySurface>
-          <ClayText style={styles.counter} variant="meta">
+          <ClayInput
+            accessibilityLabel="Tiểu sử"
+            containerStyle={styles.bioField}
+            label="Tiểu sử"
+            maxLength={160}
+            multiline
+            onChangeText={setBio}
+            placeholder="Bạn thích gì, đang làm gì"
+            style={styles.bioInput}
+            textAlignVertical="top"
+            value={bio}
+          />
+          <ClayText style={[styles.counter, tabularNums]} variant="meta">
             {bio.length}/160
           </ClayText>
         </ScrollView>
       ) : (
         <View style={styles.suggestions}>
           <View style={styles.suggestionsHeader}>
-            <ClayText style={styles.title} variant="title">
-              Những người bạn có thể quen
+            <ClayText level={1} variant="title">
+              Gợi ý theo dõi
             </ClayText>
             <ClayText style={styles.subtitle} variant="body">
               Theo dõi vài người để bảng tin có nội dung ngay.
             </ClayText>
           </View>
-          {suggestions === null ? (
-            <ActivityIndicator color={clayColors.primary} size="large" style={styles.flex} />
+          {suggestionsFailed ? (
+            <View style={styles.blockMessage}>
+              <ClayText style={styles.secondaryText} variant="body">
+                Không tải được gợi ý. Kiểm tra kết nối rồi thử lại.
+              </ClayText>
+              <ClayButton
+                accessibilityLabel="Tải lại gợi ý"
+                onPress={() => {
+                  setSuggestions(null);
+                  setSuggestionsFailed(false);
+                }}
+                size="sm"
+                style={styles.retry}
+                title="Thử lại"
+                variant="secondary"
+              />
+            </View>
+          ) : suggestions === null ? (
+            <ActivityIndicator color={clayColors.caption} style={styles.blockMessage} />
           ) : (
             <FlatList
               data={suggestions}
@@ -291,7 +296,7 @@ export function OnboardingScreen() {
               windowSize={7}
               keyExtractor={(item) => item.id}
               ListEmptyComponent={
-                <ClayText style={styles.empty} variant="body">
+                <ClayText style={[styles.blockMessage, styles.secondaryText]} variant="body">
                   Chưa có gợi ý nào. Bạn có thể tìm bạn bè ở tab Tìm kiếm.
                 </ClayText>
               }
@@ -306,8 +311,8 @@ export function OnboardingScreen() {
               loading={isFollowingAll}
               onPress={handleFollowAll}
               style={styles.followAll}
-              title="Theo dõi tất cả"
-              variant="secondary"
+              title={`Theo dõi cả ${suggestions.length} người`}
+              variant="tonal"
             />
           ) : null}
         </View>
@@ -324,6 +329,7 @@ export function OnboardingScreen() {
         disabled={isSaving}
         loading={isSaving}
         onPress={isSuggestionStep ? finish : handleNext}
+        size="lg"
         style={styles.next}
         title={isSuggestionStep ? 'Vào bảng tin' : 'Tiếp tục'}
         variant="primary"
@@ -333,23 +339,25 @@ export function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  avatarPicker: {
+  avatarRow: {
     alignItems: 'center',
-    gap: claySpacing.sm,
-    marginBottom: claySpacing.lg,
-    marginTop: claySpacing.xl,
-    minHeight: clayDimensions.minTouchTarget,
+    flexDirection: 'row',
+    gap: claySpacing.base,
+    marginBottom: claySpacing.xl,
+  },
+  bioField: {
+    marginBottom: claySpacing.xs,
   },
   bioInput: {
     minHeight: 96,
+    paddingTop: claySpacing.md,
   },
-  bioSurface: {
-    alignSelf: 'stretch',
-    marginTop: claySpacing.xl,
+  blockMessage: {
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xl,
   },
   body: {
-    alignItems: 'center',
-    paddingHorizontal: claySpacing.xl,
+    paddingHorizontal: clayDimensions.gutter,
     paddingTop: claySpacing.xl,
   },
   container: {
@@ -358,93 +366,75 @@ const styles = StyleSheet.create({
   },
   counter: {
     alignSelf: 'flex-end',
-    color: clayColors.caption,
-    marginTop: claySpacing.xs,
-  },
-  empty: {
-    color: clayColors.caption,
-    padding: claySpacing.xxl,
-    textAlign: 'center',
   },
   error: {
     color: clayColors.error,
     marginBottom: claySpacing.sm,
-    paddingHorizontal: claySpacing.xl,
-    textAlign: 'center',
+    paddingHorizontal: clayDimensions.gutter,
   },
   flex: {
     flex: 1,
   },
   followAll: {
     marginBottom: claySpacing.md,
-    marginHorizontal: claySpacing.xl,
-  },
-  input: {
-    color: clayColors.text,
-    fontFamily: fontFamilies.regular,
-    fontSize: 15,
-    minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: claySpacing.md,
-  },
-  inputSurface: {
-    alignSelf: 'stretch',
-  },
-  label: {
-    alignSelf: 'flex-start',
-    color: clayColors.textSecondary,
-    marginBottom: claySpacing.xs,
-    marginTop: claySpacing.md,
-  },
-  link: {
-    color: clayColors.primary,
+    marginHorizontal: clayDimensions.gutter,
   },
   next: {
-    marginHorizontal: claySpacing.xl,
+    marginHorizontal: clayDimensions.gutter,
   },
   progress: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: claySpacing.md,
   },
-  progressDot: {
-    backgroundColor: clayColors.border,
-    borderRadius: 3,
-    height: 6,
-    width: 28,
+  progressStep: {
+    backgroundColor: clayColors.primaryTrack,
+    borderRadius: 2,
+    height: 4,
+    width: 24,
   },
-  progressDotDone: {
+  progressStepDone: {
     backgroundColor: clayColors.primary,
+  },
+  progressTrack: {
+    flexDirection: 'row',
+    gap: claySpacing.xs,
+  },
+  retry: {
+    alignSelf: 'flex-start',
+    marginTop: claySpacing.md,
+  },
+  secondaryText: {
+    color: clayColors.textSecondary,
   },
   skip: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -claySpacing.sm,
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
+    paddingHorizontal: claySpacing.sm,
   },
   skipText: {
     color: clayColors.textSecondary,
   },
   subtitle: {
     color: clayColors.textSecondary,
-    marginTop: claySpacing.xs,
-    textAlign: 'center',
+    marginBottom: claySpacing.xl,
+    marginTop: claySpacing.sm,
   },
   suggestions: {
     flex: 1,
   },
   suggestionsHeader: {
-    alignItems: 'center',
-    paddingBottom: claySpacing.md,
-    paddingHorizontal: claySpacing.xl,
+    paddingHorizontal: clayDimensions.gutter,
     paddingTop: claySpacing.xl,
-  },
-  title: {
-    color: clayColors.text,
-    textAlign: 'center',
   },
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: claySpacing.lg,
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: clayDimensions.gutter,
   },
 });

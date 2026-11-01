@@ -214,7 +214,7 @@ export const ReelPlayer = memo(function ReelPlayer({
           <ActivityIndicator color={clayColors.onPrimary} size="large" />
         ) : isUserPaused ? (
           <View style={styles.pauseBadge}>
-            <ClayIcon color={clayColors.onPrimary} name="Play" size={40} weight="fill" />
+            <ClayIcon color={clayColors.onPrimary} name="Play" size={32} weight="fill" />
           </View>
         ) : null}
       </Pressable>
@@ -232,20 +232,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   container: {
-    backgroundColor: clayColors.text,
+    // Media viewers keep a black ground.
+    backgroundColor: '#000000',
     flex: 1,
     overflow: 'hidden',
   },
   overlayText: {
     color: clayColors.onPrimary,
   },
+  // A neutral disc keeps the white glyph readable on a bright frame.
   pauseBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderRadius: 44,
-    height: 88,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 36,
+    height: 72,
     justifyContent: 'center',
-    width: 88,
+    width: 72,
   },
   progressFill: {
     backgroundColor: clayColors.onPrimary,

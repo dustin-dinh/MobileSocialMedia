@@ -800,3 +800,74 @@ The owner wants a differentiating 1:1 messaging feature (anonymous conversations
 - `apps/api/scripts/{download-moderation-model,safety-smoke}.cjs`
 - `apps/mobile/src/features/{auth,messages,stories,settings,profile,report}/`, `apps/mobile/src/navigation/`
 - `docs/moderation/MODERATION_PLAN.md`, `docs/api-contract.md`
+
+## DEC-026 - Reduced scope for a sale: about 30% of Facebook, stable and handed over
+
+Date: 2026-11-01
+
+Status: Accepted (owner, 2026-11-01)
+
+### Context
+
+The full integration plan (`docs/plan/ke-hoach-tinh-nang.pdf`, about 364 working days) is beyond one person. The goal is to sell the product to a company that develops it further, so it must be complete and stable rather than feature-rich.
+
+### Decision
+
+1. Keep the existing feature set (about 30% of Facebook) and do three parts, about 42 working days: (1) stability: fix the 12 bugs found while planning, real logout and session revocation on password change, lockout after repeated wrong passwords, paging and Vietnamese copy, run on Android and iPhone, push notifications; (2) safety as the selling point, kept small: email-code 2FA, "who can message me" with a daily request cap, blur on post images, tappable links with a suspicious-link warning, mute, an admin report queue with an audit log for viewing anonymous identities, account deletion that keeps other people's data; (3) handover: Docker/EAS/deploy guide, handover documents.
+2. Before parts 1 and 2, the existing frontend is rebuilt with taste-skill and approved by the owner (DEC-027).
+3. The full plan stays as the buyer's roadmap.
+
+### Consequences
+
+- Group chat, communities, calls, feed ranking, polls, tags, close friends, data export, verification badges, phone verification and the web version are left to the buyer.
+- On iOS the Google button is hidden instead of adding Sign in with Apple (App Store 4.8), unless the owner decides otherwise.
+
+### Related Files
+
+- `docs/plan/`, `docs/deploy.md`, `docs/legal/`
+
+## DEC-027 - Mobile UI system: taste-skill "accent ladder", Be Vietnam Pro
+
+Date: 2026-11-01
+
+Status: Proposed (waiting for the owner's review of the rebuilt screens)
+
+### Context
+
+The owner asked to rebuild the frontend with taste-skill (installed at `~/.claude/skills/design-taste-frontend`). The app is an app screen in its terms; its "community" kind dealt two styles.
+
+### Decision
+
+1. Style `accent-ladder` (light): one brand hue, the existing raspberry `#CC2F6E`, at full strength only on small marks (one primary button per screen, active tab, like, unread dot); its tints `primarySoft` / `primaryTrack` / `primaryInk` for areas. Ground `#F6F1F3`, white surfaces, one tone step between them; no resting shadows, gradients (except the neutral scrim over video), icons in tinted shapes, emoji pictures or tracked capitals. Media viewers (Reels, stories) stay black.
+2. Type: Be Vietnam Pro, 400/500/600/700 (the dealt DM Sans has no Vietnamese glyphs); Nunito removed.
+3. One palette instead of three switchable ones; `ClayEmoji` and its 3D emoji images removed; `ClayText` gets `level` for headings; `ClayButton` gets `tonal`; `FolderTabs` is shared; bottom tabs carry Vietnamese labels.
+4. Web build: the app sits in a centred 640px column; screens have URLs (`navigationRef.ts`) so they can be inspected and deep-linked.
+5. `EXPO_PUBLIC_MOCK_SIGNED_OUT=true` runs mock data signed out, to see the auth screens.
+
+### Consequences
+
+- Component names (`clay*`) are kept to avoid churn; their look changed.
+- `node ~/.claude/skills/design-taste-frontend/scripts/lint.mjs --app apps/mobile/src` is the UI gate (0 FAIL at this point).
+
+### Related Files
+
+- `apps/mobile/src/theme/`, `apps/mobile/src/components/`, `apps/mobile/src/navigation/`, `apps/mobile/src/App.tsx`, `apps/mobile/src/features/**`
+
+## DEC-028 - Legal texts have one source: docs/legal, generated into the app
+
+Date: 2026-11-01
+
+Status: Accepted (texts are drafts until a lawyer confirms the list in `docs/legal/README.md`)
+
+### Decision
+
+The privacy policy, terms of use and community guidelines are written in `docs/legal/*.md`. `apps/mobile/scripts/build-legal-content.mjs` turns them into `src/features/settings/legalContent.ts`, which `LegalScreen` renders (Settings > Giới thiệu, and from Register). Edit the Markdown and rerun the script; never edit the generated file.
+
+### Consequences
+
+- Placeholders such as `[TÊN DOANH NGHIỆP]` show in the app until the buyer fills them in.
+- The stores also need the same texts at a public HTTPS address (open work, see `docs/deploy.md`).
+
+### Related Files
+
+- `docs/legal/`, `apps/mobile/scripts/build-legal-content.mjs`, `apps/mobile/src/features/settings/legalContent.ts`, `apps/mobile/src/features/settings/screens/LegalScreen.tsx`

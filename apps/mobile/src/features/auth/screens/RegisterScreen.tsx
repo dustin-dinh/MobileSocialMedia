@@ -6,7 +6,8 @@ import { isGoogleSignInAvailable } from '../../../config/google';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { useAuthSession } from '../authSession';
-import { authColors } from '../authTheme';
+import { clayColors } from '../../../theme/colors';
+import { fontFamilies } from '../../../theme/typography';
 import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
@@ -78,11 +79,11 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
   return (
     <AuthScreenContainer
-      footerActionLabel="Log in"
-      footerPrompt="Already have an account?"
+      footerActionLabel="Đăng nhập"
+      footerPrompt="Đã có tài khoản?"
       onFooterAction={() => navigation.navigate('Login')}
-      subtitle="Create your account to join the conversation."
-      title="Create your account"
+      subtitle="Mobile Social chỉ dành cho người từ 18 tuổi trở lên."
+      title="Tạo tài khoản"
     >
       <AuthTextInput
         autoCapitalize="none"
@@ -90,10 +91,10 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCorrect={false}
         editable={!isSubmitting}
         error={errors.username}
-        label="Username"
+        label="Tên người dùng"
         onChangeText={(value) => updateField('username', value)}
         onSubmitEditing={() => birthDateInputRef.current?.focus()}
-        placeholder="Choose a username"
+        placeholder="vd. minh.anh"
         returnKeyType="next"
         textContentType="username"
         value={values.username}
@@ -103,11 +104,12 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         error={errors.birthDate}
         inputRef={birthDateInputRef}
         keyboardType="number-pad"
-        label="Date of birth"
+        hint="Không hiện với người khác, chỉ dùng để xác nhận bạn đủ 18 tuổi."
+        label="Ngày sinh"
         maxLength={10}
         onChangeText={(value) => updateField('birthDate', formatBirthDateInput(value))}
         onSubmitEditing={() => emailInputRef.current?.focus()}
-        placeholder="DD/MM/YYYY"
+        placeholder="NN/TT/NNNN"
         returnKeyType="next"
         value={values.birthDate}
       />
@@ -122,7 +124,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         label="Email"
         onChangeText={(value) => updateField('email', value)}
         onSubmitEditing={() => passwordInputRef.current?.focus()}
-        placeholder="you@example.com"
+        placeholder="ten.ban@gmail.com"
         returnKeyType="next"
         textContentType="emailAddress"
         value={values.email}
@@ -134,11 +136,11 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         editable={!isSubmitting}
         error={errors.password}
         inputRef={passwordInputRef}
-        label="Password"
+        label="Mật khẩu"
         onChangeText={(value) => updateField('password', value)}
         onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
         password
-        placeholder="Create a password"
+        placeholder="Ít nhất 8 ký tự"
         returnKeyType="next"
         textContentType="newPassword"
         value={values.password}
@@ -150,38 +152,37 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         editable={!isSubmitting}
         error={errors.confirmPassword}
         inputRef={confirmPasswordInputRef}
-        label="Confirm password"
+        label="Nhập lại mật khẩu"
         onChangeText={(value) => updateField('confirmPassword', value)}
         onSubmitEditing={handleSubmit}
         password
-        placeholder="Re-enter your password"
         returnKeyType="done"
         textContentType="newPassword"
         value={values.confirmPassword}
       />
       <FormMessage message={submissionMessage} tone={submissionTone} />
       <ClayText style={styles.legal} variant="meta">
-        By creating an account you agree to our{' '}
+        Khi tạo tài khoản, bạn đồng ý với{' '}
         <ClayText
           accessibilityRole="link"
           onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
           style={styles.legalLink}
           variant="meta"
         >
-          Terms of Use
+          Điều khoản sử dụng
         </ClayText>{' '}
-        and{' '}
+        và{' '}
         <ClayText
           accessibilityRole="link"
           onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
           style={styles.legalLink}
           variant="meta"
         >
-          Privacy Policy
-        </ClayText>
-        .
+          Chính sách quyền riêng tư
+        </ClayText>{' '}
+        của Mobile Social.
       </ClayText>
-      <PrimaryButton isLoading={isSubmitting} label="Create account" onPress={handleSubmit} />
+      <PrimaryButton isLoading={isSubmitting} label="Tạo tài khoản" onPress={handleSubmit} />
       {showGoogle && (
         <>
           <AuthDivider />
@@ -198,10 +199,10 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
 const styles = StyleSheet.create({
   legal: {
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 16,
   },
   legalLink: {
-    color: authColors.primary,
+    color: clayColors.primaryInk,
+    fontFamily: fontFamilies.semiBold,
   },
 });

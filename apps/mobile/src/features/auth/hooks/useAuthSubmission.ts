@@ -14,28 +14,28 @@ type SubmissionMessage = {
 function getSubmissionMessage(error: unknown): SubmissionMessage {
   if (error instanceof GoogleSignInError) {
     if (error.code === 'play_services_unavailable') {
-      return { text: 'Google Play Services is unavailable on this device.', tone: 'error' };
+      return { text: 'Thiết bị này không có Google Play Services.', tone: 'error' };
     }
 
-    return { text: error.message || 'Something went wrong. Please try again.', tone: 'error' };
+    return { text: error.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.', tone: 'error' };
   }
 
   if (error instanceof ApiError) {
     switch (error.kind) {
       case 'configuration':
-        return { text: 'This app does not have an API URL configured.', tone: 'error' };
+        return { text: 'Ứng dụng chưa được cấu hình địa chỉ máy chủ.', tone: 'error' };
       case 'network':
-        return { text: 'Unable to reach the server. Check your connection and try again.', tone: 'error' };
+        return { text: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.', tone: 'error' };
       case 'unauthorized':
         return { text: error.message, tone: 'error' };
       case 'server':
         return { text: error.message, tone: 'error' };
       default:
-        return { text: 'Something went wrong. Please try again.', tone: 'error' };
+        return { text: 'Đã có lỗi xảy ra. Vui lòng thử lại.', tone: 'error' };
     }
   }
 
-  return { text: 'Something went wrong. Please try again.', tone: 'error' };
+  return { text: 'Đã có lỗi xảy ra. Vui lòng thử lại.', tone: 'error' };
 }
 
 export function useAuthSubmission() {

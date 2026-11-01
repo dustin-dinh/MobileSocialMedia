@@ -54,13 +54,14 @@ describe('VerifyCodeScreen (Phase 3)', () => {
 
   describe('UI rendering & interactions', () => {
     it('renders masked email, code input, resend button, and verify button', async () => {
-      const { getAllByText, getByLabelText, getByText } = await render(
+      const { getByLabelText, getByText } = await render(
         <TestWrapper>
           <VerifyCodeScreen navigation={mockNavigation} route={mockRoute} />
         </TestWrapper>,
       );
 
-      expect(getAllByText('Verify code').length).toBe(2);
+      expect(getByText('Nhập mã xác minh')).toBeTruthy();
+      expect(getByText('Xác minh')).toBeTruthy();
       expect(getByText(/n\*\*\*n@example\.com/)).toBeTruthy();
       expect(getByLabelText('Verification code input')).toBeTruthy();
       expect(getByLabelText('Resend code')).toBeTruthy();
@@ -183,7 +184,7 @@ describe('VerifyCodeScreen (Phase 3)', () => {
         </TestWrapper>,
       );
 
-      expect(getByText('Verify your email')).toBeTruthy();
+      expect(getByText('Xác minh email')).toBeTruthy();
 
       await act(async () => {
         fireEvent.changeText(getByLabelText('Verification code input'), '654321');
@@ -197,7 +198,7 @@ describe('VerifyCodeScreen (Phase 3)', () => {
         expect(resetSpy).not.toHaveBeenCalled();
         expect(mockNavigate).toHaveBeenCalledWith('Login', {
           email: 'nhatluan@example.com',
-          message: 'Email verified. Sign in to continue.',
+          message: 'Email đã được xác minh. Hãy đăng nhập để tiếp tục.',
         });
       });
     });
@@ -257,19 +258,19 @@ describe('VerifyCodeScreen (Phase 3)', () => {
 
       const resendButton = getByLabelText('Resend code');
       expect(resendButton.props.accessibilityState?.disabled).toBe(true);
-      expect(getByText(/Resend code in 60s/)).toBeTruthy();
+      expect(getByText(/Gửi lại mã sau 60 giây/)).toBeTruthy();
 
       // Advance 1s
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
-      expect(getByText(/Resend code in 59s/)).toBeTruthy();
+      expect(getByText(/Gửi lại mã sau 59 giây/)).toBeTruthy();
 
       // Advance remaining 59s
       await act(async () => {
         jest.advanceTimersByTime(59000);
       });
-      expect(getByText('Resend code')).toBeTruthy();
+      expect(getByText('Gửi lại mã')).toBeTruthy();
       expect(resendButton.props.accessibilityState?.disabled).toBe(false);
 
       // Tap Resend

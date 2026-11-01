@@ -4,20 +4,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions } from '../../../theme/spacing';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import { AuthBrand } from './AuthBrand';
 
 type AuthScreenContainerProps = {
+  /** One line under the lockup saying what the product is (Login only). */
+  about?: string;
+  /** Replaces the lockup with a back link on screens deeper in a flow. */
+  back?: { label: string; onPress: () => void };
   children: ReactNode;
-  footerActionLabel: string;
-  footerPrompt: string;
-  onFooterAction: () => void;
-  subtitle: string;
+  footerActionLabel?: string;
+  footerPrompt?: string;
+  onFooterAction?: () => void;
+  subtitle?: string;
   title: string;
 };
 
+/** Signed-out frame: lockup or back link, the screen's h1, the form, and a footer link at the bottom. */
 export function AuthScreenContainer({
+  about,
+  back,
   children,
   footerActionLabel,
   footerPrompt,
@@ -38,36 +45,63 @@ export function AuthScreenContainer({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <AuthBrand />
+            <View style={styles.topRow}>
+              {back ? (
+                <Pressable
+                  accessibilityLabel="Back"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={back.onPress}
+                  style={styles.back}
+                >
+                  <ClayIcon color={clayColors.text} name="CaretLeft" size={20} />
+                  <ClayText variant="button" style={styles.backText}>
+                    {back.label}
+                  </ClayText>
+                </Pressable>
+              ) : (
+                <AuthBrand />
+              )}
+            </View>
+            {about ? (
+              <ClayText variant="body" style={styles.about}>
+                {about}
+              </ClayText>
+            ) : null}
+
             <View style={styles.heading}>
-              <ClayText variant="title" style={styles.title}>
+              <ClayText level={1} variant="title">
                 {title}
               </ClayText>
-              <ClayText variant="body" style={styles.subtitle}>
-                {subtitle}
-              </ClayText>
-            </View>
-
-            <ClaySurface variant="flat" style={styles.card}>
-              {children}
-            </ClaySurface>
-
-            <View style={styles.footer}>
-              <ClayText variant="body" style={styles.footerPrompt}>
-                {footerPrompt}
-              </ClayText>
-              <Pressable
-                accessibilityLabel={footerActionLabel}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={onFooterAction}
-                style={styles.footerAction}
-              >
-                <ClayText variant="button" style={styles.footerActionText}>
-                  {footerActionLabel}
+              {subtitle ? (
+                <ClayText variant="body" style={styles.subtitle}>
+                  {subtitle}
                 </ClayText>
-              </Pressable>
+              ) : null}
             </View>
+
+            {children}
+
+            {footerActionLabel && onFooterAction ? (
+              <View style={styles.footer}>
+                {footerPrompt ? (
+                  <ClayText variant="body" style={styles.secondaryText}>
+                    {footerPrompt}
+                  </ClayText>
+                ) : null}
+                <Pressable
+                  accessibilityLabel={footerActionLabel}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={onFooterAction}
+                  style={styles.footerAction}
+                >
+                  <ClayText variant="button" style={styles.link}>
+                    {footerActionLabel}
+                  </ClayText>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -76,11 +110,23 @@ export function AuthScreenContainer({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginTop: 24,
+  about: {
+    color: clayColors.textSecondary,
+    marginTop: 12,
+  },
+  back: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    marginLeft: -4,
+    minHeight: clayDimensions.minTouchTarget,
+  },
+  backText: {
+    color: clayColors.text,
   },
   content: {
     alignSelf: 'center',
+    flexGrow: 1,
     maxWidth: 480,
     width: '100%',
   },
@@ -88,27 +134,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 6,
     justifyContent: 'center',
-    marginTop: 24,
+    // Sits at the bottom of a tall screen, 24 below the form on a short one.
+    marginTop: 'auto',
+    paddingTop: 24,
   },
   footerAction: {
-    minHeight: clayDimensions.minTouchTarget,
     justifyContent: 'center',
-    marginLeft: 6,
-    paddingHorizontal: 6,
-  },
-  footerActionText: {
-    color: clayColors.primary,
-  },
-  footerPrompt: {
-    color: clayColors.caption,
+    minHeight: clayDimensions.minTouchTarget,
   },
   heading: {
-    alignItems: 'center',
-    marginTop: 28,
+    marginBottom: 24,
+    marginTop: 24,
   },
   keyboardAvoider: {
     flex: 1,
+  },
+  link: {
+    color: clayColors.primaryInk,
   },
   safeArea: {
     backgroundColor: clayColors.canvas,
@@ -116,16 +160,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingBottom: 16,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: 8,
+  },
+  secondaryText: {
+    color: clayColors.textSecondary,
   },
   subtitle: {
-    color: clayColors.caption,
+    color: clayColors.textSecondary,
     marginTop: 8,
-    textAlign: 'center',
   },
-  title: {
-    textAlign: 'center',
+  topRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: clayDimensions.minTouchTarget,
   },
 });

@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { clayColors } from '../../theme/colors';
-import { clayDimensions, clayRadii } from '../../theme/spacing';
+import { clayDimensions } from '../../theme/spacing';
 import { ClayIcon } from '../icons/ClayIcon';
 import { ClayButton } from '../ui/ClayButton';
 import { ClaySurface } from '../ui/ClaySurface';
@@ -63,13 +63,8 @@ export function ConfirmModal({
           style={styles.dialogWrap}
         >
           <ClaySurface variant="dialog" style={styles.dialog}>
-            <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: destructive ? clayColors.errorBg : clayColors.primarySoft },
-              ]}
-            >
-              <ClayIcon color={accent} name={icon} size={22} weight="bold" />
+            <View style={styles.icon}>
+              <ClayIcon color={accent} name={icon} size={24} />
             </View>
 
             <ClayText variant="heading" style={styles.title}>
@@ -138,13 +133,9 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     width: '88%',
   },
-  iconCircle: {
-    alignItems: 'center',
-    borderRadius: clayRadii.pill,
-    height: 48,
-    justifyContent: 'center',
+  // A plain icon over the title: no tinted disc.
+  icon: {
     marginBottom: 12,
-    width: 48,
   },
   message: {
     color: clayColors.caption,
@@ -153,7 +144,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.45)',
     flex: 1,
     justifyContent: 'center',
   },

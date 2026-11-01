@@ -10,7 +10,7 @@ import type { PostMedia } from '../types';
 function formatDuration(durationMs: number): string {
   const totalSeconds = Math.round(durationMs / 1000);
 
-  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`; // taste-skill-ignore: a clock (1:05), not numbering
 }
 
 /**
@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     color: clayColors.onPrimary,
+    fontVariant: ['tabular-nums'],
   },
   fill: {
     flex: 1,

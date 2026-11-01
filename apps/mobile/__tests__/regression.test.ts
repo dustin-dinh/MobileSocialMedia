@@ -54,8 +54,8 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
     expect(errors.username).toBeDefined();
     expect(errors.email).toBeDefined();
     expect(errors.password).toBeDefined();
-    expect(errors.confirmPassword).toBe('Passwords do not match.');
-    expect(errors.birthDate).toBe('Enter your date of birth as DD/MM/YYYY.');
+    expect(errors.confirmPassword).toBe('Hai mật khẩu chưa khớp nhau.');
+    expect(errors.birthDate).toBe('Nhập ngày sinh theo dạng NN/TT/NNNN, ví dụ 05/09/1998.');
   });
 
   // R-03: Auth - Login (Valid form)
@@ -75,8 +75,8 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
       password: '',
     };
     const errors = validateLogin(emptyValues);
-    expect(errors.email).toBe('Enter your email address.');
-    expect(errors.password).toBe('Enter your password.');
+    expect(errors.email).toBe('Nhập địa chỉ email.');
+    expect(errors.password).toBe('Nhập mật khẩu.');
   });
 
   // R-05: Post - Create Post

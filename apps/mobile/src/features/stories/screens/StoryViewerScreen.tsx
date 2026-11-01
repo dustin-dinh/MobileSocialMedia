@@ -23,8 +23,8 @@ import { ClayText } from '../../../components/ui/ClayText';
 import type { MainStackParamList } from '../../../navigation/types';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions, claySpacing } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { useAuthSession } from '../../auth/authSession';
 import { REACTIONS, type ReactionType } from '../../feed/reactions';
@@ -36,6 +36,12 @@ type StoryViewerScreenProps = NativeStackScreenProps<MainStackParamList, 'StoryV
 const IMAGE_DURATION_MS = 5_000;
 const MAX_REPLY_LENGTH = 2000;
 const FALLBACK_VIDEO_MS = 15_000;
+// Media viewers keep a black ground with white text and controls (the rest of the app is light).
+const MEDIA_GROUND = '#000000';
+const MEDIA_INK = clayColors.onPrimary;
+// Placeholder on the dark reply box: a solid grey, about 9:1 on black.
+const MEDIA_PLACEHOLDER = '#BDBDBD';
+const MEDIA_OUTLINE = 'rgba(255, 255, 255, 0.6)';
 
 function StoryVideo({ isPaused, url }: { isPaused: boolean; url: string }) {
   const player = useVideoPlayer(url, (instance) => {
@@ -298,7 +304,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
             onPress={() => navigation.openProfile(group.author.id)}
             style={styles.author}
           >
-            <UserAvatar avatarUrl={group.author.avatarUrl} name={name} size={36} />
+            <UserAvatar avatarUrl={group.author.avatarUrl} name={name} size={32} />
             <ClayText numberOfLines={1} style={styles.authorName} variant="body">
               {name}
             </ClayText>
@@ -311,9 +317,9 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
             accessibilityRole="button"
             hitSlop={8}
             onPress={navigation.back}
-            style={styles.iconButton}
+            style={[styles.iconButton, styles.edgeRight]}
           >
-            <ClayIcon color={clayColors.onPrimary} name="X" size={24} weight="bold" />
+            <ClayIcon color={MEDIA_INK} name="X" size={24} weight="bold" />
           </Pressable>
         </View>
       </View>
@@ -326,24 +332,30 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
             onPress={() => navigation.open('StoryReactions', { storyId: story.id })}
             style={styles.footerButton}
           >
-            <ClayIcon color={clayColors.onPrimary} name="Heart" size={20} />
-            <ClayText style={styles.footerText} variant="caption">
+            <ClayIcon color={MEDIA_INK} name="Heart" size={18} />
+            <ClayText style={styles.footerText} variant="button">
               {story.reactionsCount ?? 0} cảm xúc
             </ClayText>
-            {story.allowAnonymous ? (
-              <ClayText style={styles.footerHint} variant="meta">
-                · cho phép ẩn danh
-              </ClayText>
-            ) : null}
+            <ClayIcon color={MEDIA_INK} name="CaretRight" size={16} />
           </Pressable>
+          {story.allowAnonymous ? (
+            <View style={styles.anonymousNote}>
+              <ClayIcon color={MEDIA_INK} name="Mask" size={16} />
+              <ClayText numberOfLines={1} style={styles.footerHint} variant="meta">
+                Cho phép ẩn danh
+              </ClayText>
+            </View>
+          ) : (
+            <View style={styles.anonymousNote} />
+          )}
           <Pressable
             accessibilityLabel="Xoá tin này"
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => setIsDeleteVisible(true)}
-            style={styles.iconButton}
+            style={[styles.iconButton, styles.edgeRight]}
           >
-            <ClayIcon color={clayColors.onPrimary} name="Trash" size={22} />
+            <ClayIcon color={MEDIA_INK} name="Trash" size={22} />
           </Pressable>
         </View>
       ) : (
@@ -365,7 +377,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
                     onPress={() => handleReact(reaction.type)}
                     style={[styles.reactionButton, isChosen && styles.reactionChosen]}
                   >
-                    <ClayText style={styles.reactionEmoji} variant="heading">
+                    <ClayText style={styles.reactionEmoji} variant="title">
                       {reaction.emoji}
                     </ClayText>
                   </Pressable>
@@ -388,7 +400,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
                   style={[styles.anonymousChip, asAnonymous && styles.anonymousChipOn]}
                 >
                   <ClayIcon
-                    color={asAnonymous ? clayColors.text : clayColors.onPrimary}
+                    color={asAnonymous ? MEDIA_GROUND : MEDIA_INK}
                     name="Mask"
                     size={18}
                   />
@@ -402,7 +414,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
                 onFocus={() => setIsTyping(true)}
                 onSubmitEditing={() => void handleReply()}
                 placeholder={asAnonymous && canBeAnonymous ? 'Trả lời ẩn danh…' : `Trả lời ${name}…`}
-                placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                placeholderTextColor={MEDIA_PLACEHOLDER}
                 returnKeyType="send"
                 style={styles.replyInput}
                 value={replyText}
@@ -416,7 +428,7 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
                 onPress={() => void handleReply()}
                 style={[styles.iconButton, (!replyText.trim() || isSending) && styles.disabled]}
               >
-                <ClayIcon color={clayColors.onPrimary} name="PaperPlaneTilt" size={22} />
+                <ClayIcon color={MEDIA_INK} name="PaperPlaneTilt" size={22} />
               </Pressable>
             </View>
           </View>
@@ -441,16 +453,24 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
 const styles = StyleSheet.create({
   anonymousChip: {
     alignItems: 'center',
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 22,
+    borderColor: MEDIA_OUTLINE,
+    borderRadius: clayRadii.pill,
     borderWidth: 1,
     height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
     width: clayDimensions.minTouchTarget,
   },
+  // On: an inverted white disc, the media viewers' selected state (no brand colour here).
   anonymousChipOn: {
-    backgroundColor: clayColors.onPrimary,
-    borderColor: clayColors.onPrimary,
+    backgroundColor: MEDIA_INK,
+    borderColor: MEDIA_INK,
+  },
+  anonymousNote: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: claySpacing.xs,
+    marginLeft: claySpacing.md,
   },
   author: {
     alignItems: 'center',
@@ -460,58 +480,70 @@ const styles = StyleSheet.create({
     minHeight: clayDimensions.minTouchTarget,
   },
   authorName: {
-    color: clayColors.onPrimary,
+    color: MEDIA_INK,
     flexShrink: 1,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: 14,
+    lineHeight: 20,
   },
   bar: {
     backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 2,
+    borderRadius: clayRadii.pill,
     flex: 1,
-    height: 3,
+    height: 2,
     overflow: 'hidden',
   },
   barFill: {
-    backgroundColor: clayColors.onPrimary,
+    backgroundColor: MEDIA_INK,
     height: '100%',
   },
   bars: {
     flexDirection: 'row',
-    gap: 4,
+    gap: claySpacing.xs,
   },
   container: {
-    backgroundColor: clayColors.text,
+    backgroundColor: MEDIA_GROUND,
     flex: 1,
+  },
+  disabled: {
+    opacity: 0.4,
   },
   footer: {
     alignItems: 'center',
     bottom: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     left: 0,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: clayDimensions.gutter,
     position: 'absolute',
     right: 0,
   },
   footerButton: {
     alignItems: 'center',
+    borderColor: MEDIA_OUTLINE,
+    borderRadius: clayRadii.pill,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: claySpacing.sm,
     minHeight: clayDimensions.minTouchTarget,
-  },
-  disabled: {
-    opacity: 0.4,
+    paddingLeft: claySpacing.base,
+    paddingRight: claySpacing.md,
   },
   footerHint: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: MEDIA_INK,
+    flexShrink: 1,
   },
   footerText: {
-    color: clayColors.onPrimary,
+    ...tabularNums,
+    color: MEDIA_INK,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     marginTop: claySpacing.sm,
+  },
+  // Pulls a 44px icon button at the right edge out so its glyph lines up with the 16px margin.
+  edgeRight: {
+    marginRight: -10,
   },
   iconButton: {
     alignItems: 'center',
@@ -519,9 +551,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: clayDimensions.minTouchTarget,
   },
+  media: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   reactionButton: {
     alignItems: 'center',
-    borderRadius: 22,
+    borderRadius: clayRadii.pill,
     height: clayDimensions.minTouchTarget,
     justifyContent: 'center',
     width: clayDimensions.minTouchTarget,
@@ -530,7 +569,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   reactionEmoji: {
-    fontSize: 26,
+    lineHeight: 28,
   },
   reactionRow: {
     flexDirection: 'row',
@@ -546,18 +585,18 @@ const styles = StyleSheet.create({
   },
   replyFooter: {
     gap: claySpacing.sm,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: clayDimensions.gutter,
   },
   replyInput: {
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 22,
+    borderColor: MEDIA_OUTLINE,
+    borderRadius: clayRadii.pill,
     borderWidth: 1,
-    color: clayColors.onPrimary,
+    color: MEDIA_INK,
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: 15,
     minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: 16,
+    paddingHorizontal: claySpacing.base,
     paddingVertical: 10,
   },
   replyRow: {
@@ -565,23 +604,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: claySpacing.sm,
   },
-  media: {
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
   scrimBottom: {
     bottom: 0,
-    experimental_backgroundImage: 'linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0))',
-    height: 140,
+    experimental_backgroundImage: 'linear-gradient(to top, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0))', // taste-skill-ignore: the media scrim, neutral black under white text over a photo or video
+    height: 200,
     left: 0,
     position: 'absolute',
     right: 0,
   },
   scrimTop: {
-    experimental_backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0))',
+    experimental_backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0))', // taste-skill-ignore: the media scrim, neutral black under white text over a photo or video
     height: 160,
     left: 0,
     position: 'absolute',
@@ -589,11 +621,12 @@ const styles = StyleSheet.create({
     top: 0,
   },
   time: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    ...tabularNums,
+    color: MEDIA_INK,
   },
   top: {
     left: 0,
-    paddingHorizontal: claySpacing.md,
+    paddingHorizontal: clayDimensions.gutter,
     position: 'absolute',
     right: 0,
     top: 0,

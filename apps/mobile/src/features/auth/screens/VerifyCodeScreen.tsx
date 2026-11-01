@@ -2,12 +2,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions, claySpacing } from '../../../theme/spacing';
-import { authColors } from '../authTheme';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { tabularNums } from '../../../theme/typography';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -97,7 +96,7 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
       if (verified) {
         navigation.navigate('Login', {
           email,
-          message: 'Email verified. Sign in to continue.',
+          message: 'Email đã được xác minh. Hãy đăng nhập để tiếp tục.',
         });
       }
 
@@ -129,7 +128,7 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     });
     if (result?.success) {
       setCountdown(RESEND_COOLDOWN_SECONDS);
-      setResendStatus('New verification code sent.');
+      setResendStatus('Đã gửi mã mới tới email của bạn.');
     }
   };
 
@@ -137,25 +136,16 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
 
   return (
     <AuthScreenContainer
-      footerActionLabel="Log in"
-      footerPrompt={isEmailVerification ? 'Already verified?' : 'Remember your password?'}
+      back={{
+        label: isEmailVerification ? 'Đăng nhập' : 'Quên mật khẩu',
+        onPress: () => navigation.navigate(isEmailVerification ? 'Login' : 'ForgotPassword'),
+      }}
+      footerActionLabel="Đăng nhập"
+      footerPrompt={isEmailVerification ? 'Đã xác minh rồi?' : 'Đã nhớ mật khẩu?'}
       onFooterAction={() => navigation.navigate('Login')}
-      subtitle={`Enter the 6-digit code sent to ${maskedEmail}`}
-      title={isEmailVerification ? 'Verify your email' : 'Verify code'}
+      subtitle={`Nhập mã gồm 6 chữ số vừa gửi tới ${maskedEmail}.`}
+      title={isEmailVerification ? 'Xác minh email' : 'Nhập mã xác minh'}
     >
-      <Pressable
-        accessibilityLabel="Back"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={() => navigation.navigate(isEmailVerification ? 'Login' : 'ForgotPassword')}
-        style={styles.backButton}
-      >
-        <ClayIcon color={authColors.primary} name="CaretLeft" size={18} weight="bold" />
-        <ClayText style={styles.backButtonText} variant="caption">
-          {isEmailVerification ? 'Back to Log in' : 'Back to Forgot password'}
-        </ClayText>
-      </Pressable>
-
       <Pressable
         accessibilityLabel="Verification code"
         accessibilityRole="none"
@@ -189,7 +179,6 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
                 key={index}
                 style={[
                   styles.digitBox,
-                  digit ? styles.digitBoxFilled : undefined,
                   isActive ? styles.digitBoxActive : undefined,
                   hasError ? styles.digitBoxError : undefined,
                 ]}
@@ -224,10 +213,10 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
           style={styles.resendAction}
         >
           <ClayText
-            style={countdown > 0 ? styles.resendTextDisabled : styles.resendText}
-            variant="caption"
+            style={[tabularNums, countdown > 0 ? styles.resendTextDisabled : styles.resendText]}
+            variant="button"
           >
-            {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
+            {countdown > 0 ? `Gửi lại mã sau ${countdown} giây` : 'Gửi lại mã'}
           </ClayText>
         </Pressable>
       </View>
@@ -236,7 +225,7 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
         accessibilityLabel="Verify code"
         disabled={isVerifyDisabled}
         isLoading={isSubmitting}
-        label="Verify code"
+        label="Xác minh"
         onPress={handleVerify}
       />
     </AuthScreenContainer>
@@ -244,58 +233,44 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingVertical: 4,
-  },
-  backButtonText: {
-    color: authColors.primary,
-    marginLeft: 4,
-  },
   boxesRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: claySpacing.sm,
     width: '100%',
   },
   codeContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: claySpacing.base,
+    marginBottom: claySpacing.base,
     position: 'relative',
     width: '100%',
   },
+  // Six boxes share the width with one gap; the box with the caret takes the selected edge.
   digitBox: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderColor: clayColors.border,
-    borderRadius: claySpacing.md,
-    borderWidth: 1.5,
-    height: 52,
+    backgroundColor: clayColors.surface,
+    borderColor: clayColors.control,
+    borderRadius: clayRadii.control,
+    borderWidth: 1,
+    flex: 1,
+    height: 56,
     justifyContent: 'center',
-    width: 44,
   },
   digitBoxActive: {
     borderColor: clayColors.primary,
+    borderWidth: 2,
   },
   digitBoxError: {
     borderColor: clayColors.error,
   },
-  digitBoxFilled: {
-    backgroundColor: clayColors.surface,
-    borderColor: clayColors.border,
-  },
   digitText: {
-    color: clayColors.text,
-    fontSize: 22,
+    ...tabularNums,
     textAlign: 'center',
   },
   errorText: {
     color: clayColors.error,
     marginBottom: claySpacing.sm,
-    marginTop: claySpacing.xs,
-    textAlign: 'center',
+    marginTop: -claySpacing.sm,
   },
   hiddenInput: {
     height: '100%',
@@ -307,15 +282,14 @@ const styles = StyleSheet.create({
   resendAction: {
     justifyContent: 'center',
     minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: claySpacing.sm,
   },
   resendContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: claySpacing.sm,
+    alignItems: 'flex-start',
+    marginBottom: claySpacing.sm,
+    marginTop: -claySpacing.sm,
   },
   resendText: {
-    color: authColors.primary,
+    color: clayColors.primaryInk,
   },
   resendTextDisabled: {
     color: clayColors.caption,

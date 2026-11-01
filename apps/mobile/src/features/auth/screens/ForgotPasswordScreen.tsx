@@ -1,11 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
 
-import { ClayIcon } from '../../../components/icons/ClayIcon';
-import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
-import { authColors } from '../authTheme';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
@@ -53,25 +49,10 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
 
   return (
     <AuthScreenContainer
-      footerActionLabel="Log in"
-      footerPrompt="Remember your password?"
-      onFooterAction={() => navigation.navigate('Login')}
-      subtitle="Enter your email to receive a 6-digit verification code."
-      title="Forgot password"
+      back={{ label: 'Đăng nhập', onPress: () => navigation.navigate('Login') }}
+      subtitle="Nhập email của tài khoản. Chúng tôi sẽ gửi một mã gồm 6 chữ số để bạn đặt lại mật khẩu."
+      title="Quên mật khẩu"
     >
-      <Pressable
-        accessibilityLabel="Back"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={() => navigation.navigate('Login')}
-        style={styles.backButton}
-      >
-        <ClayIcon color={authColors.primary} name="CaretLeft" size={18} weight="bold" />
-        <ClayText style={styles.backButtonText} variant="caption">
-          Back to Log in
-        </ClayText>
-      </Pressable>
-
       <AuthTextInput
         accessibilityLabel="Email input"
         autoCapitalize="none"
@@ -83,7 +64,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
         label="Email"
         onChangeText={handleEmailChange}
         onSubmitEditing={handleSubmit}
-        placeholder="you@example.com"
+        placeholder="ten.ban@gmail.com"
         returnKeyType="done"
         textContentType="emailAddress"
         value={email}
@@ -95,22 +76,9 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
         accessibilityLabel="Send reset code"
         disabled={isSubmitting}
         isLoading={isSubmitting}
-        label="Send code"
+        label="Gửi mã"
         onPress={handleSubmit}
       />
     </AuthScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  backButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingVertical: 4,
-  },
-  backButtonText: {
-    color: authColors.primary,
-    marginLeft: 4,
-  },
-});

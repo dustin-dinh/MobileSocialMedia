@@ -38,7 +38,7 @@ function delay(ms: number): Promise<void> {
 function buildMockProfile(user: ProfileOwner): UserProfile {
   return {
     avatarUrl: user.avatarUrl,
-    bio: user.bio ?? 'Mobile developer • Coffee lover ☕ • Building cool stuff 🚀',
+    bio: user.bio ?? 'Lập trình viên di động ở Đà Nẵng. Sáng cà phê, chiều chạy bộ ven sông Hàn.',
     displayName: user.displayName,
     followersCount: 128,
     followingCount: 64,

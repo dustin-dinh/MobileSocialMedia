@@ -26,8 +26,8 @@ function delay(ms: number): Promise<void> {
 
 const MOCK_USERS: SearchedUser[] = [
   {
-    avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcabd9c?w=120&h=120&fit=crop&crop=face',
-    bio: 'Full-stack developer | Open source enthusiast 🌟',
+    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face',
+    bio: 'Lập trình viên full-stack, đóng góp mã nguồn mở cuối tuần.',
     displayName: 'Alex Rivera',
     followersCount: 1_240,
     id: 'user-002',
@@ -36,7 +36,7 @@ const MOCK_USERS: SearchedUser[] = [
   },
   {
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face',
-    bio: 'UI/UX Designer at Creative Studio • Đà Nẵng 🇻🇳',
+    bio: 'Thiết kế UI/UX ở một studio nhỏ tại Đà Nẵng.',
     displayName: 'Minh Trần',
     followersCount: 3_520,
     id: 'user-003',
@@ -54,7 +54,7 @@ const MOCK_USERS: SearchedUser[] = [
   },
   {
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face',
-    bio: 'Photography • Travel • Coffee addict ☕',
+    bio: 'Chụp ảnh phố, đi đây đi đó, nghiện cà phê sữa đá.',
     displayName: 'Thanh Nguyễn',
     followersCount: 5_100,
     id: 'user-005',
@@ -63,7 +63,7 @@ const MOCK_USERS: SearchedUser[] = [
   },
   {
     avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face',
-    bio: 'Product Manager • Startup life 🚀',
+    bio: 'Quản lý sản phẩm ở một startup giáo dục.',
     displayName: 'Linh Phạm',
     followersCount: 720,
     id: 'user-006',
@@ -72,7 +72,7 @@ const MOCK_USERS: SearchedUser[] = [
   },
   {
     avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face',
-    bio: 'Backend engineer | Golang | Kubernetes',
+    bio: 'Kỹ sư backend: Go, Kubernetes.',
     displayName: 'Đức Hoàng',
     followersCount: 2_340,
     id: 'user-007',

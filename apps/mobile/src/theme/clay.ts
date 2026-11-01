@@ -19,11 +19,10 @@ export function getClayBoxShadow(
 ): string {
   switch (type) {
     case 'floating':
-      return '0px 8px 24px rgba(100,60,85,0.18)';
+      return '0px 8px 24px rgba(20,12,16,0.16)';
     case 'raised':
     case 'card':
     case 'pill':
-      return '0px 2px 8px rgba(100,60,85,0.08)';
     case 'raisedPrimary':
     case 'inset':
     case 'lite':

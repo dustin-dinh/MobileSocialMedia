@@ -5,19 +5,23 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
 import { showToast, ToastHost } from '../../../components/common/toast';
 import { UserAvatar } from '../../../components/common/UserAvatar';
+import { ClayInput } from '../../../components/ui/ClayInput';
 import { ClaySurface } from '../../../components/ui/ClaySurface';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ApiError } from '../../../services/apiError';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { profileColors, profileRadii } from '../profileTheme';
 import type { UpdateProfilePayload, UserProfile } from '../types';
 
@@ -51,6 +55,7 @@ export function EditProfileModal({
   const [avatar, setAvatar] = useState<AvatarChange>(undefined);
   const [cover, setCover] = useState<AvatarChange>(undefined);
   const [isSaving, setIsSaving] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Sync form when profile changes or modal opens
   useEffect(() => {
@@ -164,47 +169,46 @@ export function EditProfileModal({
             style={styles.sheetWrap}
             onPress={() => { /* prevent close */ }}
           >
-            <ClaySurface variant="modal" style={styles.sheet}>
-              {/* ── Handle indicator ────────────────────── */}
+            <ClaySurface
+              variant="modal"
+              style={[styles.sheet, { paddingBottom: insets.bottom + claySpacing.base }]}
+            >
               <View style={styles.handleWrap}>
                 <View style={styles.handle} />
               </View>
 
-              {/* ── Header ─────────────────────────────── */}
               <View style={styles.header}>
                 <Pressable
                   accessibilityLabel="Hủy chỉnh sửa"
                   accessibilityRole="button"
                   onPress={onClose}
                   hitSlop={12}
-                  style={styles.headerButton}
+                  style={[styles.headerButton, styles.headerButtonStart]}
                 >
                   <ClayText variant="body" style={styles.cancelText}>
                     Hủy
                   </ClayText>
                 </Pressable>
 
-                <ClayText variant="heading" style={styles.headerTitle}>
+                <ClayText level={2} variant="heading" style={styles.headerTitle}>
                   Chỉnh sửa hồ sơ
                 </ClayText>
 
                 <Pressable
                   accessibilityLabel="Lưu thông tin hồ sơ"
                   accessibilityRole="button"
+                  accessibilityState={{ busy: isSaving, disabled: !canSave }}
                   onPress={handleSave}
                   disabled={!canSave}
                   hitSlop={12}
-                  style={styles.headerButton}
+                  style={[styles.headerButton, styles.headerButtonEnd]}
                 >
                   {isSaving ? (
                     <ActivityIndicator color={profileColors.primary} size="small" />
                   ) : (
                     <ClayText
                       variant="body"
-                      style={[
-                        styles.saveText,
-                        !canSave && styles.saveTextDisabled,
-                      ]}
+                      style={[styles.saveText, !canSave && styles.saveTextDisabled]}
                     >
                       Lưu
                     </ClayText>
@@ -212,8 +216,11 @@ export function EditProfileModal({
                 </Pressable>
               </View>
 
-              {/* ── Cover ───────────────────────────────── */}
-              <View style={styles.coverRow}>
+              <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+                {/* Cover */}
+                <ClayText variant="caption" style={styles.label}>
+                  Ảnh bìa
+                </ClayText>
                 {coverPreviewUrl ? (
                   <ExpoImage
                     contentFit="cover"
@@ -225,16 +232,16 @@ export function EditProfileModal({
                     <ClayText variant="meta">Chưa có ảnh bìa</ClayText>
                   </View>
                 )}
-                <View style={styles.coverActions}>
+                <View style={styles.pictureActions}>
                   <Pressable
                     accessibilityLabel="Chọn ảnh bìa mới"
                     accessibilityRole="button"
                     disabled={isSaving}
                     hitSlop={8}
                     onPress={handlePickCover}
-                    style={styles.avatarAction}
+                    style={styles.textAction}
                   >
-                    <ClayText variant="caption" style={styles.saveText}>
+                    <ClayText variant="caption" style={styles.actionText}>
                       Đổi ảnh bìa
                     </ClayText>
                   </Pressable>
@@ -245,99 +252,86 @@ export function EditProfileModal({
                       disabled={isSaving}
                       hitSlop={8}
                       onPress={() => setCover(null)}
-                      style={styles.avatarAction}
+                      style={styles.textAction}
                     >
-                      <ClayText variant="caption" style={styles.removeAvatarText}>
+                      <ClayText variant="caption" style={styles.removeText}>
                         Gỡ ảnh bìa
                       </ClayText>
                     </Pressable>
                   ) : null}
                 </View>
-              </View>
 
-              {/* ── Avatar ──────────────────────────────── */}
-              <View style={styles.avatarRow}>
-                <UserAvatar
-                  avatarUrl={previewUrl}
-                  name={displayName.trim() || profile.username}
-                  size={72}
-                />
-                <View style={styles.avatarActions}>
-                  <Pressable
-                    accessibilityLabel="Chọn ảnh đại diện mới"
-                    accessibilityRole="button"
-                    disabled={isSaving}
-                    hitSlop={8}
-                    onPress={handlePickAvatar}
-                    style={styles.avatarAction}
-                  >
-                    <ClayText variant="caption" style={styles.saveText}>
-                      Đổi ảnh đại diện
-                    </ClayText>
-                  </Pressable>
-                  {previewUrl ? (
+                {/* Avatar */}
+                <View style={styles.avatarRow}>
+                  <UserAvatar
+                    avatarUrl={previewUrl}
+                    name={displayName.trim() || profile.username}
+                    size={64}
+                  />
+                  <View style={styles.avatarActions}>
                     <Pressable
-                      accessibilityLabel="Gỡ ảnh đại diện"
+                      accessibilityLabel="Chọn ảnh đại diện mới"
                       accessibilityRole="button"
                       disabled={isSaving}
                       hitSlop={8}
-                      onPress={() => setAvatar(null)}
-                      style={styles.avatarAction}
+                      onPress={handlePickAvatar}
+                      style={styles.textAction}
                     >
-                      <ClayText variant="caption" style={styles.removeAvatarText}>
-                        Gỡ ảnh
+                      <ClayText variant="caption" style={styles.actionText}>
+                        Đổi ảnh đại diện
                       </ClayText>
                     </Pressable>
-                  ) : null}
+                    {previewUrl ? (
+                      <Pressable
+                        accessibilityLabel="Gỡ ảnh đại diện"
+                        accessibilityRole="button"
+                        disabled={isSaving}
+                        hitSlop={8}
+                        onPress={() => setAvatar(null)}
+                        style={styles.textAction}
+                      >
+                        <ClayText variant="caption" style={styles.removeText}>
+                          Gỡ ảnh
+                        </ClayText>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
 
-              {/* ── Fields ──────────────────────────────── */}
-              <View style={styles.fieldGroup}>
-                <ClayText variant="meta" style={styles.label}>
-                  Tên hiển thị
-                </ClayText>
-                <ClaySurface variant="inset" style={styles.inputSurface}>
-                  <TextInput
-                    style={styles.input}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    placeholder="Tên hiển thị của bạn"
-                    placeholderTextColor={profileColors.caption}
-                    maxLength={MAX_NAME_LENGTH}
-                    editable={!isSaving}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </ClaySurface>
-                <ClayText variant="caption" style={styles.charHint}>
+                {/* Fields: label above, the length limit under each field */}
+                <ClayInput
+                  autoCapitalize="words"
+                  containerStyle={styles.field}
+                  editable={!isSaving}
+                  label="Tên hiển thị"
+                  maxLength={MAX_NAME_LENGTH}
+                  onChangeText={setDisplayName}
+                  placeholder="Tên hiển thị của bạn"
+                  returnKeyType="next"
+                  value={displayName}
+                />
+                <ClayText variant="meta" style={styles.charHint}>
                   {displayName.length}/{MAX_NAME_LENGTH}
                 </ClayText>
-              </View>
 
-              <View style={styles.fieldGroup}>
-                <ClayText variant="meta" style={styles.label}>
-                  Tiểu sử (Bio)
-                </ClayText>
-                <ClaySurface variant="inset" style={[styles.inputSurface, styles.bioInputSurface]}>
-                  <TextInput
-                    style={[styles.input, styles.bioInput]}
-                    value={bio}
-                    onChangeText={setBio}
-                    placeholder="Giới thiệu đôi nét về bản thân"
-                    placeholderTextColor={profileColors.caption}
-                    maxLength={MAX_BIO_LENGTH}
-                    editable={!isSaving}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                    returnKeyType="done"
-                  />
-                </ClaySurface>
-                <ClayText variant="caption" style={styles.charHint}>
+                <ClayInput
+                  containerStyle={styles.field}
+                  editable={!isSaving}
+                  label="Tiểu sử"
+                  maxLength={MAX_BIO_LENGTH}
+                  multiline
+                  numberOfLines={3}
+                  onChangeText={setBio}
+                  placeholder="Giới thiệu đôi nét về bản thân"
+                  returnKeyType="done"
+                  style={styles.bioInput}
+                  textAlignVertical="top"
+                  value={bio}
+                />
+                <ClayText variant="meta" style={styles.charHint}>
                   {bio.length}/{MAX_BIO_LENGTH}
                 </ClayText>
-              </View>
+              </ScrollView>
             </ClaySurface>
           </Pressable>
         </KeyboardAvoidingView>
@@ -348,17 +342,35 @@ export function EditProfileModal({
 }
 
 const styles = StyleSheet.create({
-  avatarAction: {
-    justifyContent: 'center',
-    minHeight: 36,
+  actionText: {
+    color: profileColors.text,
+    fontFamily: fontFamilies.semiBold,
   },
   avatarActions: {
-    marginLeft: 16,
+    marginLeft: claySpacing.base,
   },
-  coverActions: {
+  avatarRow: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: 20,
-    marginTop: 4,
+    marginBottom: claySpacing.base,
+    marginTop: claySpacing.sm,
+  },
+  bioInput: {
+    minHeight: 88,
+    paddingTop: claySpacing.md,
+  },
+  body: {
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: claySpacing.sm,
+  },
+  cancelText: {
+    color: profileColors.textSecondary,
+  },
+  charHint: {
+    ...tabularNums,
+    marginBottom: claySpacing.base,
+    marginTop: claySpacing.xs,
+    textAlign: 'right',
   },
   coverEmpty: {
     alignItems: 'center',
@@ -366,105 +378,85 @@ const styles = StyleSheet.create({
   },
   coverPreview: {
     backgroundColor: profileColors.surfaceWell,
-    borderRadius: profileRadii.button,
+    borderRadius: clayRadii.media,
     height: 96,
     width: '100%',
   },
-  coverRow: {
-    marginBottom: 12,
-    paddingHorizontal: 20,
-  },
-  avatarRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingHorizontal: 20,
-  },
-  removeAvatarText: {
-    color: profileColors.danger,
-  },
-  bioInput: {
-    height: 72,
-  },
-  bioInputSurface: {
-    height: 96,
-  },
-  cancelText: {
-    color: profileColors.caption,
-  },
-  charHint: {
-    marginTop: 6,
-    textAlign: 'right',
-  },
-  fieldGroup: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  field: {
+    marginBottom: 0,
   },
   handle: {
     backgroundColor: profileColors.border,
-    borderRadius: 3,
-    height: 5,
-    width: 44,
+    borderRadius: clayRadii.pill,
+    height: 4,
+    width: 36,
   },
   handleWrap: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: claySpacing.sm,
   },
   header: {
     alignItems: 'center',
+    borderBottomColor: profileColors.border,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingBottom: claySpacing.xs,
+    paddingHorizontal: clayDimensions.gutter,
   },
   headerButton: {
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
+  },
+  headerButtonEnd: {
+    alignItems: 'flex-end',
+  },
+  headerButtonStart: {
+    alignItems: 'flex-start',
   },
   headerTitle: {
     color: profileColors.text,
-  },
-  input: {
-    color: profileColors.text,
-    fontFamily: 'Nunito_500Medium',
-    fontSize: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  inputSurface: {
-    backgroundColor: profileColors.surfaceWell,
-    borderRadius: profileRadii.button,
-    marginTop: 8,
   },
   keyboardWrap: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   label: {
-    color: profileColors.textSecondary,
+    color: profileColors.text,
+    fontFamily: fontFamilies.medium,
+    fontSize: 14,
+    marginBottom: claySpacing.sm,
+    marginTop: claySpacing.sm,
   },
   overlay: {
-    backgroundColor: 'rgba(74,42,53,0.45)',
+    backgroundColor: 'rgba(20,12,16,0.45)',
     flex: 1,
     justifyContent: 'flex-end',
   },
+  pictureActions: {
+    flexDirection: 'row',
+    gap: claySpacing.lg,
+  },
+  removeText: {
+    color: profileColors.danger,
+  },
   saveText: {
     color: profileColors.primary,
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: fontFamilies.semiBold,
   },
   saveTextDisabled: {
     color: profileColors.caption,
-    opacity: 0.5,
   },
   sheet: {
     borderTopLeftRadius: profileRadii.modal,
     borderTopRightRadius: profileRadii.modal,
-    paddingBottom: 40,
   },
   sheetWrap: {
-    maxHeight: '75%',
+    maxHeight: '85%',
+  },
+  textAction: {
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
   },
 });
-

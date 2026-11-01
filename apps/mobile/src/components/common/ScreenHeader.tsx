@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clayColors } from '../../theme/colors';
 import { clayDimensions, claySpacing } from '../../theme/spacing';
+import { fontFamilies } from '../../theme/typography';
 import { ClayIcon } from '../icons/ClayIcon';
 import { ClayText } from '../ui/ClayText';
 
@@ -14,7 +15,10 @@ type ScreenHeaderProps = {
   title: string;
 };
 
-/** Top bar for screens pushed on top of the tabs: back button, title, optional action. */
+/**
+ * Top bar for screens pushed on top of the tabs: back button, the screen's
+ * title (its h1, left-aligned beside the back button), optional action.
+ */
 export function ScreenHeader({ onBack, right, title }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
 
@@ -33,7 +37,7 @@ export function ScreenHeader({ onBack, right, title }: ScreenHeaderProps) {
       ) : (
         <View style={styles.side} />
       )}
-      <ClayText numberOfLines={1} style={styles.title} variant="heading">
+      <ClayText level={1} numberOfLines={1} style={styles.title} variant="heading">
         {title}
       </ClayText>
       <View style={styles.side}>{right}</View>
@@ -46,7 +50,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: clayColors.canvas,
     borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     paddingBottom: claySpacing.sm,
     paddingHorizontal: claySpacing.sm,
@@ -60,6 +64,8 @@ const styles = StyleSheet.create({
   title: {
     color: clayColors.text,
     flex: 1,
-    textAlign: 'center',
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: fontFamilies.bold,
   },
 });

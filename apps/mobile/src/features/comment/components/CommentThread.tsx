@@ -14,18 +14,17 @@ import {
 import { ActionSheet, type ActionSheetOption } from '../../../components/common/ActionSheet';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { UserAvatar } from '../../../components/common/UserAvatar';
-import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
 import { useAuthSession } from '../../auth/authSession';
 import type { Post } from '../../feed/types';
 import { ReportModal } from '../../report/ReportModal';
 import type { ReportTarget } from '../../report/reportService';
-import { commentRadii } from '../commentTheme';
 import { useCommentThread, type CommentRow } from '../hooks/useCommentThread';
 import type { PostComment } from '../types';
 import { CommentItem } from './CommentItem';
@@ -33,13 +32,27 @@ import { CommentItem } from './CommentItem';
 function CommentEmptyState() {
   return (
     <View style={styles.emptyContainer}>
-      <ClayEmoji name="speech_balloon" size={56} />
-      <ClayText variant="heading" style={styles.emptyTitle}>
-        Chưa có bình luận nào
+      <ClayText variant="body" style={styles.emptyText}>
+        Chưa có bình luận nào. Bình luận đầu tiên sẽ hiện ở đây.
       </ClayText>
-      <ClayText variant="caption" style={styles.emptySubtitle}>
-        Hãy là người đầu tiên bình luận về bài viết này!
+    </View>
+  );
+}
+
+function CommentLoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View style={styles.emptyContainer}>
+      <ClayText variant="body" style={styles.emptyText}>
+        Không tải được bình luận.
       </ClayText>
+      <ClayButton
+        accessibilityLabel="Tải lại bình luận"
+        onPress={onRetry}
+        size="sm"
+        style={styles.retryButton}
+        title="Thử lại"
+        variant="secondary"
+      />
     </View>
   );
 }
@@ -210,7 +223,7 @@ export function CommentThread({
       {/* ── Comment List ─────────────────────────────── */}
       {thread.isLoading && !header ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={clayColors.primary} />
+          <ActivityIndicator size="small" color={clayColors.caption} />
           <ClayText variant="caption" style={styles.loadingText}>
             Đang tải bình luận...
           </ClayText>
@@ -230,14 +243,16 @@ export function CommentThread({
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             thread.isLoading ? (
-              <ActivityIndicator color={clayColors.primary} style={styles.inlineLoading} />
+              <ActivityIndicator color={clayColors.caption} style={styles.inlineLoading} />
+            ) : thread.loadFailed ? (
+              <CommentLoadError onRetry={() => void thread.refresh()} />
             ) : (
               CommentEmptyState
             )
           }
           ListFooterComponent={
             thread.isLoadingMore ? (
-              <ActivityIndicator color={clayColors.primary} style={styles.inlineLoading} />
+              <ActivityIndicator color={clayColors.caption} style={styles.inlineLoading} />
             ) : null
           }
           ListHeaderComponent={header}
@@ -282,11 +297,13 @@ export function CommentThread({
 
       {/* ── Bottom Input Bar ─────────────────────────── */}
       <View style={[styles.inputContainer, { paddingBottom: bottomInset }]}>
-        <UserAvatar
-          avatarUrl={user?.avatarUrl ?? null}
-          name={user?.displayName?.trim() || user?.username || '?'}
-          size={34}
-        />
+        <View style={styles.composerAvatar}>
+          <UserAvatar
+            avatarUrl={user?.avatarUrl ?? null}
+            name={user?.displayName?.trim() || user?.username || '?'}
+            size={32}
+          />
+        </View>
 
         <View style={styles.inputWrap}>
           <TextInput
@@ -308,21 +325,20 @@ export function CommentThread({
             disabled={!canSend}
             hitSlop={8}
             onPress={thread.submit}
-            style={[
-              styles.sendButton,
-              canSend ? styles.sendButtonActive : styles.sendButtonDisabled,
-            ]}
+            style={styles.sendButton}
           >
-            {thread.isSending ? (
-              <ActivityIndicator size="small" color={clayColors.onPrimary} />
-            ) : (
-              <ClayIcon
-                name={isEditing ? 'Check' : 'ArrowUp'}
-                size={16}
-                weight="bold"
-                color={canSend ? clayColors.onPrimary : clayColors.caption}
-              />
-            )}
+            <View style={[styles.sendDisc, canSend ? styles.sendDiscActive : styles.sendDiscDisabled]}>
+              {thread.isSending ? (
+                <ActivityIndicator size="small" color={clayColors.onPrimary} />
+              ) : (
+                <ClayIcon
+                  name={isEditing ? 'Check' : 'ArrowUp'}
+                  size={16}
+                  weight="bold"
+                  color={canSend ? clayColors.onPrimary : clayColors.caption}
+                />
+              )}
+            </View>
           </Pressable>
         </View>
       </View>
@@ -362,15 +378,15 @@ export function CommentThread({
   );
 }
 
+const SEND_SIZE = 32;
+
 const styles = StyleSheet.create({
   composeBanner: {
     alignItems: 'center',
     backgroundColor: clayColors.surfaceWell,
-    borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingLeft: 16,
+    paddingLeft: clayDimensions.gutter,
     paddingRight: 4,
   },
   composeBannerClose: {
@@ -382,26 +398,25 @@ const styles = StyleSheet.create({
   composeBannerText: {
     color: clayColors.textSecondary,
     flex: 1,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.medium,
+  },
+  composerAvatar: {
+    // Centres the 32px avatar on a one-line input (44px tall).
+    paddingBottom: 6,
   },
   emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 60,
+    alignItems: 'flex-start',
+    backgroundColor: clayColors.surface,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.base,
   },
   emptyListContent: {
     flexGrow: 1,
-    justifyContent: 'center',
   },
-  emptySubtitle: {
-    color: clayColors.caption,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  emptyTitle: {
-    marginTop: 12,
-    textAlign: 'center',
+  emptyText: {
+    color: clayColors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   inlineLoading: {
     paddingVertical: 24,
@@ -411,62 +426,68 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.regular,
     flex: 1,
     fontSize: 14,
-    maxHeight: 90,
-    minHeight: 36,
-    paddingRight: 8,
-    paddingVertical: 4,
+    lineHeight: 20,
+    maxHeight: 96,
+    minHeight: 40,
+    paddingVertical: 10,
   },
   inputContainer: {
     alignItems: 'flex-end',
     backgroundColor: clayColors.surface,
-    borderTopColor: clayColors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: clayColors.rule,
+    borderTopWidth: 1,
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
+    gap: claySpacing.md,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingTop: claySpacing.sm,
   },
   inputWrap: {
-    alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
-    borderRadius: commentRadii.input,
+    alignItems: 'flex-end',
+    backgroundColor: clayColors.surface,
+    borderColor: clayColors.control,
+    borderRadius: clayRadii.control,
+    borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
-    minHeight: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-    borderColor: clayColors.border,
-    borderWidth: 1,
+    minHeight: clayDimensions.minTouchTarget,
+    paddingLeft: claySpacing.md,
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: 8,
+    paddingBottom: claySpacing.sm,
   },
   loadingContainer: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    paddingVertical: 50,
+    paddingVertical: 48,
   },
   loadingText: {
     marginTop: 8,
   },
+  retryButton: {
+    marginTop: claySpacing.sm,
+  },
   sendButton: {
     alignItems: 'center',
-    borderRadius: 15,
-    height: 30,
+    height: 42,
     justifyContent: 'center',
-    marginLeft: 6,
-    width: 30,
-    minHeight: clayDimensions.minTouchTarget,
-    minWidth: clayDimensions.minTouchTarget,
+    width: clayDimensions.minTouchTarget,
   },
-  sendButtonActive: {
+  sendDisc: {
+    alignItems: 'center',
+    borderRadius: SEND_SIZE / 2,
+    height: SEND_SIZE,
+    justifyContent: 'center',
+    width: SEND_SIZE,
+  },
+  sendDiscActive: {
     backgroundColor: clayColors.primary,
   },
-  sendButtonDisabled: {
-    backgroundColor: clayColors.surfaceWell,
+  sendDiscDisabled: {
+    // Nothing to send yet: a plain grey arrow, the disc appears with the text.
+    backgroundColor: 'transparent',
   },
 });

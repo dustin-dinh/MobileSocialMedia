@@ -5,7 +5,7 @@ import { ScreenHeader } from '../../../components/common/ScreenHeader';
 import { showToast } from '../../../components/common/toast';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { clayColors } from '../../../theme/colors';
-import { claySpacing } from '../../../theme/spacing';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { useAuthSession } from '../../auth/authSession';
 import { AuthTextInput } from '../../auth/components/AuthTextInput';
 import { FormMessage } from '../../auth/components/FormMessage';
@@ -100,8 +100,8 @@ export function ChangePasswordScreen() {
             error={errors.password}
             label="Mật khẩu mới"
             onChangeText={(value) => updateField('password', value)}
+            hint="Ít nhất 8 ký tự."
             password
-            placeholder="Ít nhất 8 ký tự"
             value={values.password}
           />
           <AuthTextInput
@@ -136,7 +136,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: claySpacing.lg,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xl,
   },
   flex: {
     flex: 1,

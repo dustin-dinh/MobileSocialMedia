@@ -1,23 +1,17 @@
-import {
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
-import { clayDimensions, clayRadii } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { clayColors } from '../../../theme/colors';
+import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { profileColors } from '../profileTheme';
 import type { UserProfile } from '../types';
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
 const AVATAR_SIZE = 72;
+const GUTTER = clayDimensions.gutter;
 
 export type ProfileTab = 'posts' | 'reposts';
 
@@ -29,24 +23,35 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
     .slice(0, 2)
     .toUpperCase();
 
-  return (
-    profile.avatarUrl ? (
-      <ExpoImage
-        source={{ uri: profile.avatarUrl }}
-        style={styles.avatar}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-      />
-    ) : (
-      <View style={[styles.avatar, styles.avatarFallback]}>
-        <ClayText variant="title" style={styles.avatarInitials}>
-          {initials}
-        </ClayText>
-      </View>
-    )
+  return profile.avatarUrl ? (
+    <ExpoImage
+      cachePolicy="memory-disk"
+      contentFit="cover"
+      source={{ uri: profile.avatarUrl }}
+      style={styles.avatar}
+    />
+  ) : (
+    <View style={[styles.avatar, styles.avatarFallback]}>
+      <ClayText style={styles.avatarInitials} variant="title">
+        {initials}
+      </ClayText>
+    </View>
   );
 }
 
+function formatCount(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+
+  return String(value);
+}
+
+/** One count as a figure: the number over its noun. Tappable when it opens a list. */
 function StatItem({
   label,
   onPress,
@@ -56,12 +61,7 @@ function StatItem({
   onPress?: () => void;
   value: number;
 }) {
-  const formatted =
-    value >= 1_000_000
-      ? `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
-      : value >= 1_000
-        ? `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`
-        : String(value);
+  const formatted = formatCount(value);
 
   return (
     <Pressable
@@ -69,21 +69,15 @@ function StatItem({
       accessibilityRole={onPress ? 'button' : 'text'}
       disabled={!onPress}
       onPress={onPress}
-      style={styles.statItem}
+      style={({ pressed }) => [styles.statItem, pressed && styles.statItemPressed]}
     >
-      <ClayText variant="body" style={styles.statLabel}>
-        <ClayText variant="body" style={styles.statValue}>
-          {formatted}
-        </ClayText>{' '}
-        {label}
+      <ClayText style={styles.statValue} variant="heading">
+        {formatted}
       </ClayText>
+      <ClayText variant="caption">{label}</ClayText>
     </Pressable>
   );
 }
-
-// ---------------------------------------------------------------------------
-// ProfileHeader
-// ---------------------------------------------------------------------------
 
 type ProfileHeaderProps = {
   activeTab: ProfileTab;
@@ -133,22 +127,27 @@ export function ProfileHeader({
           style={styles.cover}
         />
       ) : null}
-      {/* ── Name + bio on the left, avatar on the right ────── */}
+
+      {/* Name on the left, avatar on the right */}
       <View style={styles.topSection}>
         <View style={styles.identity}>
-          <ClayText variant="title" style={styles.displayName} numberOfLines={2}>
+          {/* Own profile is a tab root, so the name is its h1; elsewhere the header bar holds the h1. */}
+          <ClayText level={isOwn ? 1 : 2} numberOfLines={2} style={styles.displayName} variant="title">
             {displayName}
           </ClayText>
           <View style={styles.usernameRow}>
-            <ClayText variant="body" style={styles.username} numberOfLines={1}>
+            <ClayText numberOfLines={1} style={styles.username} variant="body">
               @{profile.username}
             </ClayText>
             {profile.isPrivate ? (
-              <ClayIcon color={profileColors.caption} name="LockKey" size={14} weight="bold" />
+              <View accessibilityLabel="Tài khoản riêng tư" accessible style={styles.privateMark}>
+                <ClayIcon color={clayColors.caption} name="LockKey" size={14} />
+                <ClayText variant="meta">Riêng tư</ClayText>
+              </View>
             ) : null}
             {!isOwn && profile.followsYou ? (
               <View style={styles.followsYouBadge}>
-                <ClayText variant="meta" style={styles.followsYouText}>
+                <ClayText style={styles.followsYouText} variant="meta">
                   Theo dõi bạn
                 </ClayText>
               </View>
@@ -159,12 +158,11 @@ export function ProfileHeader({
       </View>
 
       {profile.bio ? (
-        <ClayText variant="body" style={styles.bio} numberOfLines={4}>
+        <ClayText numberOfLines={4} style={styles.bio} variant="body">
           {profile.bio}
         </ClayText>
       ) : null}
 
-      {/* ── Stats: one quiet line ──────────────────────────── */}
       <View style={styles.statsBar}>
         <StatItem label="bài viết" value={profile.postsCount} />
         <StatItem
@@ -179,7 +177,6 @@ export function ProfileHeader({
         />
       </View>
 
-      {/* ── Action buttons ─────────────────────────────────── */}
       <View style={styles.actionsRow}>
         {isOwn ? (
           <>
@@ -187,7 +184,6 @@ export function ProfileHeader({
               <ClayButton
                 accessibilityLabel="Chỉnh sửa hồ sơ cá nhân"
                 onPress={onEditProfile}
-                size="md"
                 title="Chỉnh sửa hồ sơ"
                 variant="secondary"
               />
@@ -195,8 +191,8 @@ export function ProfileHeader({
             <View style={styles.actionButton}>
               <ClayButton
                 accessibilityLabel="Mở cài đặt tài khoản"
+                icon={<ClayIcon color={clayColors.caption} name="Gear" size={16} />}
                 onPress={onOpenSettings}
-                size="md"
                 title="Cài đặt"
                 variant="secondary"
               />
@@ -209,55 +205,52 @@ export function ProfileHeader({
               disabled={isActionPending}
               loading={isActionPending}
               onPress={onUnblock}
-              size="md"
               title="Bỏ chặn"
               variant="secondary"
             />
           </View>
         ) : (
           <>
-          <View style={styles.actionButton}>
-            <ClayButton
-              accessibilityLabel={
-                profile.isFollowing
-                  ? `Bỏ theo dõi ${displayName}`
-                  : profile.followRequested
-                    ? `Huỷ yêu cầu theo dõi ${displayName}`
-                    : `Theo dõi ${displayName}`
-              }
-              disabled={isActionPending}
-              loading={isActionPending}
-              onPress={onToggleFollow}
-              size="md"
-              title={
-                profile.isFollowing
-                  ? 'Đang theo dõi'
-                  : profile.followRequested
-                    ? 'Đã gửi yêu cầu'
-                  : profile.followsYou
-                    ? 'Theo dõi lại'
-                    : 'Theo dõi'
-              }
-              variant={profile.isFollowing || profile.followRequested ? 'secondary' : 'primary'}
-            />
-          </View>
-          {onMessage ? (
             <View style={styles.actionButton}>
               <ClayButton
-                accessibilityLabel={`Nhắn tin cho ${displayName}`}
-                onPress={onMessage}
-                size="md"
-                title="Nhắn tin"
-                variant="secondary"
+                accessibilityLabel={
+                  profile.isFollowing
+                    ? `Bỏ theo dõi ${displayName}`
+                    : profile.followRequested
+                      ? `Huỷ yêu cầu theo dõi ${displayName}`
+                      : `Theo dõi ${displayName}`
+                }
+                disabled={isActionPending}
+                loading={isActionPending}
+                onPress={onToggleFollow}
+                title={
+                  profile.isFollowing
+                    ? 'Đang theo dõi'
+                    : profile.followRequested
+                      ? 'Đã gửi yêu cầu'
+                      : profile.followsYou
+                        ? 'Theo dõi lại'
+                        : 'Theo dõi'
+                }
+                variant={profile.isFollowing || profile.followRequested ? 'secondary' : 'primary'}
               />
             </View>
-          ) : null}
+            {onMessage ? (
+              <View style={styles.actionButton}>
+                <ClayButton
+                  accessibilityLabel={`Nhắn tin cho ${displayName}`}
+                  onPress={onMessage}
+                  title="Nhắn tin"
+                  variant="secondary"
+                />
+              </View>
+            ) : null}
           </>
         )}
       </View>
 
-      {/* ── Tabs ───────────────────────────────────────────── */}
-      <View style={styles.tabs}>
+      {/* Underline tabs, each as wide as its label, on one full-width rule */}
+      <View accessibilityRole="tablist" style={styles.tabs}>
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
 
@@ -270,7 +263,7 @@ export function ProfileHeader({
               onPress={() => onChangeTab(tab.key)}
               style={[styles.tab, isActive && styles.tabActive]}
             >
-              <ClayText variant="caption" style={[styles.tabText, isActive && styles.tabTextActive]}>
+              <ClayText style={[styles.tabText, isActive && styles.tabTextActive]} variant="body">
                 {tab.label}
               </ClayText>
             </Pressable>
@@ -281,41 +274,38 @@ export function ProfileHeader({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    gap: claySpacing.sm,
+    paddingHorizontal: GUTTER,
+    paddingTop: claySpacing.base,
   },
   avatar: {
+    // Shows a quiet circle while the picture loads.
+    backgroundColor: profileColors.surfaceWell,
     borderRadius: AVATAR_SIZE / 2,
     height: AVATAR_SIZE,
     width: AVATAR_SIZE,
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: profileColors.surfaceWell,
+    backgroundColor: clayColors.primarySoft,
     justifyContent: 'center',
   },
   avatarInitials: {
-    color: profileColors.primary,
+    color: clayColors.primaryInk,
   },
   bio: {
     color: profileColors.text,
-    marginTop: 12,
-    paddingHorizontal: 16,
+    marginTop: claySpacing.md,
+    paddingHorizontal: GUTTER,
   },
   container: {
     backgroundColor: profileColors.canvas,
-    paddingBottom: 8,
   },
   cover: {
     backgroundColor: profileColors.surfaceWell,
@@ -328,7 +318,7 @@ const styles = StyleSheet.create({
   followsYouBadge: {
     backgroundColor: profileColors.surfaceWell,
     borderRadius: clayRadii.pill,
-    paddingHorizontal: 8,
+    paddingHorizontal: claySpacing.sm,
     paddingVertical: 2,
   },
   followsYouText: {
@@ -337,64 +327,75 @@ const styles = StyleSheet.create({
   identity: {
     flex: 1,
   },
-  statItem: {
-    justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget,
-  },
-  statLabel: {
-    color: profileColors.caption,
-  },
-  statValue: {
-    color: profileColors.text,
-    fontFamily: fontFamilies.bold,
-  },
-  statsBar: {
+  privateMark: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: claySpacing.xs,
+  },
+  statItem: {
+    borderRadius: clayRadii.control,
+    justifyContent: 'center',
+    minHeight: clayDimensions.minTouchTarget,
+    paddingVertical: claySpacing.xs,
+  },
+  statItemPressed: {
+    backgroundColor: profileColors.surfaceWell,
+  },
+  statValue: {
+    ...tabularNums,
+    color: profileColors.text,
+  },
+  statsBar: {
+    columnGap: claySpacing.xl,
+    flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 16,
-    marginTop: 4,
-    paddingHorizontal: 16,
+    marginTop: claySpacing.md,
+    paddingHorizontal: GUTTER,
   },
   tab: {
-    alignItems: 'center',
     borderBottomColor: 'transparent',
     borderBottomWidth: 2,
-    flex: 1,
     justifyContent: 'center',
+    marginBottom: -1,
     minHeight: clayDimensions.minTouchTarget,
   },
   tabActive: {
-    borderBottomColor: profileColors.text,
+    borderBottomColor: clayColors.primary,
   },
   tabText: {
     color: profileColors.caption,
+    fontFamily: fontFamilies.medium,
+    fontSize: 14,
   },
   tabTextActive: {
     color: profileColors.text,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
   },
   tabs: {
-    borderBottomColor: profileColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.border,
+    borderBottomWidth: 1,
+    columnGap: claySpacing.xl,
     flexDirection: 'row',
-    marginTop: 12,
+    marginTop: claySpacing.base,
+    paddingHorizontal: GUTTER,
   },
   topSection: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    gap: claySpacing.base,
+    paddingHorizontal: GUTTER,
+    paddingTop: claySpacing.base,
   },
   username: {
     color: profileColors.caption,
     flexShrink: 1,
+    fontSize: 14,
   },
   usernameRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: claySpacing.sm,
     marginTop: 2,
   },
 });

@@ -1,16 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
+import { Platform, StyleSheet, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
-  Nunito_400Regular,
-  Nunito_500Medium,
-  Nunito_600SemiBold,
-  Nunito_600SemiBold_Italic,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-  Nunito_900Black,
-} from '@expo-google-fonts/nunito';
+  BeVietnamPro_400Regular,
+  BeVietnamPro_400Regular_Italic,
+  BeVietnamPro_500Medium,
+  BeVietnamPro_600SemiBold,
+  BeVietnamPro_700Bold,
+} from '@expo-google-fonts/be-vietnam-pro';
 
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ToastHost } from './components/common/toast';
@@ -22,13 +21,11 @@ import { clayColors } from './theme/colors';
 
 function AppContent() {
   const [fontsLoaded] = useFonts({
-    Nunito_400Regular,
-    Nunito_500Medium,
-    Nunito_600SemiBold,
-    Nunito_600SemiBold_Italic,
-    Nunito_700Bold,
-    Nunito_800ExtraBold,
-    Nunito_900Black,
+    BeVietnamPro_400Regular,
+    BeVietnamPro_400Regular_Italic,
+    BeVietnamPro_500Medium,
+    BeVietnamPro_600SemiBold,
+    BeVietnamPro_700Bold,
   });
   const { isBootstrapping } = useAuthSession();
 
@@ -37,9 +34,13 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer linking={linking} ref={navigationRef} theme={navigationTheme}>
-      <RootNavigator />
-    </NavigationContainer>
+    <View style={styles.frame}>
+      <View style={styles.column}>
+        <NavigationContainer linking={linking} ref={navigationRef} theme={navigationTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </View>
+    </View>
   );
 }
 
@@ -62,3 +63,13 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+// Web only: on a wide window the phone layout sits in a centred 640px column
+// instead of stretching; on Android and iOS the column is the whole screen.
+const styles = StyleSheet.create({
+  column: Platform.select({
+    web: { alignSelf: 'center', flex: 1, maxWidth: 640, width: '100%' },
+    default: { flex: 1 },
+  }),
+  frame: { backgroundColor: clayColors.canvas, flex: 1 },
+});

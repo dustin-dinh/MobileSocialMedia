@@ -9,7 +9,8 @@ import { USE_MOCK_API } from '../../../config/runtime';
 import type { MainStackParamList } from '../../../navigation/types';
 import { httpClient } from '../../../services/httpClient';
 import { clayColors } from '../../../theme/colors';
-import { claySpacing } from '../../../theme/spacing';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
+import { tabularNums } from '../../../theme/typography';
 import { REACTIONS, reactionOf } from '../reactions';
 
 type PostLikesScreenProps = NativeStackScreenProps<MainStackParamList, 'PostLikes'>;
@@ -64,7 +65,7 @@ export function PostLikesScreen({ route }: PostLikesScreenProps) {
         summary.length > 0 ? (
           <View style={styles.summary}>
             {summary.map((reaction) => (
-              <ClayText key={reaction.type} variant="caption">
+              <ClayText key={reaction.type} style={styles.summaryItem} variant="caption">
                 {reaction.emoji} {counts[reaction.type]}
               </ClayText>
             ))}
@@ -78,11 +79,17 @@ export function PostLikesScreen({ route }: PostLikesScreenProps) {
 
 const styles = StyleSheet.create({
   summary: {
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    backgroundColor: clayColors.surface,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: claySpacing.base,
-    paddingHorizontal: claySpacing.base,
+    paddingHorizontal: clayDimensions.gutter,
     paddingVertical: claySpacing.md,
+  },
+  summaryItem: {
+    ...tabularNums,
+    color: clayColors.text,
   },
 });

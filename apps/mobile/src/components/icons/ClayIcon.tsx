@@ -40,6 +40,7 @@ import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Share from 'lucide-react-native/icons/share';
 import Share2 from 'lucide-react-native/icons/share-2';
 import Sparkles from 'lucide-react-native/icons/sparkles';
+import SquarePlus from 'lucide-react-native/icons/square-plus';
 import Trash from 'lucide-react-native/icons/trash';
 import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
 import User from 'lucide-react-native/icons/user';
@@ -88,6 +89,7 @@ const ICON_MAP = {
   PencilSimple: Pencil,
   Play,
   Plus,
+  PlusSquare: SquarePlus,
   Prohibit: Ban,
   /** Anonymous sender or recipient. */
   Mask: VenetianMask,
@@ -112,7 +114,8 @@ const ICON_MAP = {
 
 export type ClayIconName = keyof typeof ICON_MAP;
 
-const STROKE_WIDTH = { bold: 2.5, duotone: 2, fill: 2, light: 1.5, regular: 2, thin: 1.25 };
+// Outline icons at about 1.5px, the weight of the studied app screens.
+const STROKE_WIDTH = { bold: 2.25, duotone: 1.75, fill: 1.75, light: 1.5, regular: 1.75, thin: 1.25 };
 
 // A filled magnifier is a solid dot: its active state is a heavier outline instead.
 const OUTLINE_ONLY: ReadonlySet<string> = new Set(['MagnifyingGlass']);

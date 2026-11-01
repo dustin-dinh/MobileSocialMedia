@@ -60,12 +60,12 @@ function delay(ms: number): Promise<void> {
 const INITIAL_MOCK_COMMENTS: PostComment[] = [
   {
     author: {
-      avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcabd9c?w=100&h=100&fit=crop&crop=face',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face',
       displayName: 'Alex Rivera',
       id: 'user-002',
       username: 'alexrivera',
     },
-    content: 'Bộ ảnh chụp góc đẹp quá bạn ơi! Tone màu nhìn nghệ thực sự 👏📸',
+    content: 'Góc chụp đẹp quá bạn ơi, tone màu rất có gu.',
     createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15m ago
     id: 'cmt-001',
     isLiked: true,
@@ -79,7 +79,7 @@ const INITIAL_MOCK_COMMENTS: PostComment[] = [
       id: 'user-003',
       username: 'minhtran',
     },
-    content: 'App chạy mượt thật sự! UI/UX clean ghê, hóng bản update tiếp theo của team 🚀',
+    content: 'App chạy mượt thật, giao diện gọn gàng. Hóng bản cập nhật tiếp theo.',
     createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(), // 45m ago
     id: 'cmt-002',
     isLiked: false,
@@ -93,7 +93,7 @@ const INITIAL_MOCK_COMMENTS: PostComment[] = [
       id: 'user-004',
       username: 'devlife_vn',
     },
-    content: 'Awesome work! Cố lên nhé đồng chí 🔥',
+    content: 'Làm tốt lắm, cố lên nhé!',
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2h ago
     id: 'cmt-003',
     isLiked: false,
@@ -107,7 +107,7 @@ const INITIAL_MOCK_COMMENTS: PostComment[] = [
       id: 'user-006',
       username: 'linhpham',
     },
-    content: 'Đẹp tuyệt vời! Cho mình xin preset màu được không ạ? 😍',
+    content: 'Đẹp tuyệt vời! Cho mình xin preset màu được không ạ? 😍', // taste-skill-ignore: user content in mock data
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5h ago
     id: 'cmt-004',
     isLiked: true,
@@ -121,7 +121,7 @@ const INITIAL_MOCK_COMMENTS: PostComment[] = [
       id: 'user-005',
       username: 'thanhnguyen',
     },
-    content: 'Hôm nào làm chuyến đi cà phê chill chill nữa nhé team! ☕',
+    content: 'Hôm nào đi cà phê tiếp nhé cả nhà.',
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1d ago
     id: 'cmt-005',
     isLiked: false,

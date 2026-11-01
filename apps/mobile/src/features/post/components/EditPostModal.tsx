@@ -157,7 +157,7 @@ export function EditPostModal({
                   />
                 </Pressable>
 
-                <ClayText variant="title" style={styles.headerTitle}>
+                <ClayText variant="heading" style={styles.headerTitle}>
                   Chỉnh sửa bài viết
                 </ClayText>
 
@@ -170,11 +170,10 @@ export function EditPostModal({
                   style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
                 >
                   {isSaving ? (
-                    <ActivityIndicator color={clayColors.primary} size="small" />
+                    <ActivityIndicator color={clayColors.onPrimary} size="small" />
                   ) : (
                     <ClayText
-                      variant="body"
-                      weight="bold"
+                      variant="button"
                       style={[
                         styles.saveBtnText,
                         !canSave && styles.saveBtnTextDisabled,
@@ -209,7 +208,7 @@ export function EditPostModal({
                   </View>
 
                   <View style={styles.authorMeta}>
-                    <ClayText variant="body" weight="bold" style={styles.authorName}>
+                    <ClayText variant="heading" style={styles.authorName}>
                       {post.author.displayName ?? post.author.username}
                     </ClayText>
                     <View style={styles.privacyWrap}>
@@ -302,6 +301,7 @@ const styles = StyleSheet.create({
   authorName: {
     color: clayColors.text,
     fontSize: 15,
+    lineHeight: 20,
   },
   authorRow: {
     alignItems: 'center',
@@ -315,14 +315,14 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     alignItems: 'center',
-    backgroundColor: clayColors.surfaceWell,
+    backgroundColor: clayColors.primarySoft,
     borderRadius: clayRadii.avatar,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   avatarInitials: {
-    color: clayColors.caption,
+    color: clayColors.primaryInk,
     fontSize: 14,
   },
   avatarWrap: {
@@ -334,16 +334,17 @@ const styles = StyleSheet.create({
   },
   charCountText: {
     fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   header: {
     alignItems: 'center',
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: clayColors.rule,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingRight: 16,
+    paddingVertical: 8,
   },
   headerBtn: {
     alignItems: 'center',
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: clayColors.text,
-    fontSize: 17,
+    flex: 1,
   },
   input: {
     color: clayColors.text,
@@ -365,11 +366,13 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   inputContainer: {
-    backgroundColor: clayColors.surfaceWell,
+    backgroundColor: clayColors.surface,
+    borderColor: clayColors.control,
     borderRadius: clayRadii.control,
+    borderWidth: 1,
     marginBottom: 6,
     minHeight: 140,
-    padding: 14,
+    padding: 12,
   },
   keyboardWrap: {
     flex: 1,
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
     width: 72,
   },
   overlay: {
-    backgroundColor: 'rgba(74, 42, 53, 0.45)',
+    backgroundColor: 'rgba(20, 12, 16, 0.4)',
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -406,20 +409,18 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     alignItems: 'center',
-    backgroundColor: clayColors.primarySoft,
-    borderRadius: clayRadii.pill,
-    height: 34,
+    backgroundColor: clayColors.primary,
+    borderRadius: clayRadii.control,
+    height: 36,
     justifyContent: 'center',
     minWidth: 64,
     paddingHorizontal: 14,
   },
   saveBtnDisabled: {
     backgroundColor: clayColors.surfaceWell,
-    opacity: 0.6,
   },
   saveBtnText: {
-    color: clayColors.primary,
-    fontSize: 14,
+    color: clayColors.onPrimary,
   },
   saveBtnTextDisabled: {
     color: clayColors.caption,

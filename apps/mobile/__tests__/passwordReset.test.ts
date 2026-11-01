@@ -17,21 +17,21 @@ describe('Password Reset Service & Validation (Phase 1)', () => {
 
     it('validateForgotPassword fails with an empty or whitespace email', () => {
       const errorsEmpty = validateForgotPassword({ email: '' });
-      expect(errorsEmpty.email).toBe('Enter your email address.');
+      expect(errorsEmpty.email).toBe('Nhập địa chỉ email.');
 
       const errorsWhitespace = validateForgotPassword({ email: '   ' });
-      expect(errorsWhitespace.email).toBe('Enter your email address.');
+      expect(errorsWhitespace.email).toBe('Nhập địa chỉ email.');
     });
 
     it('validateForgotPassword fails with invalid email formats', () => {
       expect(validateForgotPassword({ email: 'invalid-email' }).email).toBe(
-        'Enter a valid email address.',
+        'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.',
       );
       expect(validateForgotPassword({ email: 'user@domain' }).email).toBe(
-        'Enter a valid email address.',
+        'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.',
       );
       expect(validateForgotPassword({ email: '@domain.com' }).email).toBe(
-        'Enter a valid email address.',
+        'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.',
       );
     });
 
@@ -42,18 +42,18 @@ describe('Password Reset Service & Validation (Phase 1)', () => {
     });
 
     it('validateVerificationCode fails when empty, non-digit, or not 6 digits', () => {
-      expect(validateVerificationCode('')).toBe('Enter the 6-digit verification code.');
+      expect(validateVerificationCode('')).toBe('Nhập mã xác minh gồm 6 chữ số.');
       expect(validateVerificationCode('12345')).toBe(
-        'Verification code must be exactly 6 digits.',
+        'Mã xác minh gồm đúng 6 chữ số.',
       );
       expect(validateVerificationCode('1234567')).toBe(
-        'Verification code must be exactly 6 digits.',
+        'Mã xác minh gồm đúng 6 chữ số.',
       );
       expect(validateVerificationCode('12a456')).toBe(
-        'Verification code must be exactly 6 digits.',
+        'Mã xác minh gồm đúng 6 chữ số.',
       );
       expect(validateVerificationCode('abcdef')).toBe(
-        'Verification code must be exactly 6 digits.',
+        'Mã xác minh gồm đúng 6 chữ số.',
       );
     });
   });

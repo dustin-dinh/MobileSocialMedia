@@ -48,6 +48,6 @@ describe('birth date input (18+ rule)', () => {
       username: 'kid_01',
     });
 
-    expect(errors.birthDate).toBe('You must be at least 18 years old to use this app.');
+    expect(errors.birthDate).toBe('Bạn cần từ 18 tuổi trở lên để dùng Mobile Social.');
   });
 });

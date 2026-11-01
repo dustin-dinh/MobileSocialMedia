@@ -81,8 +81,8 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
       </TestWrapper>,
     );
     expect(toJSON()).toBeTruthy();
-    expect(getByPlaceholderText('you@example.com')).toBeTruthy();
-    expect(getByPlaceholderText('Enter your password')).toBeTruthy();
+    expect(getByPlaceholderText('ten.ban@gmail.com')).toBeTruthy();
+    expect(getByPlaceholderText('Nhập mật khẩu')).toBeTruthy();
   });
 
   it('renders RegisterScreen with input fields', async () => {
@@ -93,8 +93,8 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
       </TestWrapper>,
     );
     expect(toJSON()).toBeTruthy();
-    expect(getByPlaceholderText('Choose a username')).toBeTruthy();
-    expect(getByPlaceholderText('you@example.com')).toBeTruthy();
+    expect(getByPlaceholderText('vd. minh.anh')).toBeTruthy();
+    expect(getByPlaceholderText('ten.ban@gmail.com')).toBeTruthy();
   });
 
   it('renders HomeScreen with header', async () => {
@@ -142,7 +142,7 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
       </TestWrapper>,
     );
     expect(toJSON()).toBeTruthy();
-    expect(getByPlaceholderText("What's on your mind?")).toBeTruthy();
+    expect(getByPlaceholderText('Bạn đang nghĩ gì?')).toBeTruthy();
   });
 
   it('renders NotificationsScreen with filter pills', async () => {
@@ -152,8 +152,8 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
       </TestWrapper>,
     );
     expect(toJSON()).toBeTruthy();
-    expect(getByText(/Tất cả \(/i)).toBeTruthy();
-    expect(getByText(/Chưa đọc \(/i)).toBeTruthy();
+    expect(getByText(/^Tất cả \d/)).toBeTruthy();
+    expect(getByText(/^Chưa đọc \d/)).toBeTruthy();
   });
 
   it('renders ProfileScreen without throwing', async () => {
@@ -199,7 +199,7 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
           { key: 'Home-1', name: 'Home' },
           { key: 'Search-2', name: 'Search' },
           { key: 'Create-3', name: 'Create' },
-          { key: 'Notifications-4', name: 'Notifications' },
+          { key: 'Messages-4', name: 'Messages' },
           { key: 'Profile-5', name: 'Profile' },
         ],
       },
@@ -207,7 +207,7 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
         'Home-1': { options: {} },
         'Search-2': { options: {} },
         'Create-3': { options: {} },
-        'Notifications-4': { options: {} },
+        'Messages-4': { options: {} },
         'Profile-5': { options: {} },
       },
       navigation: {
@@ -222,11 +222,11 @@ describe('Smoke UI Render Suite (Gate G4)', () => {
         <ClayTabBar {...mockProps} />
       </TestWrapper>,
     );
-    expect(getByLabelText('Home')).toBeTruthy();
-    expect(getByLabelText('Search')).toBeTruthy();
-    expect(getByLabelText('Create post')).toBeTruthy();
-    expect(getByLabelText('Notifications')).toBeTruthy();
-    expect(getByLabelText('Profile')).toBeTruthy();
+    expect(getByLabelText('Trang chủ')).toBeTruthy();
+    expect(getByLabelText('Tìm kiếm')).toBeTruthy();
+    expect(getByLabelText('Đăng')).toBeTruthy();
+    expect(getByLabelText('Tin nhắn')).toBeTruthy();
+    expect(getByLabelText('Cá nhân')).toBeTruthy();
   });
 
   it('renders empty and skeleton states properly', async () => {

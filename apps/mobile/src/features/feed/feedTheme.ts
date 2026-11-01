@@ -14,7 +14,11 @@ export const feedColors = {
   textSecondary: clayColors.textSecondary,
 } as const;
 
+/**
+ * Posts are full-width blocks on `surface`; `cardPadding` is the page margin
+ * inside them and `cardGap` the one step of ground between two posts.
+ */
 export const feedSpacing = {
   cardPadding: claySpacing.base,
-  cardGap: claySpacing.md,
+  cardGap: claySpacing.sm,
 } as const;

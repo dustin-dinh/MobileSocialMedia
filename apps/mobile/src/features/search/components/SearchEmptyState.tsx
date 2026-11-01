@@ -1,8 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ClayButton } from '../../../components/ui/ClayButton';
-import { ClayEmoji } from '../../../components/icons/ClayEmoji';
 import { ClayText } from '../../../components/ui/ClayText';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { searchColors } from '../searchTheme';
 
 type SearchEmptyStateProps = {
@@ -10,20 +10,13 @@ type SearchEmptyStateProps = {
   query: string;
 };
 
+/** Nothing typed, or nothing found: one sentence and, after a search, one way out. */
 export function SearchEmptyState({ onClear, query }: SearchEmptyStateProps) {
-  // With nothing typed there is nothing to "not find": prompt for a query.
   if (!query.trim()) {
     return (
       <View style={styles.container}>
-        <View style={styles.iconCircle}>
-          <ClayEmoji name="magnifying_glass" size={54} />
-        </View>
-
-        <ClayText variant="heading" style={styles.title}>
-          Tìm kiếm người dùng
-        </ClayText>
-        <ClayText variant="body" style={styles.description}>
-          Nhập username hoặc tên hiển thị để tìm người bạn muốn theo dõi.
+        <ClayText style={styles.text} variant="body">
+          Nhập tên, @username hoặc #hashtag để tìm.
         </ClayText>
       </View>
     );
@@ -31,24 +24,16 @@ export function SearchEmptyState({ onClear, query }: SearchEmptyStateProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <ClayEmoji name="magnifying_glass" size={54} />
-      </View>
-
-      <ClayText variant="heading" style={styles.title}>
-        Không tìm thấy người dùng phù hợp
+      <ClayText style={styles.text} variant="body">
+        Không có kết quả cho &quot;{query}&quot;. Thử một từ khoá khác.
       </ClayText>
-      <ClayText variant="body" style={styles.description}>
-        Không có kết quả nào cho &quot;{query}&quot;. Vui lòng thử tìm kiếm bằng username hoặc tên hiển thị khác.
-      </ClayText>
-
       {onClear ? (
         <ClayButton
           accessibilityLabel="Xóa tìm kiếm"
           onPress={onClear}
+          style={styles.button}
           title="Xóa tìm kiếm"
           variant="secondary"
-          size="sm"
         />
       ) : null}
     </View>
@@ -56,30 +41,15 @@ export function SearchEmptyState({ onClear, query }: SearchEmptyStateProps) {
 }
 
 const styles = StyleSheet.create({
+  button: {
+    alignSelf: 'flex-start',
+    marginTop: claySpacing.base,
+  },
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: clayDimensions.gutter,
+    paddingVertical: claySpacing.xl,
   },
-  description: {
-    color: searchColors.caption,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  iconCircle: {
-    alignItems: 'center',
-    backgroundColor: searchColors.surfaceWell,
-    borderRadius: 44,
-    height: 88,
-    justifyContent: 'center',
-    marginBottom: 20,
-    width: 88,
-  },
-  title: {
-    color: searchColors.text,
-    marginBottom: 8,
-    textAlign: 'center',
+  text: {
+    color: searchColors.textSecondary,
   },
 });
-

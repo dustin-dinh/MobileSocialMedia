@@ -10,13 +10,14 @@ import { Image } from 'expo-image';
 import { formatTimeAgo } from '../../../utils/formatTimeAgo';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions } from '../../../theme/spacing';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { RichText } from '../../../components/common/RichText';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { PostComment } from '../types';
 
-const AVATAR_SIZE = 36;
+// Comments are a dense list: 32px avatars, one fixed slot so text starts on one edge.
+const AVATAR_SIZE = 32;
 
 function CommentAuthorAvatar({ author }: { author: PostComment['author'] }) {
   const name = author.displayName?.trim() || author.username;
@@ -63,10 +64,7 @@ export type CommentItemProps = {
   repliesExpanded?: boolean;
 };
 
-/**
- * CommentItem component (memoized, lite clay tier)
- * Uses lightweight flat row with subtle border divider (zero extra shadow layers).
- */
+/** One comment (or reply) row: avatar, name and time, text, then its actions. */
 export const CommentItem = memo(function CommentItem({
   comment,
   isReply = false,
@@ -132,13 +130,7 @@ export const CommentItem = memo(function CommentItem({
           >
             {displayName}
           </ClayText>
-          <ClayText variant="meta" style={styles.username} numberOfLines={1}>
-            @{comment.author.username}
-          </ClayText>
-          <ClayText variant="meta" style={styles.dot}>
-            ·
-          </ClayText>
-          <ClayText variant="meta" style={styles.timeAgo}>
+          <ClayText variant="meta" style={styles.timeAgo} numberOfLines={1}>
             {formatTimeAgo(comment.createdAt)}
           </ClayText>
         </View>
@@ -205,7 +197,7 @@ export const CommentItem = memo(function CommentItem({
         <Animated.View style={{ transform: [{ scale: heartScale }] }}>
           <ClayIcon
             name="Heart"
-            size={18}
+            size={16}
             weight={comment.isLiked ? 'fill' : 'regular'}
             color={comment.isLiked ? clayColors.liked : clayColors.caption}
           />
@@ -229,6 +221,7 @@ export const CommentItem = memo(function CommentItem({
 
 const styles = StyleSheet.create({
   avatar: {
+    backgroundColor: clayColors.surfaceWell,
     borderRadius: AVATAR_SIZE / 2,
     height: AVATAR_SIZE,
     width: AVATAR_SIZE,
@@ -242,36 +235,34 @@ const styles = StyleSheet.create({
     borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitials: {
-    color: clayColors.primary,
+    color: clayColors.primaryInk,
     fontSize: 12,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
   },
   commentText: {
     color: clayColors.text,
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 3,
+    marginTop: 2,
   },
   container: {
     alignItems: 'flex-start',
     backgroundColor: clayColors.surface,
-    borderBottomColor: clayColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 4,
+    paddingVertical: 8,
   },
   containerReply: {
-    paddingLeft: 16 + AVATAR_SIZE + 10,
+    paddingLeft: 16 + AVATAR_SIZE + 12,
   },
   contentWrap: {
     flex: 1,
-    marginLeft: 10,
-    marginRight: 8,
+    marginLeft: 12,
   },
   footerAction: {
     color: clayColors.textSecondary,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     paddingVertical: 4,
   },
   footerNote: {
@@ -281,53 +272,44 @@ const styles = StyleSheet.create({
   footerRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 14,
-    marginTop: 2,
+    gap: 16,
   },
   pending: {
     opacity: 0.6,
   },
   repliesToggle: {
-    color: clayColors.primary,
-    fontFamily: fontFamilies.bold,
+    color: clayColors.textSecondary,
+    fontFamily: fontFamilies.semiBold,
     paddingVertical: 4,
   },
   displayName: {
     color: clayColors.text,
+    flexShrink: 1,
     fontSize: 14,
-    fontFamily: fontFamilies.bold,
-    maxWidth: 120,
-  },
-  dot: {
-    color: clayColors.caption,
-    marginHorizontal: 3,
+    fontFamily: fontFamilies.semiBold,
+    lineHeight: 20,
   },
   likeButton: {
     alignItems: 'center',
-    justifyContent: 'center',
     minHeight: clayDimensions.minTouchTarget,
     minWidth: clayDimensions.minTouchTarget,
-    paddingTop: 2,
+    paddingTop: 4,
   },
   likesCount: {
+    ...tabularNums,
     color: clayColors.caption,
     marginTop: 2,
   },
   likesCountLiked: {
     color: clayColors.liked,
-    fontFamily: fontFamilies.bold,
   },
   metaRow: {
-    alignItems: 'center',
+    alignItems: 'baseline',
     flexDirection: 'row',
-    flexWrap: 'nowrap',
+    gap: 8,
   },
   timeAgo: {
     color: clayColors.caption,
-  },
-  username: {
-    color: clayColors.caption,
-    marginLeft: 4,
-    maxWidth: 90,
+    flexShrink: 0,
   },
 });

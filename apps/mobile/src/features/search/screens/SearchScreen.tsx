@@ -33,11 +33,11 @@ import { SearchSkeleton } from '../components/SearchSkeleton';
 import { UserSearchCard } from '../components/UserSearchCard';
 import { searchColors, searchRadii } from '../searchTheme';
 import { clayColors } from '../../../theme/colors';
-import { clayDimensions } from '../../../theme/spacing';
-import { ClaySurface } from '../../../components/ui/ClaySurface';
+import { clayDimensions, claySpacing } from '../../../theme/spacing';
+import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
-import { fontFamilies } from '../../../theme/typography';
+import { fontFamilies, tabularNums } from '../../../theme/typography';
 import { searchService, type TrendingHashtag } from '../services/searchService';
 import type { SearchedUser } from '../types';
 
@@ -98,6 +98,7 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 
   const [users, setUsers] = useState<SearchedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [usersFailed, setUsersFailed] = useState(false);
   const [trending, setTrending] = useState<TrendingHashtag[]>([]);
 
   // Best effort: the screen works the same without the trending list.
@@ -113,9 +114,12 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
     try {
       const data = await loadUsers(searchQuery);
       setUsers(data);
+      setUsersFailed(false);
     } catch (error) {
       console.error('Failed to search users:', error);
-      showToast('Không thể tải danh sách người dùng. Vui lòng thử lại.', 'error');
+      // Shown inside the list with a retry, not as a toast.
+      setUsers([]);
+      setUsersFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -229,14 +233,17 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 
     const hasQuery = debouncedQuery.trim().length > 0;
 
+    // Trending hashtags as figures: the tag on the left, its post count right-aligned.
     const trendingSection =
       !hasQuery && trending.length > 0 ? (
-        <View style={styles.trending}>
-          <ClayText variant="heading" style={styles.sectionTitle}>
-            Xu hướng
-          </ClayText>
-          <View style={styles.trendingTags}>
-            {trending.map((item) => (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ClayText level={2} variant="heading">
+              Xu hướng
+            </ClayText>
+          </View>
+          <View style={styles.block}>
+            {trending.map((item, index) => (
               <Pressable
                 accessibilityLabel={`Xem bài viết có hashtag ${item.tag}`}
                 accessibilityRole="button"
@@ -245,12 +252,18 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
                   setQuery(`#${item.tag}`);
                   setMode('posts');
                 }}
-                style={styles.trendingTag}
+                style={({ pressed }) => [
+                  styles.trendingRow,
+                  index > 0 && styles.rowRule,
+                  pressed && styles.rowPressed,
+                ]}
               >
-                <ClayText variant="caption" style={styles.trendingTagText}>
+                <ClayText numberOfLines={1} style={styles.trendingTag} variant="body">
                   #{item.tag}
                 </ClayText>
-                <ClayText variant="meta">{item.postsCount} bài viết</ClayText>
+                <ClayText style={styles.trendingCount} variant="caption">
+                  {item.postsCount} bài viết
+                </ClayText>
               </Pressable>
             ))}
           </View>
@@ -264,17 +277,15 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 
     return (
       <>
-      {trendingSection}
-      <View style={styles.sectionHeader}>
-        <ClayText variant="heading" style={styles.sectionTitle}>
-          {hasQuery ? 'Kết quả tìm kiếm' : 'Gợi ý cho bạn'}
-        </ClayText>
-        <ClayText variant="caption" style={styles.sectionSubtitle}>
-          {hasQuery
-            ? `${users.length} người dùng phù hợp`
-            : 'Những người bạn có thể quan tâm'}
-        </ClayText>
-      </View>
+        {trendingSection}
+        <View style={[styles.section, styles.sectionHeader]}>
+          <ClayText level={2} variant="heading">
+            {hasQuery ? 'Người dùng' : 'Gợi ý cho bạn'}
+          </ClayText>
+          <ClayText style={styles.sectionSubtitle} variant="caption">
+            {hasQuery ? `${users.length} người phù hợp` : 'Những người bạn có thể quen'}
+          </ClayText>
+        </View>
       </>
     );
   }, [debouncedQuery, isLoading, trending, users.length]);
@@ -308,18 +319,38 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
   const hasQueryInput = query.length > 0;
   const isDebouncing = query !== debouncedQuery;
 
+  const usersEmpty = isLoading ? (
+    <SearchSkeleton />
+  ) : usersFailed ? (
+    <View style={styles.errorBlock}>
+      <ClayText style={styles.errorText} variant="body">
+        Không tải được danh sách người dùng.
+      </ClayText>
+      <ClayButton
+        accessibilityLabel="Thử tải lại danh sách người dùng"
+        onPress={() => void fetchUsers(debouncedQuery)}
+        style={styles.retryButton}
+        title="Thử lại"
+        variant="secondary"
+      />
+    </View>
+  ) : debouncedQuery.trim().length > 0 ? (
+    <SearchEmptyState query={debouncedQuery} onClear={handleClearQuery} />
+  ) : null;
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {/* ── Top Header & Search Bar ────────────────────────── */}
+      {/* ── Title, search field and the users/posts switch ─────── */}
       <View style={styles.headerContainer}>
-        <ClayText variant="title" style={styles.screenTitle}>
+        <ClayText level={1} variant="title" style={styles.screenTitle}>
           Tìm kiếm
         </ClayText>
 
-        <ClaySurface variant="inset" style={styles.searchBar}>
-          <ClayIcon name="MagnifyingGlass" size={20} color={clayColors.caption} />
+        <View style={styles.searchBar}>
+          <ClayIcon name="MagnifyingGlass" size={16} color={clayColors.caption} />
 
           <TextInput
+            accessibilityLabel="Tìm kiếm"
             autoCapitalize="none"
             autoCorrect={false}
             clearButtonMode="never"
@@ -335,24 +366,24 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
           {isDebouncing || isLoading ? (
             <ActivityIndicator
               size="small"
-              color={searchColors.primary}
+              color={clayColors.caption}
               style={styles.loaderIcon}
             />
           ) : hasQueryInput ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Clear search query"
+              accessibilityLabel="Xoá nội dung tìm kiếm"
               hitSlop={8}
               onPress={handleClearQuery}
               style={styles.clearButton}
             >
-              <ClayIcon name="X" size={14} weight="bold" color={clayColors.caption} />
+              <ClayIcon name="X" size={16} color={clayColors.caption} />
             </Pressable>
           ) : null}
-        </ClaySurface>
+        </View>
 
         {hasQueryInput ? (
-          <View style={styles.modeRow}>
+          <View accessibilityRole="tablist" style={styles.segmented}>
             {(['users', 'posts'] as const).map((item) => {
               const isActive = item === mode;
 
@@ -363,11 +394,11 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
                   accessibilityState={{ selected: isActive }}
                   key={item}
                   onPress={() => setMode(item)}
-                  style={[styles.modeButton, isActive && styles.modeButtonActive]}
+                  style={[styles.segment, isActive && styles.segmentActive]}
                 >
                   <ClayText
                     variant="caption"
-                    style={isActive ? styles.modeTextActive : undefined}
+                    style={[styles.segmentText, isActive && styles.segmentTextActive]}
                   >
                     {item === 'users' ? 'Người dùng' : 'Bài viết'}
                   </ClayText>
@@ -378,7 +409,7 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
         ) : null}
       </View>
 
-      {/* ── List Content ────────────────────────────────────── */}
+      {/* ── Results ─────────────────────────────────────────────── */}
       {mode === 'posts' && hasQueryInput ? (
         <FlatList
           contentContainerStyle={styles.listContent}
@@ -391,6 +422,19 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
           ListEmptyComponent={
             postList.isLoading || isDebouncing ? (
               <SearchSkeleton />
+            ) : postList.loadFailed ? (
+              <View style={styles.errorBlock}>
+                <ClayText style={styles.errorText} variant="body">
+                  Không tải được bài viết.
+                </ClayText>
+                <ClayButton
+                  accessibilityLabel="Thử tải lại bài viết"
+                  onPress={() => void postList.refresh()}
+                  style={styles.retryButton}
+                  title="Thử lại"
+                  variant="secondary"
+                />
+              </View>
             ) : (
               <SearchEmptyState query={debouncedQuery} onClear={handleClearQuery} />
             )
@@ -410,36 +454,30 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-      <FlatList
-        contentContainerStyle={styles.listContent}
-        data={isLoading ? [] : users}
-        ItemSeparatorComponent={null}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        keyExtractor={keyExtractor}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === 'android'}
-        ListEmptyComponent={
-          isLoading ? (
-            <SearchSkeleton />
-          ) : debouncedQuery.trim().length > 0 ? (
-            <SearchEmptyState query={debouncedQuery} onClear={handleClearQuery} />
-          ) : null
-        }
-        ListHeaderComponent={renderListHeader}
-        refreshControl={
-          <RefreshControl
-            colors={[searchColors.primary]}
-            onRefresh={handleRefresh}
-            refreshing={isRefreshing}
-            tintColor={searchColors.primary}
-          />
-        }
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-      />
+        <FlatList
+          contentContainerStyle={styles.listContent}
+          data={isLoading ? [] : users}
+          ItemSeparatorComponent={null}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={keyExtractor}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          ListEmptyComponent={usersEmpty}
+          ListHeaderComponent={renderListHeader}
+          refreshControl={
+            <RefreshControl
+              colors={[searchColors.primary]}
+              onRefresh={handleRefresh}
+              refreshing={isRefreshing}
+              tintColor={searchColors.primary}
+            />
+          }
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+        />
       )}
 
       <CommentModal
@@ -455,117 +493,140 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
 // Styles
 // ---------------------------------------------------------------------------
 
+const GUTTER = clayDimensions.gutter;
+
 const styles = StyleSheet.create({
-  clearButton: {
-    alignItems: 'center',
-    backgroundColor: clayColors.canvas,
-    borderRadius: 12,
-    height: 24,
-    justifyContent: 'center',
-    marginLeft: 8,
-    minHeight: clayDimensions.minTouchTarget,
-    minWidth: clayDimensions.minTouchTarget,
-    width: 24,
-  },
-  headerContainer: {
+  block: {
     backgroundColor: searchColors.surface,
     borderBottomColor: searchColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    borderBottomWidth: 1,
+    borderTopColor: searchColors.border,
+    borderTopWidth: 1,
+  },
+  clearButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -claySpacing.md,
+    minHeight: clayDimensions.minTouchTarget,
+    minWidth: clayDimensions.minTouchTarget,
+  },
+  errorBlock: {
+    paddingHorizontal: GUTTER,
+    paddingVertical: claySpacing.xl,
+  },
+  errorText: {
+    color: searchColors.textSecondary,
+  },
+  headerContainer: {
+    backgroundColor: searchColors.background,
+    borderBottomColor: searchColors.border,
+    borderBottomWidth: 1,
+    paddingBottom: claySpacing.md,
+    paddingHorizontal: GUTTER,
+    paddingTop: claySpacing.md,
   },
   listContent: {
-    backgroundColor: clayColors.canvas,
+    backgroundColor: searchColors.background,
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: claySpacing.xl,
   },
   loaderIcon: {
-    marginLeft: 8,
+    marginLeft: claySpacing.sm,
   },
-  modeButton: {
-    alignItems: 'center',
-    backgroundColor: searchColors.inputBg,
-    borderRadius: searchRadii.input,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget,
+  retryButton: {
+    alignSelf: 'flex-start',
+    marginTop: claySpacing.md,
   },
-  modeButtonActive: {
-    backgroundColor: clayColors.primarySoft,
+  rowPressed: {
+    backgroundColor: clayColors.surfaceWell,
   },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  modeTextActive: {
-    color: clayColors.primary,
-    fontFamily: fontFamilies.bold,
+  rowRule: {
+    borderTopColor: clayColors.rule,
+    borderTopWidth: 1,
   },
   screen: {
-    backgroundColor: searchColors.surface,
+    backgroundColor: searchColors.background,
     flex: 1,
   },
   screenTitle: {
-    marginBottom: 12,
+    marginBottom: claySpacing.md,
   },
+  // A white field with a 1px control edge, as every input in the app.
   searchBar: {
     alignItems: 'center',
-    backgroundColor: searchColors.inputBg,
+    backgroundColor: searchColors.surface,
+    borderColor: clayColors.control,
     borderRadius: searchRadii.input,
+    borderWidth: 1,
     flexDirection: 'row',
-    height: 48,
-    paddingHorizontal: 14,
+    minHeight: clayDimensions.minTouchTarget,
+    paddingHorizontal: claySpacing.md,
   },
   searchInput: {
     color: searchColors.text,
-    fontFamily: fontFamilies.regular,
     flex: 1,
+    fontFamily: fontFamilies.regular,
     fontSize: 15,
-    height: '100%',
-    marginLeft: 10,
+    marginLeft: claySpacing.sm,
+    minHeight: clayDimensions.minTouchTarget - 2,
     paddingVertical: 0,
   },
-  trending: {
-    borderBottomColor: searchColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  trendingTag: {
-    backgroundColor: searchColors.surface,
-    borderColor: searchColors.border,
-    borderRadius: searchRadii.button,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: clayDimensions.minTouchTarget,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  trendingTagText: {
-    color: clayColors.primary,
-    fontFamily: fontFamilies.bold,
-  },
-  trendingTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
+  section: {
+    paddingTop: claySpacing.xl,
   },
   sectionHeader: {
-    backgroundColor: searchColors.surface,
-    borderBottomColor: searchColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingBottom: claySpacing.sm,
+    paddingHorizontal: GUTTER,
   },
   sectionSubtitle: {
+    fontFamily: fontFamilies.regular,
     marginTop: 2,
   },
-  sectionTitle: {
-    fontSize: 16,
+  // Users / posts: a segmented control as wide as the screen below 480px.
+  segment: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  segmentActive: {
+    backgroundColor: clayColors.primarySoft,
+    borderRadius: searchRadii.input - 2,
+  },
+  segmentText: {
+    color: searchColors.textSecondary,
+  },
+  segmentTextActive: {
+    color: clayColors.primaryInk,
+    fontFamily: fontFamilies.semiBold,
+  },
+  segmented: {
+    backgroundColor: searchColors.surface,
+    borderColor: clayColors.border,
+    borderRadius: searchRadii.input,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: claySpacing.md,
+    maxWidth: 480,
+    padding: 3,
+  },
+  trendingCount: {
+    ...tabularNums,
+    color: searchColors.caption,
+    fontFamily: fontFamilies.regular,
+    textAlign: 'right',
+  },
+  trendingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: claySpacing.md,
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: GUTTER,
+  },
+  trendingTag: {
+    color: searchColors.text,
+    flexShrink: 1,
+    fontFamily: fontFamilies.semiBold,
   },
 });

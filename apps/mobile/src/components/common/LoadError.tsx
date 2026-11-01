@@ -2,7 +2,6 @@ import { StyleSheet, View } from 'react-native';
 
 import { clayColors } from '../../theme/colors';
 import { claySpacing } from '../../theme/spacing';
-import { ClayIcon } from '../icons/ClayIcon';
 import { ClayButton } from '../ui/ClayButton';
 import { ClayText } from '../ui/ClayText';
 
@@ -20,7 +19,6 @@ export function LoadError({
 }: LoadErrorProps) {
   return (
     <View style={styles.container}>
-      <ClayIcon color={clayColors.caption} name="WarningCircle" size={44} weight="regular" />
       <ClayText style={styles.title} variant="heading">
         {title}
       </ClayText>
@@ -45,21 +43,18 @@ const styles = StyleSheet.create({
   button: {
     marginTop: claySpacing.base,
   },
+  // The error sits where the content would have started, on the page margin.
   container: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: claySpacing.xxl,
-    paddingVertical: 64,
+    paddingHorizontal: claySpacing.base,
+    paddingTop: claySpacing.xl,
   },
   message: {
-    color: clayColors.caption,
+    color: clayColors.textSecondary,
     marginTop: claySpacing.xs,
-    textAlign: 'center',
   },
   title: {
     color: clayColors.text,
-    marginTop: claySpacing.md,
-    textAlign: 'center',
   },
 });
