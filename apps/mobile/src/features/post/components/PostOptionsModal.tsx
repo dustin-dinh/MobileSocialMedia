@@ -15,6 +15,8 @@ import type { Post } from '../../feed/types';
 
 export type PostOptionsModalProps = {
   isAuthor: boolean;
+  /** The viewer muted the post's author: the option reads "Bỏ tắt tiếng". */
+  isAuthorMuted?: boolean;
   isSaved?: boolean;
   onChangePrivacy?: () => void;
   onClose: () => void;
@@ -24,6 +26,7 @@ export type PostOptionsModalProps = {
   onReport?: () => void;
   onSave?: () => void;
   onShare?: () => void;
+  onToggleMute?: () => void;
   post: Post;
   visible: boolean;
 };
@@ -38,7 +41,9 @@ type OptionItem = {
     | 'ShareNetwork'
     | 'BookmarkSimple'
     | 'EyeSlash'
-    | 'Flag';
+    | 'Flag'
+    | 'SpeakerHigh'
+    | 'SpeakerSlash';
   isDestructive?: boolean;
   key: string;
   label: string;
@@ -47,6 +52,7 @@ type OptionItem = {
 
 export function PostOptionsModal({
   isAuthor,
+  isAuthorMuted = false,
   isSaved = false,
   onChangePrivacy,
   onClose,
@@ -56,6 +62,7 @@ export function PostOptionsModal({
   onReport,
   onSave,
   onShare,
+  onToggleMute,
   visible,
 }: PostOptionsModalProps) {
   const insets = useSafeAreaInsets();
@@ -123,6 +130,18 @@ export function PostOptionsModal({
       onPress: () => {
         onClose();
         onHide?.();
+      },
+    },
+    {
+      description: isAuthorMuted
+        ? 'Bài viết và tin của người này hiện lại trên bảng tin'
+        : 'Không thấy bài viết và tin của người này trên bảng tin. Họ sẽ không được báo',
+      icon: isAuthorMuted ? 'SpeakerHigh' : 'SpeakerSlash',
+      key: 'mute',
+      label: isAuthorMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng',
+      onPress: () => {
+        onClose();
+        onToggleMute?.();
       },
     },
     {

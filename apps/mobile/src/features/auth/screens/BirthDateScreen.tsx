@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
@@ -9,10 +9,12 @@ import { ApiError } from '../../../services/apiError';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, clayRadii, claySpacing } from '../../../theme/spacing';
 import { accountService } from '../../settings/accountService';
+import { LegalScreen } from '../../settings/screens/LegalScreen';
 import { useAuthSession } from '../authSession';
 import { birthDateProblem, formatBirthDateInput, parseBirthDateInput } from '../birthDate';
 import { AuthBrand } from '../components/AuthBrand';
 import { AuthTextInput } from '../components/AuthTextInput';
+import { LegalConsent, type LegalDoc } from '../components/LegalConsent';
 import { PrimaryButton } from '../components/PrimaryButton';
 
 const PROBLEMS = {
@@ -35,6 +37,9 @@ export function BirthDateScreen() {
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  // First Google sign-in lands here without having seen the Register checkbox.
+  const [hasAgreed, setHasAgreed] = useState(false);
+  const [openDoc, setOpenDoc] = useState<LegalDoc | null>(null);
 
   const handleContinue = () => {
     const problem = birthDateProblem(value);
@@ -135,9 +140,10 @@ export function BirthDateScreen() {
           placeholder="NN/TT/NNNN"
           value={value}
         />
+        <LegalConsent checked={hasAgreed} onChange={setHasAgreed} onOpenDoc={setOpenDoc} />
         <PrimaryButton
           accessibilityLabel="Tiếp tục với ngày sinh này"
-          disabled={isSaving}
+          disabled={isSaving || !hasAgreed}
           isLoading={isSaving}
           label="Tiếp tục"
           onPress={handleContinue}
@@ -165,6 +171,16 @@ export function BirthDateScreen() {
         title="Xác nhận ngày sinh?"
         visible={isConfirmVisible}
       />
+
+      {/* This screen sits outside the navigators, so the legal text opens in a modal. */}
+      <Modal animationType="slide" onRequestClose={() => setOpenDoc(null)} visible={openDoc !== null}>
+        {openDoc ? (
+          <LegalScreen
+            navigation={{ goBack: () => setOpenDoc(null) } as never}
+            route={{ key: 'Legal', name: 'Legal', params: { doc: openDoc } } as never}
+          />
+        ) : null}
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

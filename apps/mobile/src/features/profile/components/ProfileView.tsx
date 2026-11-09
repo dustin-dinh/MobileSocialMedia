@@ -33,6 +33,7 @@ import { anonymousErrorText } from '../../messages/anonymousErrors';
 import { messageService } from '../../messages/services/messageService';
 import { ReportModal } from '../../report/ReportModal';
 import type { ReportTarget } from '../../report/reportService';
+import { setUserMuted } from '../muteUser';
 import { profileColors } from '../profileTheme';
 import { profileService } from '../services/profileService';
 import type { UpdateProfilePayload, UserProfile } from '../types';
@@ -210,8 +211,9 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
       const conversation = await messageService.open(userId);
 
       navigation.open('Chat', { conversationId: conversation.id, peer: conversation.peer });
-    } catch {
-      showToast('Không mở được cuộc trò chuyện. Vui lòng thử lại.', 'error');
+    } catch (error) {
+      // "Only people they follow" or today's request limit: say so instead of "try again".
+      showToast(anonymousErrorText(error, 'Không mở được cuộc trò chuyện. Vui lòng thử lại.'), 'error');
     }
   }, [navigation, userId]);
 
@@ -413,6 +415,24 @@ export function ProfileView({ menuVisible = false, onCloseMenu, onCreatePost, us
                     },
                   ]
                 : []),
+              ...(profile.isBlocked
+                ? []
+                : [
+                    {
+                      icon: profile.isMuted ? 'SpeakerHigh' : 'SpeakerSlash',
+                      key: 'mute',
+                      label: profile.isMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng',
+                      onPress: () => {
+                        const muted = !profile.isMuted;
+
+                        void setUserMuted(profile.id, muted).then((done) => {
+                          if (done) {
+                            setProfile((current) => (current ? { ...current, isMuted: muted } : current));
+                          }
+                        });
+                      },
+                    },
+                  ]),
               {
                 destructive: true,
                 icon: 'Flag',

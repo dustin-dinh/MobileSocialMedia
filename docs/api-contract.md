@@ -513,3 +513,85 @@ For the recipient of an anonymous conversation, until the sender reveals themsel
 | `DELETE /admin/users/:id/age-lock` | Unlock and clear the birth date so it can be declared again. |
 | `POST` / `DELETE /admin/users/:id/anonymous` | Restore / suspend anonymous messaging. |
 | `GET /admin/stats` | Adds `imageModeration: "ready" \| "unavailable"`. |
+
+## Changes 2026-11-01 (parts 1-2)
+
+### Moderation, audit log and account deletion
+
+**Report queue.** `GET /admin/reports?status=&page=&limit=`: `status` = `OPEN` (default) | `RESOLVED` | `DISMISSED` | `CLOSED` (resolved or dismissed). Each item is now one reported target with every report about it grouped in: `{ id, targetType, targetId, reason, severity, reportCount, reports: [{ id, reason, note, createdAt, reporter }], note, status, createdAt, resolvedAt, reporter, target }`. `id` is the oldest report of the group (pass it to resolve). `reason` is the most severe reason of the group, `severity` 1 (most severe) to 7: `CHILD_SAFETY`, `SCAM`, `HARASSMENT`, `SENSITIVE`, `MISINFORMATION`, `SPAM`, `OTHER`. `POST /reports` accepts the same 7 reasons; `CHILD_SAFETY` (child sexual abuse or sexualisation of minors) is always handled first. The admin console tags severity ≤ 3 `Nghiêm trọng` and ≤ 5 `Trung bình`. `OPEN` is ordered by severity, then `reportCount` (one report per person per target, so it counts distinct reporters), then oldest first. Closed items: one per resolution, newest first. `meta.total` counts items, not reports.
+
+**Conversation reports hide identity.** In the list, a `CONVERSATION` target is `{ conversationId, kind, anonymous, messageCount, identityHidden: true }`: no messages, no `reportedUserId`, no `author`.
+
+| Endpoint | Notes |
+|---|---|
+| `POST /admin/reports/:id/identity` `{ reason }` | `reason` 3-500 chars, required (`400` without). Returns the snapshot `{ conversationId, kind, reportedUserId, anonymous, messages, author }` (`author` = real identity with `bannedAt`, `anonymousSuspendedAt`) and writes a `VIEW_IDENTITY` audit row. `404` for a non-conversation report. |
+| `POST /admin/reports/:id/resolve` `{ action, reason? }` | `REMOVE_CONTENT` on a comment now hides it (`Comment.removedAt`) instead of deleting it. Optional `reason` (≤ 500) goes to the audit log; without it the row records `Báo cáo: <reason>`. |
+| `POST /admin/comments/:id/restore` `{ reason? }` | Clears `removedAt`. `404` when the comment is not removed. |
+| `GET /admin/audit?page=&limit=` | Newest first: `{ id, actorId, actor, action, targetType, targetId, reason, createdAt }`. |
+| `POST`/`DELETE /admin/users/:id/ban`, `DELETE /admin/users/:id/age-lock`, `POST`/`DELETE /admin/users/:id/anonymous` | Accept an optional body `{ reason? }`; each writes an audit row. |
+| `GET /admin/users` | Adds `deletedAt`. `GET /admin/stats` `users` / `newUsers` leave deleted accounts out. |
+
+Audit actions: `VIEW_IDENTITY`, `REPORT_DISMISS`, `REPORT_REMOVE_CONTENT`, `REPORT_BAN_USER`, `BAN`, `UNBAN`, `AGE_UNLOCK`, `ANONYMOUS_RESTORE`, `ANONYMOUS_SUSPEND`, `COMMENT_RESTORE`. A resolve that bans or restores anonymous messaging writes both rows.
+
+**Removed comments** are left out of `GET /posts/:id/comments`, `GET /comments/:id/replies` (its replies too), every post's `commentsCount` (replies under a removed comment included), and `GET /notifications` (list, `total`, `unreadCount`). Replying to, liking, editing or listing replies of a removed comment answers `404`. A user deleting their own comment still deletes it.
+
+**Account deletion** (`DELETE /users/me`, same body and errors). The user row is kept as a tombstone: `deletedAt` set, `tokenVersion` incremented, `username` → `deleted_<12 hex>`, `email` → `deleted+<id>@deleted.invalid`, `displayName` → `"Người dùng đã xóa"`; password, Google link, avatar, cover, bio, birth date cleared. Posts, stories, comments (with their files), follows, follow requests, blocks, mutes, likes, reposts, saves, story reactions and views, notifications, device and auth tokens are deleted. Conversations stay for the other person; the deleted user's messages lose their text and image. Reports and their snapshots stay, and images referenced by an open report's snapshot are not deleted. Login and Google login cannot reach the account (email and Google id are rewritten); the same email can register again.
+
+Message object (list, conversation `lastMessage`, socket) gains `deleted: boolean`; when `true`, `content` is `"Tin nhắn đã bị xóa"` and `imageUrl` is `null`. The deleted user appears as peer `{ displayName: "Người dùng đã xóa", username: "deleted_…", avatarUrl: null }`.
+
+### Account security: sessions, lockout, two-factor sign-in
+
+| Endpoint | Notes |
+|---|---|
+| Access token | Now carries `ver` (the user's `tokenVersion`). Every authenticated request and the `/notifications` socket handshake check it against the database: a token whose `ver` differs, or a deleted account, answers `401 { "code": "SESSION_REVOKED", "message": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." }`. Tokens issued before this change have no `ver` and count as `0`, so existing users stay signed in. Still 30 days, still no refresh token. |
+| `POST /auth/logout` | Now really signs out: increments `tokenVersion`, so **every device** of the account is signed out. `204`. |
+| `PATCH /auth/password` | Increments `tokenVersion` (other devices are signed out) and answers `{ data: { changed: true, accessToken } }`: the client must store the new `accessToken`, the one it sent is revoked. |
+| `POST /auth/reset-password` | Also increments `tokenVersion` and clears the login lock. |
+| `POST /auth/login` | Per-account lockout: 5 wrong passwords in a row lock password login for 15 minutes. The 5th wrong attempt and every attempt while locked answer **`423`** `{ "code": "LOGIN_LOCKED", "message": "Bạn đã nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau N phút." }` (423, not 429, because the app replaces any 429 message with its own generic one). A correct password resets the counter. The per-IP limit (10/minute) is unchanged. An unknown email still runs a bcrypt comparison, so response time does not reveal which emails exist. |
+| `POST /auth/login`, `POST /auth/google` | When the account has two-factor sign-in on, they answer `200` `{ data: { twoFactorRequired: true, challengeToken, email } }` instead of `{ accessToken, user }`, and email a 6-digit code (5 minutes, 5 attempts). `challengeToken` lasts 10 minutes and is signed with a different key: it is never accepted as an access token. `POST /auth/google` is now limited to 10/minute per IP. |
+| `POST /auth/2fa/verify` `{ challengeToken, code }` | `code` = 6 digits. Answers the normal session `{ data: { accessToken, user } }`. Wrong or used code: `401` "Mã xác minh không đúng hoặc đã hết hạn."; expired or invalid `challengeToken`: `401 { "code": "TWO_FACTOR_EXPIRED" }`. 10/minute per IP. |
+| `POST /auth/2fa/resend` `{ challengeToken }` | Emails a new code (the previous one stops working). At most 5 two-factor codes per account per hour, counting the ones sent by login (`429`). 10/hour per IP. |
+| `PATCH /auth/2fa` `{ enabled, currentPassword }` | Signed in. Turns two-factor sign-in on or off; always needs the current password (wrong: `400`). Accounts without a password (Google-only) answer `400 { "code": "PASSWORD_REQUIRED" }`: they set a password first with `PATCH /auth/password`. → `{ data: { twoFactorEnabled } }`. |
+| `GET /users/me`, login responses | `user` adds `twoFactorEnabled`. |
+
+Auth error messages are now in Vietnamese (wrong credentials, unverified email, suspended account, invalid or expired codes, duplicate email or username, wrong current password, generic forgot-password and resend messages). Codes (`EMAIL_NOT_VERIFIED`, `ACCOUNT_BANNED`, …) are unchanged.
+
+### Messaging safety: who can message me, daily request cap, quiet requests
+
+| Endpoint | Notes |
+|---|---|
+| `GET /users/me`, login `user`, `PATCH /users/me` response | Add `messagePermission`: `"EVERYONE"` (default; strangers land in Tin nhắn chờ) or `"FOLLOWING"` (only people I follow can open a new conversation). |
+| `PATCH /users/me` | New optional `messagePermission: "EVERYONE" \| "FOLLOWING"` (anything else: `400`). |
+| `POST /conversations` `{ userId }` | Opening a **new** conversation with someone who does not follow you: `403 { code: "MESSAGE_NOT_ALLOWED", message: "Người này chỉ nhận tin nhắn từ những người họ theo dõi." }` when their `messagePermission` is `FOLLOWING`; otherwise counts toward a daily cap of 20 new message requests per 24 hours (5 when your account is younger than 7 days): `429 { code: "REQUEST_DAILY_LIMIT", limit, message: "Hôm nay bạn đã nhắn cho N người chưa theo dõi bạn. Hãy thử lại vào ngày mai." }`. The cap counts every `DIRECT` conversation you opened as a request in the last 24 hours (opening counts, even without sending). Reopening an existing conversation is never refused. Anonymous conversations keep their own cap (`ANONYMOUS_DAILY_LIMIT`, 10). |
+| `POST /conversations/:id/messages` | New refusals: `403 MESSAGE_NOT_ALLOWED` when you opened a request that is still unanswered and the recipient switched to `FOLLOWING` (and does not follow you); `403 ANONYMOUS_NOT_ACCEPTED` ("Người này không nhận tin nhắn ẩn danh nữa.") when you are the hidden sender of an anonymous conversation opened from the profile and the recipient turned anonymous messages off. Conversations started by an anonymous story reply (their first message has a `storyId`) and new story replies are not affected (DEC-025: the story's own `allowAnonymous` governs them). The recipient can always write. |
+| `POST /conversations/:id/messages` (after `decline`) | The opener can still send (they are not told), but the recipient gets no `message:new` socket event and no push. The opener's own devices still get `message:new`. |
+| Push for a new message | Body is `"Bạn có tin nhắn ẩn danh mới"` when the sender is hidden, `"Bạn có tin nhắn chờ mới"` while the conversation is a pending request, otherwise the text (`"Đã gửi một ảnh"` for an image). Title unchanged (sender name, or "Người ẩn danh"). The old `"[Tin nhắn chờ] <text>"` body is gone. |
+
+Links in messages: no API change. The app makes URLs tappable and warns on suspicious ones (`apps/mobile/src/features/messages/linkSafety.ts`); the server still blocks every link from strangers and hidden anonymous senders (`CONTACT_INFO_BLOCKED`).
+
+### Content visibility, mute, sensitive post images, private post media
+
+- **Locked and deleted accounts.** Posts, reels, reposts and stories of a user with `bannedAt`, `ageLockedAt` or `deletedAt` set are hidden from everyone else: home feed, Reels, post search, trending hashtags, profile posts and reposts, saved posts, post detail (404) and the story tray. Such users are left out of `GET /users/search` and suggestions, `GET /users/:id` answers 404, and they cannot be muted (404). One rule in `visiblePostWhere` (`apps/api/src/modules/posts/post-view.ts`, `activeUserWhere`).
+- **Mentions.** At most 20 distinct `@username` per post or comment are considered. A mentioned user is notified only if they can see the post (privacy `FRIENDS`/`PRIVATE`, blocks with the post's author, private account) and their account is active. Applies to posts and comments.
+- **`POST /interactions`** silently skips events for posts the sender cannot see (same as posts that no longer exist), still `204`.
+- **Mute** (the muted user is never told and gets no notification):
+  - `POST /users/:id/mute` → `201 { data: { isMuted: true } }`; idempotent. `400` for yourself, `404` for an unknown, locked or deleted user.
+  - `DELETE /users/:id/mute` → `200 { data: { isMuted: false } }`; idempotent.
+  - `GET /users/me/muted` → `{ data: [{ id, username, displayName, avatarUrl }] }`, newest first.
+  - Muted authors' posts, reposts by them and reposts of their posts disappear from the muter's `GET /posts/feed`; their videos from `GET /reels/feed`; their stories from `GET /stories/feed`. They stay on the muted user's profile, in search and in post detail.
+  - `GET /users/:id` adds `isMuted: boolean`. Every post object (feed, repost `originalPost`, detail, profile, saved, search, Reels) adds `isAuthorMuted: boolean`.
+- **Sensitive post images.** Images uploaded with `POST /posts` and `PATCH /posts/:id` are checked by the same image model, threshold and "model missing" policy as chat images (`IMAGE_MODERATION_THRESHOLD`, `IMAGE_MODERATION_REQUIRED`). Every media item in post responses adds `sensitive: boolean`; the app shows a blurred cover until tapped. Video posters uploaded directly to storage are not checked (`sensitive` stays `false`).
+- **Private post and story media.** New post images, post videos and thumbnails, and story files are stored in the private bucket (`s3p:<key>`): `url` and `thumbnailUrl` in responses are signed URLs that expire after 1 hour and change on every response, so clients cache images by media id. `POST /media/upload-url` now returns a PUT URL into the private bucket (request and response shape unchanged); a signed URL is valid for `GET` only (not `HEAD`). Avatars and covers stay in the public bucket. Files uploaded before this change keep their public `s3:` URLs until a migration moves them.
+
+### Push notifications and paging
+
+- **No new endpoints.** `POST /notifications/devices` and `DELETE /notifications/devices?token=` are unchanged.
+- **Push payload** (sent through the Expo push service): `{ to, title, body, data, channelId: "default" }`. `channelId` is the Android channel the app creates at startup; iOS ignores it. `data.type` tells the app which screen a tap opens:
+  - `LIKE`, `COMMENT`, `REPLY`, `REPOST`, `MENTION` → `{ postId, commentId, actorId }` (post detail, scrolled to the comment when there is one);
+  - `FOLLOW`, `FOLLOW_ACCEPT` → `{ actorId }` (that profile); `FOLLOW_REQUEST` → follow requests;
+  - `MESSAGE` → `{ conversationId }` (the conversation, or the inbox when it cannot be found); `STORY_REACTION` → `{ storyId }` (reactions to your story);
+  - anything else → the notifications screen.
+- **Who gets a push.** Never an account with `deletedAt`, `bannedAt` or `ageLockedAt` set (their device tokens are skipped).
+- **Dead tokens.** The Expo ticket for each message is read; a token whose ticket says `DeviceNotRegistered` is deleted. Receipts (`/push/getReceipts`) are not read yet.
+- **`EXPO_PUSH_URL`** (optional server env var, default `https://exp.host/--/api/v2/push/send`): only for tests against a fake push server (`apps/api/scripts/push-smoke.cjs`).
+- **Paging** (already supported, now used by the app): `GET /notifications?page=&limit=` (limit ≤ 50) returns `meta: { page, limit, total, unreadCount, totalPages }`, where `total` and `unreadCount` cover every page; `GET /users/search?q=&page=&limit=` returns `meta: { page, limit, total, totalPages }`. The app asks for 20 per page and loads the next page while scrolling.

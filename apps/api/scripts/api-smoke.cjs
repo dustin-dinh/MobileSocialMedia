@@ -217,7 +217,9 @@ function formPost(content, privacy) {
   r = await call('PATCH', 'auth/password', a.token, { currentPassword: 'wrong-password', newPassword: 'NewPassw0rd!' });
   check('change password wrong current -> 400 (not 401)', r.status === 400, r);
   r = await call('PATCH', 'auth/password', a.token, { currentPassword: PASSWORD, newPassword: 'NewPassw0rd!' });
-  check('change password', r.status === 200, r);
+  check('change password', r.status === 200 && Boolean(r.body?.data?.accessToken), r);
+  // Đổi mật khẩu thu hồi token cũ và trả token mới cho thiết bị đang dùng.
+  a.token = r.body?.data?.accessToken ?? a.token;
   r = await login('a', 'NewPassw0rd!');
   check('login with new password', r.status < 300, r);
 
@@ -233,7 +235,8 @@ function formPost(content, privacy) {
 
   // throttle (cuối cùng vì nó khóa login trong 1 phút)
   const statuses = [];
-  for (let i = 0; i < 12; i++) statuses.push((await login('b', 'wrong-password')).status);
+  // Email không tồn tại: không làm khóa tài khoản thử 15 phút (khóa theo tài khoản sau 5 lần sai).
+  for (let i = 0; i < 12; i++) statuses.push((await login('nobody', 'wrong-password')).status);
   check('login throttled after 10/min', statuses.includes(429) && statuses.at(-1) === 429, statuses);
 
   console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');

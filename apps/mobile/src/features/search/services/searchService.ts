@@ -12,6 +12,15 @@ import type { SearchedUser } from '../types';
 const USE_MOCK = USE_MOCK_API;
 
 const SEARCH_PAGE_SIZE = 20;
+/** Small enough that the mock suggestions have two pages. */
+const MOCK_PAGE_SIZE = 4;
+
+export type UserSearchPage = {
+  hasMore: boolean;
+  /** Matches across every page. */
+  total: number;
+  users: SearchedUser[];
+};
 
 type ApiSearchedUser = Pick<SearchedUser, 'avatarUrl' | 'displayName' | 'id' | 'username'>;
 const MOCK_DELAY_MS = 400;
@@ -121,28 +130,37 @@ export const searchService = {
   },
 
   /**
-   * Search users by username or display name.
-   *
-   * When `query` is empty / blank, returns suggested users.
+   * One page of users matching `query` by username or display name
+   * (`page` starts at 1). When `query` is empty / blank, returns suggested users
+   * in mock mode and nothing against the API.
    */
-  async searchUsers(query: string): Promise<SearchedUser[]> {
+  async searchUsers(query: string, page = 1): Promise<UserSearchPage> {
     if (USE_MOCK) {
       await delay(MOCK_DELAY_MS);
+      const matches = filterMockUsers(query);
+      const start = (page - 1) * MOCK_PAGE_SIZE;
 
-      return filterMockUsers(query);
+      return {
+        hasMore: start + MOCK_PAGE_SIZE < matches.length,
+        total: matches.length,
+        users: matches.slice(start, start + MOCK_PAGE_SIZE),
+      };
     }
 
     const trimmedQuery = query.trim();
 
     // The API rejects an empty `q`, and it has no "suggested users" endpoint.
     if (!trimmedQuery) {
-      return [];
+      return { hasMore: false, total: 0, users: [] };
     }
 
     const [response, followingIds, currentUserId] = await Promise.all([
-      httpClient.requestJson<{ data: ApiSearchedUser[] }>({
+      httpClient.requestJson<{
+        data: ApiSearchedUser[];
+        meta: { page: number; total: number; totalPages: number };
+      }>({
         method: 'GET',
-        path: `users/search?q=${encodeURIComponent(trimmedQuery)}&page=1&limit=${SEARCH_PAGE_SIZE}`,
+        path: `users/search?q=${encodeURIComponent(trimmedQuery)}&page=${page}&limit=${SEARCH_PAGE_SIZE}`,
       }),
       followApi.getMyFollowingIds(),
       followApi.getCurrentUserId(),
@@ -150,14 +168,19 @@ export const searchService = {
 
     // The search response carries neither bio, follower totals nor follow
     // state; the follow state is derived from the signed-in user's own list.
-    return response.data
-      .filter((user) => user.id !== currentUserId)
-      .map((user) => ({
-        ...user,
-        bio: null,
-        followersCount: null,
-        isFollowing: followingIds.has(user.id),
-      }));
+    return {
+      hasMore: response.meta.page < response.meta.totalPages,
+      // The signed-in user is left out below, so out of the total too when on this page.
+      total: response.meta.total - (response.data.some((user) => user.id === currentUserId) ? 1 : 0),
+      users: response.data
+        .filter((user) => user.id !== currentUserId)
+        .map((user) => ({
+          ...user,
+          bio: null,
+          followersCount: null,
+          isFollowing: followingIds.has(user.id),
+        })),
+    };
   },
 
   /**

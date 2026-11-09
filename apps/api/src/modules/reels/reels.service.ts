@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
     blockedUserIds,
+    mutedUserIds,
     postSelect,
     toPostDto,
     visiblePostWhere,
@@ -84,12 +85,16 @@ export class ReelsService {
     // Xếp hạng bản đầu: mới + nhiều tương tác + người mình theo dõi; video đã xem chìm xuống cuối.
     // shortcut: chấm điểm trong bộ nhớ trên 200 video mới nhất, thay bằng bộ gợi ý theo sở thích khi có đủ dữ liệu xem.
     async getFeed(userId: string, limit: number, exclude: string[]) {
-        const blocked = await blockedUserIds(this.prisma, userId);
+        const [blocked, muted] = await Promise.all([
+            blockedUserIds(this.prisma, userId),
+            mutedUserIds(this.prisma, userId),
+        ]);
 
         const [candidates, seenRows] = await Promise.all([
             this.prisma.post.findMany({
                 where: {
-                    ...visiblePostWhere(userId, blocked),
+                    // Chặn và tắt tiếng gộp chung: bài của cả hai nhóm đều không vào Reels.
+                    ...visiblePostWhere(userId, [...blocked, ...muted]),
                     reelEligible: true,
                     hiddenBy: { none: { userId } },
                     ...(exclude.length ? { id: { notIn: exclude } } : {}),
@@ -163,9 +168,12 @@ export class ReelsService {
             return;
         }
 
-        // Bỏ qua sự kiện của bài không còn tồn tại thay vì làm hỏng cả lô.
+        // Bỏ qua sự kiện của bài không còn tồn tại hoặc người gửi không được xem, thay vì làm hỏng cả lô.
         const existing = await this.prisma.post.findMany({
-            where: { id: { in: [...new Set(events.map((event) => event.postId))] } },
+            where: {
+                id: { in: [...new Set(events.map((event) => event.postId))] },
+                ...visiblePostWhere(userId, await blockedUserIds(this.prisma, userId)),
+            },
             select: { id: true },
         });
         const existingIds = new Set(existing.map((post) => post.id));

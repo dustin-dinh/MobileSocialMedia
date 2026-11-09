@@ -186,7 +186,8 @@ export const ReelPlayer = memo(function ReelPlayer({
       {!hasFirstFrame && media.thumbnailUrl ? (
         <Image
           contentFit={contentFit}
-          source={{ uri: media.thumbnailUrl }}
+          // Signed URL changes per load: cache by media id.
+          source={{ cacheKey: `post-thumb-${media.id}`, uri: media.thumbnailUrl }}
           style={StyleSheet.absoluteFill}
         />
       ) : null}

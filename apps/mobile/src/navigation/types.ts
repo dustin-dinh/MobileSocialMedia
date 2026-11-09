@@ -22,7 +22,9 @@ export type AuthStackParamList = {
   VerifyCode: {
     email: string;
     /** Defaults to `resetPassword` (the original use of this screen). */
-    mode?: 'resetPassword' | 'verifyEmail';
+    mode?: 'resetPassword' | 'twoFactor' | 'verifyEmail';
+    /** `twoFactor` mode: the token from the first sign-in step. */
+    challengeToken?: string;
     /** Email a fresh code when the screen opens (user arrived without one). */
     resend?: boolean;
   };
@@ -42,6 +44,8 @@ export type MainStackParamList = {
   /** Risk warning and the switch for anonymous messages. */
   AnonymousMessages: undefined;
   BlockedUsers: undefined;
+  /** Users the viewer muted. */
+  MutedUsers: undefined;
   ChangePassword: undefined;
   /** One-to-one conversation. */
   Chat: {
@@ -73,6 +77,8 @@ export type MainStackParamList = {
   };
   SavedPosts: undefined;
   Settings: undefined;
+  /** Turn two-factor sign-in (emailed code) on or off. */
+  TwoFactor: undefined;
   /** Full-screen stories, starting with `groups[startIndex]`. */
   StoryViewer: {
     groups: StoryGroup[];

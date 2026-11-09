@@ -27,6 +27,8 @@ type ProfileOwner = Pick<AuthUser, 'avatarUrl' | 'displayName' | 'id' | 'usernam
 };
 
 const MOCK_DELAY_MS = 500;
+// Mock only: who the viewer muted during this session.
+const mockMuted = new Map<string, PostAuthor>();
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,6 +48,7 @@ function buildMockProfile(user: ProfileOwner): UserProfile {
     id: user.id,
     isBlocked: false,
     isFollowing: false,
+    isMuted: mockMuted.has(user.id),
     postsCount: MOCK_POSTS.length,
     username: user.username,
   };
@@ -291,6 +294,42 @@ export const profileService = {
     const response = await httpClient.requestJson<{ data: PostAuthor[] }>({
       method: 'GET',
       path: 'users/me/blocked',
+    });
+
+    return response.data;
+  },
+
+  /** Mute or unmute a user. The muted user is not told. */
+  async setMuted(userId: string, muted: boolean): Promise<void> {
+    if (USE_MOCK) {
+      await delay(300);
+      const { avatarUrl, displayName, id, username } = findMockAuthor(userId);
+
+      if (muted) {
+        mockMuted.set(userId, { avatarUrl, displayName, id, username });
+      } else {
+        mockMuted.delete(userId);
+      }
+
+      return;
+    }
+
+    await httpClient.requestVoid({
+      method: muted ? 'POST' : 'DELETE',
+      path: `users/${userId}/mute`,
+    });
+  },
+
+  async getMutedUsers(): Promise<PostAuthor[]> {
+    if (USE_MOCK) {
+      await delay(MOCK_DELAY_MS);
+
+      return [...mockMuted.values()].reverse();
+    }
+
+    const response = await httpClient.requestJson<{ data: PostAuthor[] }>({
+      method: 'GET',
+      path: 'users/me/muted',
     });
 
     return response.data;

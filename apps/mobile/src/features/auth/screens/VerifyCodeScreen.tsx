@@ -10,6 +10,7 @@ import { tabularNums } from '../../../theme/typography';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { FormMessage } from '../components/FormMessage';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useOptionalAuthSession } from '../authSession';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
 import { authService } from '../services/authService';
 import { passwordResetService } from '../services/passwordResetService';
@@ -34,6 +35,11 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   const email = route.params?.email ?? '';
   const isEmailVerification = route.params?.mode === 'verifyEmail';
+  // Second step of a two-factor sign-in: success swaps to the app by itself.
+  const isTwoFactor = route.params?.mode === 'twoFactor';
+  const challengeToken = route.params?.challengeToken ?? '';
+  const backToLogin = isEmailVerification || isTwoFactor;
+  const session = useOptionalAuthSession();
   const maskedEmail = maskEmail(email);
 
   const [code, setCode] = useState('');
@@ -87,6 +93,11 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     setLocalError(null);
     reset();
 
+    if (isTwoFactor && session) {
+      await submit(() => session.completeTwoFactor(challengeToken, currentCode));
+      return;
+    }
+
     if (isEmailVerification) {
       const verified = await submit(async () => {
         await authService.verifyEmail(email, currentCode);
@@ -119,6 +130,11 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
     reset();
 
     const result = await submit(async () => {
+      if (isTwoFactor) {
+        await authService.resendTwoFactor(challengeToken);
+        return { success: true };
+      }
+
       if (isEmailVerification) {
         await authService.resendVerification(email);
         return { success: true };
@@ -137,14 +153,20 @@ export function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   return (
     <AuthScreenContainer
       back={{
-        label: isEmailVerification ? 'Đăng nhập' : 'Quên mật khẩu',
-        onPress: () => navigation.navigate(isEmailVerification ? 'Login' : 'ForgotPassword'),
+        label: backToLogin ? 'Đăng nhập' : 'Quên mật khẩu',
+        onPress: () => navigation.navigate(backToLogin ? 'Login' : 'ForgotPassword'),
       }}
       footerActionLabel="Đăng nhập"
-      footerPrompt={isEmailVerification ? 'Đã xác minh rồi?' : 'Đã nhớ mật khẩu?'}
+      footerPrompt={
+        isTwoFactor ? 'Dùng tài khoản khác?' : isEmailVerification ? 'Đã xác minh rồi?' : 'Đã nhớ mật khẩu?'
+      }
       onFooterAction={() => navigation.navigate('Login')}
-      subtitle={`Nhập mã gồm 6 chữ số vừa gửi tới ${maskedEmail}.`}
-      title={isEmailVerification ? 'Xác minh email' : 'Nhập mã xác minh'}
+      subtitle={
+        isTwoFactor
+          ? `Tài khoản này bật xác thực hai lớp. Nhập mã gồm 6 chữ số vừa gửi tới ${maskedEmail} để hoàn tất đăng nhập.`
+          : `Nhập mã gồm 6 chữ số vừa gửi tới ${maskedEmail}.`
+      }
+      title={isTwoFactor ? 'Xác thực hai lớp' : isEmailVerification ? 'Xác minh email' : 'Nhập mã xác minh'}
     >
       <Pressable
         accessibilityLabel="Verification code"

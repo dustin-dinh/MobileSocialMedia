@@ -23,6 +23,7 @@ import { ResendVerificationDto } from "./dto/resend-verification.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { SetTwoFactorDto, TwoFactorChallengeDto, VerifyTwoFactorDto } from "./dto/two-factor.dto";
 import { AuthenticatedRequest } from "./types/authenticated-request.type";
 @Controller('auth')
 export class AuthController {
@@ -42,16 +43,42 @@ export class AuthController {
         return this.authService.login(dto);
     }
 
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
     @Post('google')
     @HttpCode(HttpStatus.OK)
     loginWithGoogle(@Body() dto: GoogleLoginDto) {
         return this.authService.loginWithGoogle(dto);
     }
+    // Đăng xuất mọi thiết bị (tăng tokenVersion).
     @UseGuards(JwtAuthGuard)
     @Post("logout")
     @HttpCode(HttpStatus.NO_CONTENT)
-    logout(): void {
-        return;
+    async logout(@Request() request: AuthenticatedRequest): Promise<void> {
+        await this.authService.logout(request.user.userId);
+    }
+
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    @Post("2fa/verify")
+    @HttpCode(HttpStatus.OK)
+    verifyTwoFactor(@Body() dto: VerifyTwoFactorDto) {
+        return this.authService.verifyTwoFactor(dto.challengeToken, dto.code);
+    }
+
+    @Throttle({ default: { limit: 10, ttl: 60 * 60_000 } })
+    @Post("2fa/resend")
+    @HttpCode(HttpStatus.OK)
+    resendTwoFactor(@Body() dto: TwoFactorChallengeDto) {
+        return this.authService.resendTwoFactor(dto.challengeToken);
+    }
+
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    @UseGuards(JwtAuthGuard)
+    @Patch("2fa")
+    setTwoFactor(
+        @Request() request: AuthenticatedRequest,
+        @Body() dto: SetTwoFactorDto,
+    ) {
+        return this.authService.setTwoFactor(request.user.userId, dto.enabled, dto.currentPassword);
     }
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
     @Post("verify-email")

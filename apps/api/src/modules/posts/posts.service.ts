@@ -11,14 +11,18 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateMediaPostDto } from './dto/create-media-post.dto';
-import { storedUrl } from '../storage/media-url';
+import { storedPrivateUrl } from '../storage/media-url';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 import { StorageService } from '../storage/storage.service';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
+    activeUserWhere,
+    authorSelect,
     blockedUserIds,
+    mutedUserIds,
     pageMeta,
     postSelect,
     repostSelect,
@@ -37,7 +41,22 @@ export class PostsService {
     constructor(private readonly prisma: PrismaService,
         private readonly storageService: StorageService,
         private readonly notificationsService: NotificationsService,
+        private readonly imageModeration: ImageModerationService,
     ) { }
+
+    // Ảnh bài viết: chấm nhạy cảm (cùng mô hình, ngưỡng và chính sách thiếu mô hình như ảnh tin nhắn) rồi lưu
+    // vào bucket riêng tư, để ảnh bài "Bạn bè"/"Chỉ mình tôi" không mở được bằng đường link trần.
+    private async uploadImage(userId: string, file: Express.Multer.File) {
+        const { sensitive } = await this.imageModeration.classify(file.buffer);
+        const extension = file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+        const url = await this.storageService.upload(
+            file,
+            `posts/${userId}/${uuidv4()}.${extension}`,
+            { private: true },
+        );
+
+        return { url, sensitive, type: 'image' };
+    }
 
     async create(
         userId: string,
@@ -54,36 +73,11 @@ export class PostsService {
             );
         }
 
-        const uploadedFiles: {
-            storagePath: string;
-            url: string;
-            type: string;
-            order: number;
-        }[] = [];
+        const uploadedFiles: { url: string; type: string; sensitive: boolean }[] = [];
 
         try {
-            for (let index = 0; index < files.length; index++) {
-                const file = files[index];
-
-                const extension =
-                    file.originalname.split('.').pop()?.toLowerCase() ||
-                    'jpg';
-
-                const storagePath =
-                    `posts/${userId}/${uuidv4()}.${extension}`;
-
-                const url =
-                    await this.storageService.upload(
-                        file,
-                        storagePath,
-                    );
-
-                uploadedFiles.push({
-                    storagePath,
-                    url,
-                    type: 'image',
-                    order: index,
-                });
+            for (const file of files) {
+                uploadedFiles.push(await this.uploadImage(userId, file));
             }
 
             const post = await this.prisma.post.create({
@@ -93,10 +87,9 @@ export class PostsService {
                     privacy: dto.privacy ?? 'PUBLIC',
 
                     media: {
-                        create: uploadedFiles.map((file) => ({
-                            url: file.url,
-                            type: file.type,
-                            order: file.order,
+                        create: uploadedFiles.map((file, order) => ({
+                            ...file,
+                            order,
                         })),
                     },
                 },
@@ -117,11 +110,9 @@ export class PostsService {
                 data: toPostDto(post),
             };
         } catch (error) {
-            for (const file of uploadedFiles) {
-                await this.storageService
-                    .remove(file.storagePath)
-                    .catch(() => undefined);
-            }
+            await this.storageService.removeByUrls(
+                uploadedFiles.map((file) => file.url),
+            );
 
             throw error;
         }
@@ -141,9 +132,7 @@ export class PostsService {
         }
 
         const reject = async (message: string): Promise<never> => {
-            await Promise.allSettled(
-                keys.map((key) => this.storageService.remove(key)),
-            );
+            await this.storageService.removeByUrls(keys.map(storedPrivateUrl));
             throw new BadRequestException(message);
         };
 
@@ -193,9 +182,11 @@ export class PostsService {
                         {
                             type: 'video',
                             order: 0,
-                            url: storedUrl(item.storageKey),
+                            url: storedPrivateUrl(item.storageKey),
+                            // shortcut: ảnh bìa video tải thẳng lên kho nên không qua mô hình nhạy cảm;
+                            // muốn chấm thì đọc lại tệp (<= 2 MB) từ kho trước khi lưu.
                             thumbnailUrl: item.thumbnailKey
-                                ? storedUrl(item.thumbnailKey)
+                                ? storedPrivateUrl(item.thumbnailKey)
                                 : null,
                             width: item.width || null,
                             height: item.height || null,
@@ -284,13 +275,17 @@ export class PostsService {
         // shortcut: trộn hai nguồn nên phải lấy skip+limit mỗi nguồn; trang càng sâu càng chậm,
         // chuyển sang phân trang theo con trỏ thời gian khi feed vượt vài nghìn bài.
         const fetchCount = skip + limit;
-        const blocked = await blockedUserIds(this.prisma, userId);
+        const [blocked, muted] = await Promise.all([
+            blockedUserIds(this.prisma, userId),
+            mutedUserIds(this.prisma, userId),
+        ]);
 
-        // Bảng tin: bài của chính mình và của người mình đang theo dõi.
+        // Bảng tin: bài của chính mình và của người mình đang theo dõi, trừ người mình đã tắt tiếng.
         const postWhere = {
             AND: [
                 visiblePostWhere(userId, blocked),
                 { hiddenBy: { none: { userId } } },
+                { authorId: { notIn: muted } },
                 {
                     OR: [
                         { authorId: userId },
@@ -303,8 +298,9 @@ export class PostsService {
         // Hiển thị repost của chính mình và người mình đang follow.
         // User A follow B => Follow có followerId=A, followingId=B.
         const repostWhere = {
-            userId: { notIn: blocked },
-            post: { hiddenBy: { none: { userId } } },
+            userId: { notIn: [...blocked, ...muted] },
+            user: activeUserWhere,
+            post: { hiddenBy: { none: { userId } }, authorId: { notIn: muted } },
             OR: [
                 { userId },
                 {
@@ -461,40 +457,16 @@ export class PostsService {
             );
         }
 
-        const uploadedFiles: {
-            storagePath: string;
-            url: string;
-            type: string;
-            order: number;
-        }[] = [];
+        const uploadedFiles: { url: string; type: string; sensitive: boolean }[] = [];
 
         try {
             // Tải ảnh mới trước khi thay đổi dữ liệu trong database.
             for (const file of files) {
-                const extension =
-                    file.originalname.split('.').pop()?.toLowerCase() ||
-                    'jpg';
-
-                const storagePath =
-                    `posts/${userId}/${uuidv4()}.${extension}`;
-
-                const url = await this.storageService.upload(
-                    file,
-                    storagePath,
-                );
-
-                uploadedFiles.push({
-                    storagePath,
-                    url,
-                    type: 'image',
-                    order: 0,
-                });
+                uploadedFiles.push(await this.uploadImage(userId, file));
             }
         } catch (error) {
-            await Promise.allSettled(
-                uploadedFiles.map((file) =>
-                    this.storageService.remove(file.storagePath),
-                ),
+            await this.storageService.removeByUrls(
+                uploadedFiles.map((file) => file.url),
             );
 
             throw error;
@@ -545,19 +517,16 @@ export class PostsService {
 
                     await tx.postMedia.createMany({
                         data: uploadedFiles.map((file, index) => ({
+                            ...file,
                             postId,
-                            url: file.url,
-                            type: file.type,
                             order: maxExistingOrder + index + 1,
                         })),
                     });
                 }
             });
         } catch (error) {
-            await Promise.allSettled(
-                uploadedFiles.map((file) =>
-                    this.storageService.remove(file.storagePath),
-                ),
+            await this.storageService.removeByUrls(
+                uploadedFiles.map((file) => file.url),
             );
 
             throw error;
@@ -766,5 +735,46 @@ export class PostsService {
             data: posts.map(toPostDto),
             meta: pageMeta(page, limit, total),
         };
+    }
+
+    // Tắt tiếng: lặng lẽ, người bị tắt tiếng không nhận thông báo nào.
+    async setMuted(userId: string, targetUserId: string, muted: boolean) {
+        if (!muted) {
+            await this.prisma.mute.deleteMany({
+                where: { muterId: userId, mutedId: targetUserId },
+            });
+
+            return { data: { isMuted: false } };
+        }
+
+        if (userId === targetUserId) {
+            throw new BadRequestException('Bạn không thể tắt tiếng chính mình');
+        }
+
+        const target = await this.prisma.user.findFirst({
+            where: { id: targetUserId, ...activeUserWhere },
+            select: { id: true },
+        });
+
+        if (!target) {
+            throw new NotFoundException('Không tìm thấy người dùng');
+        }
+
+        await this.prisma.mute.createMany({
+            data: [{ muterId: userId, mutedId: targetUserId }],
+            skipDuplicates: true,
+        });
+
+        return { data: { isMuted: true } };
+    }
+
+    async findMuted(userId: string) {
+        const mutes = await this.prisma.mute.findMany({
+            where: { muterId: userId },
+            orderBy: { createdAt: 'desc' },
+            select: { muted: { select: authorSelect } },
+        });
+
+        return { data: mutes.map((mute) => mute.muted) };
     }
 }

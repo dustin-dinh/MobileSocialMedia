@@ -245,7 +245,8 @@ export function StoryViewerScreen({ route }: StoryViewerScreenProps) {
           cachePolicy="memory-disk"
           contentFit="contain"
           key={story.id}
-          source={{ uri: story.url }}
+          // Signed URL changes per load: cache by story id.
+          source={{ cacheKey: `story-${story.id}`, uri: story.url }}
           style={styles.media}
         />
       )}

@@ -169,6 +169,7 @@ export function SharePostModal({
                 {Boolean(firstMedia) && (
                   <View style={styles.previewMediaWrap}>
                     <Image
+                      blurRadius={firstMedia!.sensitive ? 60 : 0}
                       source={{ uri: firstMedia!.url }}
                       style={styles.previewThumbnail}
                     />

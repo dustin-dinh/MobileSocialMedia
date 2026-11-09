@@ -200,7 +200,7 @@ describeLive('New features against the live API', () => {
 
   it('notifications: new kinds are mapped with their targets', async () => {
     actAs(bob);
-    const kinds = (await notificationService.getNotifications()).map((item) => item.type);
+    const kinds = (await notificationService.getNotifications()).items.map((item) => item.type);
 
     expect(kinds).toEqual(expect.arrayContaining(['FOLLOW', 'REPOST']));
     // The comment was deleted in the previous test, and its notification went with it.

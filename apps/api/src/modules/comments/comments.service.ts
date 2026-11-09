@@ -12,6 +12,7 @@ import {
     authorSelect,
     blockedUserIds,
     pageMeta,
+    visibleCommentWhere,
     visiblePostWhere,
 } from '../posts/post-view';
 
@@ -24,7 +25,7 @@ function commentSelect(viewerId: string) {
         editedAt: true,
         parentId: true,
         user: { select: authorSelect },
-        _count: { select: { replies: true, likes: true } },
+        _count: { select: { replies: { where: { removedAt: null } }, likes: true } },
         likes: { where: { userId: viewerId }, select: { userId: true } },
     } satisfies Prisma.CommentSelect;
 }
@@ -71,7 +72,7 @@ export class CommentsService {
     }
 
     private async countForPost(postId: string) {
-        return this.prisma.comment.count({ where: { postId } });
+        return this.prisma.comment.count({ where: { postId, ...visibleCommentWhere } });
     }
 
     async create(
@@ -147,7 +148,7 @@ export class CommentsService {
 
         return this.list(
             viewerId,
-            { postId, parentId: null, userId: { notIn: blocked } },
+            { postId, parentId: null, removedAt: null, userId: { notIn: blocked } },
             'desc',
             query,
         );
@@ -159,7 +160,7 @@ export class CommentsService {
         query: CommentsQueryDto,
     ) {
         const parent = await this.prisma.comment.findUnique({
-            where: { id: commentId },
+            where: { id: commentId, removedAt: null },
             select: { postId: true },
         });
 
@@ -171,7 +172,7 @@ export class CommentsService {
 
         return this.list(
             viewerId,
-            { parentId: commentId, userId: { notIn: blocked } },
+            { parentId: commentId, removedAt: null, userId: { notIn: blocked } },
             'asc',
             query,
         );
@@ -179,13 +180,13 @@ export class CommentsService {
 
     async update(userId: string, commentId: string, content: string) {
         const result = await this.prisma.comment.updateMany({
-            where: { id: commentId, userId },
+            where: { id: commentId, userId, removedAt: null },
             data: { content: content.trim(), editedAt: new Date() },
         });
 
         if (result.count !== 1) {
             const exists = await this.prisma.comment.findUnique({
-                where: { id: commentId },
+                where: { id: commentId, removedAt: null },
                 select: { id: true },
             });
 
@@ -251,6 +252,7 @@ export class CommentsService {
         const parent = await this.prisma.comment.findUnique({
             where: {
                 id: parentCommentId,
+                removedAt: null,
             },
             select: {
                 id: true,
@@ -298,7 +300,7 @@ export class CommentsService {
 
     async setLike(userId: string, commentId: string, liked: boolean) {
         const comment = await this.prisma.comment.findUnique({
-            where: { id: commentId },
+            where: { id: commentId, removedAt: null },
             select: { postId: true },
         });
 

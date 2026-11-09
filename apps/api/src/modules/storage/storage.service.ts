@@ -113,6 +113,7 @@ export class StorageService implements OnModuleInit {
 
     // URL có chữ ký để điện thoại PUT tệp thẳng vào kho, không đi qua API.
     // Chữ ký gắn với host, nên phải ký đúng địa chỉ mà client sẽ gọi.
+    // Chỉ dùng cho tệp bài viết và tin, nên luôn vào bucket riêng tư (lưu "s3p:<key>", đọc bằng URL có chữ ký).
     async createUploadUrl(
         storagePath: string,
         contentType: string,
@@ -121,7 +122,7 @@ export class StorageService implements OnModuleInit {
         return getSignedUrl(
             s3Client(publicEndpoint(requestHost)),
             new PutObjectCommand({
-                Bucket: this.bucket,
+                Bucket: this.privateBucket,
                 Key: storagePath,
                 ContentType: contentType,
             }),
@@ -129,13 +130,13 @@ export class StorageService implements OnModuleInit {
         );
     }
 
-    // Kích thước và loại tệp thật trong kho; null khi tệp không tồn tại.
+    // Kích thước và loại tệp thật của tệp tải lên qua createUploadUrl (bucket riêng tư); null khi không có.
     async head(
         storagePath: string,
     ): Promise<{ size: number; contentType: string } | null> {
         try {
             const object = await this.client.send(
-                new HeadObjectCommand({ Bucket: this.bucket, Key: storagePath }),
+                new HeadObjectCommand({ Bucket: this.privateBucket, Key: storagePath }),
             );
 
             return {

@@ -6,7 +6,20 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsQueryDto } from './dto/notifications-query.dto';
 import { NotificationsGateway } from "./notifications.gateway";
-import { authorSelect } from '../posts/post-view';
+import {
+    activeUserWhere,
+    authorSelect,
+    blockedUserIds,
+    visiblePostWhere,
+} from '../posts/post-view';
+
+// Nhắc tên quá nhiều người trong một bài/bình luận chỉ báo cho 20 người đầu, chống spam.
+const MAX_MENTIONS_PER_POST = 20;
+
+// Thông báo về bình luận bị quản trị viên gỡ không hiện (và không tính chưa đọc).
+const HIDE_REMOVED_COMMENTS = {
+    OR: [{ commentId: null }, { comment: { is: { removedAt: null } } }],
+};
 
 const PUSH_VERBS: Record<string, string> = {
     LIKE: 'đã thích bài viết của bạn',
@@ -87,18 +100,30 @@ export class NotificationsService {
                     (match) => match[1],
                 ),
             ),
-        ];
+        ].slice(0, MAX_MENTIONS_PER_POST);
 
         if (usernames.length === 0) {
             return;
         }
 
         const users = await this.prisma.user.findMany({
-            where: { username: { in: usernames } },
+            where: { username: { in: usernames }, ...activeUserWhere },
             select: { id: true },
         });
 
         for (const user of users) {
+            // Chỉ báo cho người xem được bài (quyền riêng tư, chặn, tài khoản riêng tư).
+            const canSee = await this.prisma.post.count({
+                where: {
+                    id: postId,
+                    ...visiblePostWhere(user.id, await blockedUserIds(this.prisma, user.id)),
+                },
+            });
+
+            if (!canSee) {
+                continue;
+            }
+
             await this.notify({
                 type: 'MENTION',
                 actorId,
@@ -109,7 +134,6 @@ export class NotificationsService {
         }
     }
 
-    // shortcut: không dọn token mà Expo báo DeviceNotRegistered, nâng cấp khi lượng push đáng kể.
     private async push(notification: {
         type: string;
         recipientId: string;
@@ -142,7 +166,8 @@ export class NotificationsService {
     ) {
         try {
             const devices = await this.prisma.deviceToken.findMany({
-                where: { userId },
+                // Tài khoản đã xóa, bị khóa hoặc khóa tuổi không nhận push.
+                where: { userId, user: { deletedAt: null, bannedAt: null, ageLockedAt: null } },
                 select: { token: true },
             });
 
@@ -150,7 +175,9 @@ export class NotificationsService {
                 return;
             }
 
-            await fetch('https://exp.host/--/api/v2/push/send', {
+            // EXPO_PUSH_URL: chỉ để chạy thử với một máy chủ giả (scripts/push-smoke.cjs).
+            const url = process.env.EXPO_PUSH_URL ?? 'https://exp.host/--/api/v2/push/send';
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(
@@ -159,9 +186,26 @@ export class NotificationsService {
                         title,
                         body,
                         data,
+                        // Kênh Android do app tạo khi khởi động; iOS bỏ qua trường này.
+                        channelId: 'default',
                     })),
                 ),
             });
+
+            // Expo trả một ticket cho mỗi tin, đúng thứ tự gửi; token của máy đã gỡ app thì xóa.
+            // shortcut: chỉ đọc ticket, chưa đọc receipt (Expo báo DeviceNotRegistered trễ ở đó), nâng cấp khi lượng push đáng kể.
+            const tickets =
+                ((await response.json()) as { data?: { details?: { error?: string } }[] })
+                    .data ?? [];
+            const deadTokens = devices
+                .filter((_, index) => tickets[index]?.details?.error === 'DeviceNotRegistered')
+                .map((device) => device.token);
+
+            if (deadTokens.length > 0) {
+                await this.prisma.deviceToken.deleteMany({
+                    where: { token: { in: deadTokens } },
+                });
+            }
         } catch {
             // Push là phụ: lỗi mạng tới Expo không được làm hỏng hành động gốc.
         }
@@ -195,6 +239,7 @@ export class NotificationsService {
                 this.prisma.notification.findMany({
                     where: {
                         recipientId: userId,
+                        ...HIDE_REMOVED_COMMENTS,
                     },
                     orderBy: {
                         createdAt: 'desc',
@@ -228,6 +273,7 @@ export class NotificationsService {
                 this.prisma.notification.count({
                     where: {
                         recipientId: userId,
+                        ...HIDE_REMOVED_COMMENTS,
                     },
                 }),
 
@@ -235,6 +281,7 @@ export class NotificationsService {
                     where: {
                         recipientId: userId,
                         readAt: null,
+                        ...HIDE_REMOVED_COMMENTS,
                     },
                 }),
             ]);

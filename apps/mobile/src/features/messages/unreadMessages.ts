@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 
 import { notificationSocket } from '../notifications/services/notificationSocket';
+import { pushService } from '../notifications/services/pushService';
 import { messageService, type UnreadCounts } from './services/messageService';
 
 let counts: UnreadCounts = { count: 0, requests: 0 };
@@ -15,6 +16,7 @@ async function refresh(): Promise<void> {
   try {
     counts = await messageService.getUnreadCounts();
     listeners.forEach((listener) => listener(counts));
+    pushService.setBadge('messages', counts.count + counts.requests);
   } catch {
     // The badge is best-effort: keep the last known value.
   }

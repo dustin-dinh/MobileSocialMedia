@@ -34,14 +34,14 @@ corepack pnpm start:dev
 
 Backend chạy ở `http://localhost:3000/api`. Hai lệnh đầu chỉ cần chạy lại khi vừa lấy code mới.
 
-Ảnh gửi trong tin nhắn được kiểm tra và làm mờ nếu nhạy cảm. Mô hình nhận diện (~88 MB) không nằm trong git; tải một lần:
+Ảnh gửi trong tin nhắn và ảnh bài viết được kiểm tra và làm mờ nếu nhạy cảm. Mô hình nhận diện (~88 MB) không nằm trong git; tải một lần:
 
 ```bash
 cd apps/api
 node scripts/download-moderation-model.cjs
 ```
 
-Không tải thì backend vẫn chạy, chỉ là ảnh tin nhắn không được làm mờ (trang quản trị sẽ báo). Chi tiết ở [docs/moderation/MODERATION_PLAN.md](docs/moderation/MODERATION_PLAN.md).
+Không tải thì backend vẫn chạy, chỉ là ảnh tin nhắn và ảnh bài viết không được làm mờ (trang quản trị sẽ báo). Chi tiết ở [docs/moderation/MODERATION_PLAN.md](docs/moderation/MODERATION_PLAN.md).
 
 Khi code mới có thêm migration (thư mục `apps/api/prisma/migrations`), áp chúng lên database trước khi chạy:
 
@@ -49,6 +49,14 @@ Khi code mới có thêm migration (thư mục `apps/api/prisma/migrations`), á
 cd apps/api
 corepack pnpm exec prisma migrate deploy
 ```
+
+Khi không dùng được database Supabase chung, có thể chạy PostgreSQL cục bộ (cổng máy **5433**):
+
+```bash
+docker compose --profile localdb up -d postgres
+```
+
+Rồi đặt `DATABASE_URL` và `DIRECT_URL` là `postgresql://postgres:postgres@localhost:5433/mobilesocial`, áp migration như trên. Biến đặt trong shell được ưu tiên hơn `.env`. Chi tiết ở [docs/handover/cai-dat-va-chay.md](docs/handover/cai-dat-va-chay.md).
 
 ### 2. Mobile
 
@@ -119,9 +127,9 @@ New-NetFirewallRule -DisplayName "MinIO dev (9000)" -Direction Inbound -Protocol
 ```bash
 cd apps/api
 corepack pnpm typecheck
-# Với backend đang chạy và tài khoản thử (xem đầu mỗi script):
-node scripts/safety-smoke.cjs
 ```
+
+Chín bộ smoke (`apps/api/scripts/*-smoke.cjs`) chạy trên API thật. Điều kiện, tài khoản thử và thứ tự chạy ở [docs/handover/cai-dat-va-chay.md](docs/handover/cai-dat-va-chay.md), mục 10.3.
 
 ```bash
 cd apps/mobile

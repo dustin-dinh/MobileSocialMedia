@@ -10,6 +10,8 @@ import type { FeedResponse, Post } from '../types';
 type UsePostListOptions = {
   /** Decide whether a post created elsewhere in the app belongs at the top of this list. */
   acceptCreated?: (post: Post) => boolean;
+  /** The home feed: muting someone removes their posts and reposts from this list. */
+  dropMuted?: boolean;
 };
 
 /** Appends a page, skipping rows already present (pages shift when new posts arrive). */
@@ -28,7 +30,7 @@ function appendPage(current: Post[], page: Post[]): Post[] {
  */
 export function usePostList(
   fetchPage: (page: number) => Promise<FeedResponse>,
-  { acceptCreated }: UsePostListOptions = {},
+  { acceptCreated, dropMuted = false }: UsePostListOptions = {},
 ) {
   const { user } = useAuthSession();
   const currentUserId = user?.id;
@@ -142,6 +144,15 @@ export function usePostList(
           ),
         );
       }),
+      feedEvents.on('muteChanged', ({ isMuted, userId }) => {
+        setPosts((current) =>
+          dropMuted && isMuted
+            ? current.filter((post) => post.author.id !== userId && post.repost?.by.id !== userId)
+            : current.map((post) =>
+                post.author.id === userId ? { ...post, isAuthorMuted: isMuted } : post,
+              ),
+        );
+      }),
       feedEvents.on('postUpdated', (updated) => {
         setPosts((current) =>
           current
@@ -166,7 +177,7 @@ export function usePostList(
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [currentUserId]);
+  }, [currentUserId, dropMuted]);
 
   // ── Like / save: optimistic, shared with every other list via `postUpdated` ──
   const toggle = useCallback(

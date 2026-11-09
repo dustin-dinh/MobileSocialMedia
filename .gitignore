@@ -45,3 +45,6 @@ yarn-error.*
 
 # taste-skill working files (screenshots, sheets)
 .taste-skill/
+
+# design-hook tool settings (local)
+.impeccable/

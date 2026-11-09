@@ -821,6 +821,7 @@ The full integration plan (`docs/plan/ke-hoach-tinh-nang.pdf`, about 364 working
 
 - Group chat, communities, calls, feed ranking, polls, tags, close friends, data export, verification badges, phone verification and the web version are left to the buyer.
 - On iOS the Google button is hidden instead of adding Sign in with Apple (App Store 4.8), unless the owner decides otherwise.
+- Owner, 2026-11-01: iOS / App Store is out of scope for now; the Google button stays and anonymous messaging stays.
 
 ### Related Files
 
@@ -871,3 +872,31 @@ The privacy policy, terms of use and community guidelines are written in `docs/l
 ### Related Files
 
 - `docs/legal/`, `apps/mobile/scripts/build-legal-content.mjs`, `apps/mobile/src/features/settings/legalContent.ts`, `apps/mobile/src/features/settings/screens/LegalScreen.tsx`
+
+## DEC-029 - Parts 1-2: sessions, 2FA, messaging limits, private media, moderation, deletion
+
+Date: 2026-11-09
+
+Status: Accepted (built under DEC-026; owner said "ổn rồi" on 2026-11-08 and asked to push to main)
+
+### Decision
+
+1. **Sessions:** the JWT carries `ver` = `User.tokenVersion` (missing = 0). Logout increments it (signs out every device); password change increments it and returns a new token for the current device; reset and account deletion increment it. Still no refresh token.
+2. **Lockout:** 5 wrong passwords in a row lock login for 15 minutes (HTTP 423 `LOGIN_LOCKED`); unknown emails still run bcrypt (no timing leak).
+3. **2FA by email code**, opt-in; login returns a separately signed `challengeToken` (10 min) and emails a 6-digit code (5 min, 5 attempts, 5 codes per hour). Google-only accounts must set a password first.
+4. **Messaging:** `messagePermission` EVERYONE | FOLLOWING; 20 new message requests per 24 h (5 for accounts under 7 days); pushes for requests and anonymous chats never carry the text; anonymous story replies stay governed by the story's own `allowAnonymous` (DEC-025), the global switch governs profile-started anonymous chats only.
+5. **Private media:** new post images/videos/thumbnails and stories go to the private bucket and are served as 1-hour signed URLs; avatars and covers stay public; old files stay public until migrated.
+6. **Visibility:** posts, stories and profiles of banned, age-locked or deleted users are hidden everywhere through `activeUserWhere`; mute hides an author from the muter's feed, Reels and story tray only.
+7. **Moderation:** report reason `CHILD_SAFETY` added and handled first; the admin queue groups by target and orders by severity, reporters, age; every admin action writes `AuditLog`; seeing an anonymous sender requires a reason and is logged; admin comment removal sets `removedAt` (restorable).
+8. **Account deletion is a tombstone:** the user row stays with personal data cleared ("Người dùng đã xóa"), own posts/stories/comments are deleted, the other side of conversations keeps them with "Tin nhắn đã bị xóa", reports and evidence stay.
+9. **Local development database:** `docker compose --profile localdb up -d postgres` (port 5433) while the shared Supabase project is paused.
+
+### Consequences
+
+- Migration `20261101090000_stability_and_safety` (additive) must be applied to the shared database before this API runs against it.
+- One extra DB read per authenticated request (tokenVersion/deletedAt).
+- The security audit of this code was stopped part-way (22 preliminary findings, 7 medium, none critical/high, not fixed): see docs/change.md and docs/handover/van-de-da-biet.md.
+
+### Related Files
+
+- `apps/api/prisma/migrations/20261101090000_stability_and_safety/`, `apps/api/src/modules/{auth,messages,posts,reels,stories,search,storage,notifications,admin,reports,comments,users}/`, `apps/mobile/src/features/**`, `docs/api-contract.md` ("Changes 2026-11-01 (parts 1-2)")

@@ -18,6 +18,7 @@ import type { AuthStackParamList } from '../../../navigation/types';
 import { clayColors } from '../../../theme/colors';
 import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { AuthBrand } from '../../auth/components/AuthBrand';
+import { IntroPicture } from '../components/IntroPicture';
 import { introStorage } from '../introStorage';
 
 type IntroScreenProps = NativeStackScreenProps<AuthStackParamList, 'Intro'>;
@@ -26,37 +27,42 @@ type IntroScreenProps = NativeStackScreenProps<AuthStackParamList, 'Intro'>;
 const SLIDES = [
   {
     body: 'Đăng ảnh và video, chọn ai được xem từng bài viết.',
+    picture: 'post',
     points: [
       { icon: 'Camera', text: 'Bài viết ảnh và video' },
-      { icon: 'VideoCamera', text: 'Reels xem toàn màn hình' },
-      { icon: 'Sparkle', text: 'Tin tự ẩn sau 24 giờ' },
+      { icon: 'GlobeSimple', text: 'Công khai, bạn bè hoặc chỉ mình tôi' },
+      { icon: 'Heart', text: 'Bình luận và thả cảm xúc' },
     ],
     title: 'Chia sẻ khoảnh khắc',
   },
   {
-    body: 'Nhắn tin riêng với bạn bè, và tự quyết ai được nhắn cho bạn.',
+    body: 'Lướt video ngắn toàn màn hình, đăng tin tự ẩn sau 24 giờ.',
+    picture: 'reel',
     points: [
-      { icon: 'ChatCircle', text: 'Trò chuyện một-một với người bạn theo dõi' },
-      { icon: 'Inbox', text: 'Tin nhắn từ người lạ vào mục Tin nhắn chờ' },
-      { icon: 'Mask', text: 'Tin nhắn ẩn danh chỉ khi bạn bật' },
+      { icon: 'VideoCamera', text: 'Reels xem toàn màn hình' },
+      { icon: 'Sparkle', text: 'Tin tự ẩn sau 24 giờ' },
+      { icon: 'Reply', text: 'Trả lời tin bằng tin nhắn' },
     ],
-    title: 'Trò chuyện theo cách của bạn',
+    title: 'Reels và tin 24 giờ',
   },
   {
-    body: 'Mobile Social dành cho người từ 18 tuổi, với các lớp bảo vệ bật sẵn.',
+    body: 'Mobile Social dành cho người từ 18 tuổi, với các lớp bảo vệ bật sẵn khi nhắn tin.',
+    picture: 'safety',
     points: [
+      { icon: 'Inbox', text: 'Tin nhắn từ người lạ vào mục Tin nhắn chờ' },
       { icon: 'EyeSlash', text: 'Ảnh nhạy cảm được làm mờ, chạm để xem' },
       { icon: 'TriangleWarning', text: 'Cảnh báo tin nhắn có dấu hiệu lừa đảo' },
-      { icon: 'Prohibit', text: 'Chặn và báo cáo ngay trên bài viết, tin nhắn' },
     ],
-    title: 'An toàn ngay từ đầu',
+    title: 'Nhắn tin an toàn',
   },
 ] as const;
 
 /** Product introduction shown once, the first time the app is opened. */
 export function IntroScreen({ navigation }: IntroScreenProps) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { height: windowHeight, width } = useWindowDimensions();
+  // Small phones (about 640 tall): tighter list rows leave the picture room. The rows are not buttons.
+  const compact = windowHeight < 700;
   const listRef = useRef<FlatList<(typeof SLIDES)[number]>>(null);
   const [index, setIndex] = useState(0);
   // A horizontal list sizes its cells to their content: the slide takes the list's height so its copy can sit low.
@@ -109,6 +115,8 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
         pagingEnabled
         renderItem={({ item, index: slideIndex }) => (
           <View style={[styles.slide, { height: listHeight, width }]}>
+            {/* Fills the space above the copy with a real piece of the app. */}
+            <IntroPicture kind={item.picture} />
             {/* Every slide stays mounted: only the one in view is the screen's h1. */}
             <ClayText level={slideIndex === index ? 1 : 2} variant="title">
               {item.title}
@@ -116,9 +124,9 @@ export function IntroScreen({ navigation }: IntroScreenProps) {
             <ClayText style={styles.body} variant="body">
               {item.body}
             </ClayText>
-            <View style={styles.points}>
+            <View style={[styles.points, compact && styles.pointsCompact]}>
               {item.points.map((point) => (
-                <View key={point.text} style={styles.point}>
+                <View key={point.text} style={[styles.point, compact && styles.pointCompact]}>
                   <ClayIcon color={clayColors.textSecondary} name={point.icon} size={20} />
                   <ClayText style={styles.pointText} variant="body">
                     {point.text}
@@ -192,6 +200,13 @@ const styles = StyleSheet.create({
   pointText: {
     flex: 1,
   },
+  pointCompact: {
+    minHeight: 32,
+  },
+  pointsCompact: {
+    marginTop: claySpacing.base,
+    paddingTop: claySpacing.sm,
+  },
   points: {
     borderTopColor: clayColors.rule,
     borderTopWidth: 1,
@@ -210,10 +225,11 @@ const styles = StyleSheet.create({
   skipText: {
     color: clayColors.textSecondary,
   },
-  // Copy sits low, beside the button that moves it on; the space above is placed, not left over.
+  // Copy sits low, beside the button that moves it on; the picture takes the space above.
   slide: {
     justifyContent: 'flex-end',
     paddingBottom: claySpacing.xl,
+    paddingTop: claySpacing.base,
     paddingHorizontal: clayDimensions.gutter,
   },
   topBar: {

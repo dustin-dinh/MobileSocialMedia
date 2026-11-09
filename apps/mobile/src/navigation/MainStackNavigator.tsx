@@ -14,10 +14,12 @@ import { StoryReactionsScreen } from '../features/stories/screens/StoryReactions
 import { UserProfileScreen } from '../features/profile/screens/UserProfileScreen';
 import { AnonymousMessagesScreen } from '../features/settings/screens/AnonymousMessagesScreen';
 import { BlockedUsersScreen } from '../features/settings/screens/BlockedUsersScreen';
+import { MutedUsersScreen } from '../features/settings/screens/MutedUsersScreen';
 import { ChangePasswordScreen } from '../features/settings/screens/ChangePasswordScreen';
 import { DeleteAccountScreen } from '../features/settings/screens/DeleteAccountScreen';
 import { LegalScreen } from '../features/settings/screens/LegalScreen';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
+import { TwoFactorScreen } from '../features/settings/screens/TwoFactorScreen';
 import { MainTabNavigator } from './MainTabNavigator';
 import type { MainStackParamList } from './types';
 
@@ -55,9 +57,11 @@ export function MainStackNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <Stack.Screen name="MutedUsers" component={MutedUsersScreen} />
       <Stack.Screen name="AnonymousMessages" component={AnonymousMessagesScreen} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
       <Stack.Screen name="Legal" component={LegalScreen} />
+      <Stack.Screen name="TwoFactor" component={TwoFactorScreen} />
     </Stack.Navigator>
   );
 }

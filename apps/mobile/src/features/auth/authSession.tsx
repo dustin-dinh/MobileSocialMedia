@@ -20,6 +20,10 @@ type AuthSession = {
 type AuthSessionContextValue = {
   /** The current access token, or null when signed out. */
   accessToken: string | null;
+  /** Second step of a two-factor sign-in: the emailed code. Signs in on success. */
+  completeTwoFactor: (challengeToken: string, code: string) => Promise<void>;
+  /** Swap in the token the server issued after a password change (the old one is revoked). */
+  replaceAccessToken: (accessToken: string) => Promise<void>;
   /** Whether the initial session restore has completed. */
   isBootstrapping: boolean;
   /** Convenience boolean – true when a valid session exists. */
@@ -30,7 +34,10 @@ type AuthSessionContextValue = {
    * the Login screen so the user confirms their credentials.
    */
   register: (values: RegisterFormValues) => Promise<AuthUser>;
-  /** Sign in with email + password. Persists the token in SecureStore. */
+  /**
+   * Sign in with email + password. Persists the token in SecureStore.
+   * Throws `TwoFactorRequiredError` when the account asks for an emailed code first.
+   */
   signIn: (values: LoginFormValues) => Promise<void>;
   /** Sign in with Google idToken. Persists the token in SecureStore. */
   signInWithGoogle: () => Promise<void>;
@@ -141,6 +148,19 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     await finishSignIn(loginResult.accessToken);
   }, [finishSignIn]);
 
+  const completeTwoFactor = useCallback(async (challengeToken: string, code: string) => {
+    // The verify response carries the same user as /users/me, so no second request.
+    const { accessToken, user } = await authService.verifyTwoFactor(challengeToken, code);
+
+    await authTokenStorage.save(accessToken);
+    setSession({ accessToken, user });
+  }, []);
+
+  const replaceAccessToken = useCallback(async (accessToken: string) => {
+    await authTokenStorage.save(accessToken);
+    setSession((current) => (current ? { ...current, accessToken } : current));
+  }, []);
+
   const updateUser = useCallback((changes: Partial<AuthUser>) => {
     setSession((current) =>
       current ? { ...current, user: { ...current.user, ...changes } } : current,
@@ -240,16 +260,28 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   const value = useMemo<AuthSessionContextValue>(
     () => ({
       accessToken: session?.accessToken ?? null,
+      completeTwoFactor,
       isAuthenticated: session !== null,
       isBootstrapping,
       register,
+      replaceAccessToken,
       signIn,
       signInWithGoogle,
       signOut,
       updateUser,
       user: session?.user ?? null,
     }),
-    [isBootstrapping, register, session, signIn, signInWithGoogle, signOut, updateUser],
+    [
+      completeTwoFactor,
+      isBootstrapping,
+      register,
+      replaceAccessToken,
+      session,
+      signIn,
+      signInWithGoogle,
+      signOut,
+      updateUser,
+    ],
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
@@ -263,4 +295,9 @@ export function useAuthSession(): AuthSessionContextValue {
   }
 
   return context;
+}
+
+/** Same as useAuthSession, but null outside the provider (screens rendered alone in tests). */
+export function useOptionalAuthSession(): AuthSessionContextValue | null {
+  return useContext(AuthSessionContext);
 }

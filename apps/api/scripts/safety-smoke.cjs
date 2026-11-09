@@ -257,7 +257,11 @@ async function sql(text) {
 
   r = await call('GET', 'admin/reports', c.token);
   const report = r.body?.data?.find((x) => x.targetType === 'CONVERSATION' && x.targetId === anonAB.id);
-  check('admin sees the real sender and the snapshot', report?.target?.author?.id === a.id && report.target.anonymous === true && report.target.messages.some((m) => m.content === 'Mình thích bài viết của bạn lắm'), report);
+  // The list hides who the anonymous sender is; the admin must give a reason (audited) to see it.
+  check('report list does not reveal the anonymous sender', report && report.target?.author?.id !== a.id, report);
+  r = await call('POST', `admin/reports/${report?.id}/identity`, c.token, { reason: 'Kiểm tra báo cáo ẩn danh' });
+  const revealed = r.body?.data;
+  check('admin sees the real sender and the snapshot after giving a reason', revealed?.author?.id === a.id && revealed.anonymous === true && revealed.messages?.some((m) => m.content === 'Mình thích bài viết của bạn lắm'), r);
   r = await call('POST', `admin/reports/${report.id}/resolve`, c.token, { action: 'DISMISS' });
   r = await call('POST', 'conversations/anonymous', a.token, { userId: c.id });
   check('dismissing a first report restores anonymous rights', r.status === 201 && r.body?.data?.anonymous?.role === 'SENDER', r);

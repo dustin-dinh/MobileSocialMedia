@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import appConfig from '../../../../app.json';
+import { ActionSheet } from '../../../components/common/ActionSheet';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { ScreenHeader } from '../../../components/common/ScreenHeader';
 import { showToast } from '../../../components/common/toast';
@@ -14,6 +15,7 @@ import { clayDimensions, claySpacing } from '../../../theme/spacing';
 import { fontFamilies } from '../../../theme/typography';
 import { useAuthSession } from '../../auth/authSession';
 import { profileService } from '../../profile/services/profileService';
+import { accountService } from '../accountService';
 
 type Row = {
   destructive?: boolean;
@@ -108,6 +110,29 @@ export function SettingsScreen() {
   const { signOut, updateUser, user } = useAuthSession();
   const [isSignOutVisible, setIsSignOutVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMessagePermissionVisible, setIsMessagePermissionVisible] = useState(false);
+  const messagePermission = user?.messagePermission ?? 'EVERYONE';
+
+  // Same pattern as the private switch: shown at once, put back if the save fails.
+  const handleSetMessagePermission = async (next: 'EVERYONE' | 'FOLLOWING') => {
+    if (next === messagePermission) {
+      return;
+    }
+
+    updateUser?.({ messagePermission: next });
+
+    try {
+      await accountService.setMessagePermission(next);
+      showToast(
+        next === 'FOLLOWING'
+          ? 'Chỉ người bạn theo dõi mới bắt đầu nhắn tin được với bạn.'
+          : 'Mọi người đều nhắn được cho bạn; người lạ vào Tin nhắn chờ.',
+      );
+    } catch {
+      updateUser?.({ messagePermission });
+      showToast('Không lưu được thay đổi. Vui lòng thử lại.', 'error');
+    }
+  };
 
   // The switch moves at once; a failed save moves it back.
   const handleTogglePrivate = async () => {
@@ -173,6 +198,19 @@ export function SettingsScreen() {
         <SettingsGroup
           rows={[
             {
+              description: 'Nhập thêm mã gửi qua email mỗi lần đăng nhập.',
+              icon: 'ShieldCheck',
+              key: 'twoFactor',
+              label: 'Xác thực hai lớp',
+              onPress: () => navigation.open('TwoFactor'),
+              value: user?.twoFactorEnabled ? 'Đang bật' : 'Đang tắt',
+            },
+          ]}
+          title="Bảo mật"
+        />
+        <SettingsGroup
+          rows={[
+            {
               description: 'Chỉ người bạn chấp nhận mới xem được bài viết.',
               icon: 'LockKey',
               key: 'private',
@@ -190,6 +228,13 @@ export function SettingsScreen() {
               toggle: user?.allowAnonymousMessages ?? false,
             },
             {
+              icon: 'ChatCircle',
+              key: 'messagePermission',
+              label: 'Ai được nhắn tin cho tôi',
+              onPress: () => setIsMessagePermissionVisible(true),
+              value: messagePermission === 'FOLLOWING' ? 'Người tôi theo dõi' : 'Mọi người',
+            },
+            {
               icon: 'UserPlus',
               key: 'requests',
               label: 'Yêu cầu theo dõi',
@@ -200,6 +245,12 @@ export function SettingsScreen() {
               key: 'blocked',
               label: 'Người dùng đã chặn',
               onPress: () => navigation.open('BlockedUsers'),
+            },
+            {
+              icon: 'SpeakerSlash',
+              key: 'muted',
+              label: 'Đã tắt tiếng',
+              onPress: () => navigation.open('MutedUsers'),
             },
           ]}
           title="Quyền riêng tư"
@@ -261,14 +312,36 @@ export function SettingsScreen() {
         />
       </ScrollView>
 
+      <ActionSheet
+        onClose={() => setIsMessagePermissionVisible(false)}
+        options={[
+          {
+            description: 'Người lạ nhắn được, tin của họ vào Tin nhắn chờ cho tới khi bạn chấp nhận.',
+            // The chosen option carries the check; the other keeps an empty slot so labels line up.
+            icon: messagePermission === 'EVERYONE' ? 'Check' : '',
+            key: 'EVERYONE',
+            label: 'Mọi người',
+            onPress: () => void handleSetMessagePermission('EVERYONE'),
+          },
+          {
+            description: 'Chỉ người bạn đang theo dõi mới bắt đầu cuộc trò chuyện mới được.',
+            icon: messagePermission === 'FOLLOWING' ? 'Check' : '',
+            key: 'FOLLOWING',
+            label: 'Người tôi theo dõi',
+            onPress: () => void handleSetMessagePermission('FOLLOWING'),
+          },
+        ]}
+        title="Ai được nhắn tin cho tôi"
+        visible={isMessagePermissionVisible}
+      />
       <ConfirmModal
         confirmLabel="Đăng xuất"
         icon="SignOut"
         isBusy={isSigningOut}
-        message="Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng."
+        message="Bạn sẽ được đăng xuất trên mọi thiết bị đang dùng tài khoản này, và cần đăng nhập lại để tiếp tục."
         onCancel={() => setIsSignOutVisible(false)}
         onConfirm={handleSignOut}
-        title="Đăng xuất khỏi tài khoản?"
+        title="Đăng xuất khỏi mọi thiết bị?"
         visible={isSignOutVisible}
       />
     </View>

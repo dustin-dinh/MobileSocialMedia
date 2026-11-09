@@ -12,6 +12,7 @@ import { ageLockedUserIds } from '../auth/ban-list';
 import { ageOn, formatBirthDate, MINIMUM_AGE, parseBirthDate } from '../moderation/age';
 import { StorageService } from '../storage/storage.service';
 import {
+    activeUserWhere,
     authorSelect,
     blockedUserIds,
     pageMeta,
@@ -50,6 +51,8 @@ type MeSource = {
     role: string;
     birthDate: Date | null;
     allowAnonymousMessages: boolean;
+    messagePermission: string;
+    twoFactorEnabled: boolean;
 };
 
 // Dạng trả về của "tài khoản đang đăng nhập", dùng chung cho login và /users/me.
@@ -71,6 +74,8 @@ export function toMe(user: MeSource) {
         // null: tài khoản cũ hoặc đăng ký bằng Google chưa khai; app bắt khai trước khi dùng.
         birthDate: formatBirthDate(user.birthDate),
         allowAnonymousMessages: user.allowAnonymousMessages,
+        messagePermission: user.messagePermission,
+        twoFactorEnabled: user.twoFactorEnabled,
     };
 }
 
@@ -164,6 +169,7 @@ export class UsersService {
                     username: dto.username,
                     isPrivate: dto.isPrivate,
                     allowAnonymousMessages: dto.allowAnonymousMessages,
+                    messagePermission: dto.messagePermission,
                 },
             });
 
@@ -275,9 +281,9 @@ export class UsersService {
             );
         }
 
-        // Tệp không bị xóa theo dòng database, nên gom trước khi xóa: ảnh và video bài viết, story,
-        // ảnh bìa, và ảnh trong mọi hội thoại của người này (hội thoại bị cascade theo).
-        const [media, stories, messageImages, profile] = await Promise.all([
+        // Tệp không bị xóa theo dòng database, nên gom trước: ảnh và video bài viết, story, ảnh đại diện,
+        // ảnh bìa, và ảnh người này đã gửi trong tin nhắn.
+        const [media, stories, messageImages, openReports] = await Promise.all([
             this.prisma.postMedia.findMany({
                 where: { post: { authorId: userId } },
                 select: { url: true, thumbnailUrl: true },
@@ -287,37 +293,104 @@ export class UsersService {
                 select: { url: true, thumbnailUrl: true },
             }),
             this.prisma.message.findMany({
-                where: {
-                    imageUrl: { not: null },
-                    conversation: { OR: [{ userAId: userId }, { userBId: userId }] },
-                },
+                where: { senderId: userId, imageUrl: { not: null } },
                 select: { imageUrl: true },
             }),
-            this.prisma.user.findUnique({
+            this.prisma.report.findMany({
+                where: { status: 'OPEN', targetType: 'CONVERSATION' },
+                select: { snapshot: true },
+            }),
+        ]);
+        // Ảnh nằm trong bản chụp của một báo cáo đang mở là bằng chứng: giữ lại.
+        const evidence = new Set(
+            openReports.flatMap(({ snapshot }) =>
+                ((snapshot as { messages?: { imageUrl?: string | null }[] } | null)?.messages ?? [])
+                    .map((message) => message.imageUrl),
+            ),
+        );
+
+        // Giữ dòng User (đã xóa thông tin cá nhân) để hội thoại, báo cáo của người khác còn nguyên.
+        const mine = { userId };
+        await this.prisma.$transaction([
+            this.prisma.post.deleteMany({ where: { authorId: userId } }),
+            this.prisma.story.deleteMany({ where: { authorId: userId } }),
+            this.prisma.comment.deleteMany({ where: mine }),
+            this.prisma.follow.deleteMany({
+                where: { OR: [{ followerId: userId }, { followingId: userId }] },
+            }),
+            this.prisma.followRequest.deleteMany({
+                where: { OR: [{ requesterId: userId }, { targetId: userId }] },
+            }),
+            this.prisma.block.deleteMany({
+                where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+            }),
+            this.prisma.mute.deleteMany({
+                where: { OR: [{ muterId: userId }, { mutedId: userId }] },
+            }),
+            this.prisma.notification.deleteMany({
+                where: { OR: [{ actorId: userId }, { recipientId: userId }] },
+            }),
+            this.prisma.save.deleteMany({ where: mine }),
+            this.prisma.like.deleteMany({ where: mine }),
+            this.prisma.repost.deleteMany({ where: mine }),
+            this.prisma.commentLike.deleteMany({ where: mine }),
+            this.prisma.hiddenPost.deleteMany({ where: mine }),
+            this.prisma.storyReaction.deleteMany({ where: mine }),
+            this.prisma.storyView.deleteMany({ where: { viewerId: userId } }),
+            this.prisma.deviceToken.deleteMany({ where: mine }),
+            this.prisma.authToken.deleteMany({ where: mine }),
+            this.prisma.contentInteraction.deleteMany({ where: mine }),
+            // Người kia thấy "Tin nhắn đã bị xóa" (messages.service, viewMessage).
+            this.prisma.message.updateMany({
+                where: { senderId: userId },
+                data: { content: null, imageUrl: null, sensitive: false, storyId: null },
+            }),
+            this.prisma.user.update({
                 where: { id: userId },
-                select: { coverUrl: true },
+                data: {
+                    deletedAt: new Date(),
+                    // Mọi token đang có hết hiệu lực.
+                    tokenVersion: { increment: 1 },
+                    // Viết lại username và email để chúng đăng ký lại được.
+                    username: `deleted_${userId.replace(/-/g, '').slice(0, 12)}`,
+                    email: `deleted+${userId}@deleted.invalid`,
+                    passwordHash: null,
+                    googleId: null,
+                    emailVerifiedAt: null,
+                    // Lưu sẵn nhãn: mọi nơi hiện tên (danh sách hội thoại, đầu khung chat) tự hiện đúng.
+                    displayName: 'Người dùng đã xóa',
+                    avatarUrl: null,
+                    coverUrl: null,
+                    bio: null,
+                    birthDate: null,
+                    role: 'USER',
+                    allowAnonymousMessages: false,
+                    twoFactorEnabled: false,
+                },
             }),
         ]);
 
-        // Các bảng liên quan đều onDelete: Cascade theo User.
-        await this.prisma.user.delete({ where: { id: userId } });
-        await this.storageService.removeByUrls([
-            ...media.flatMap((item) => [item.url, item.thumbnailUrl]),
-            ...stories.flatMap((story) => [story.url, story.thumbnailUrl]),
-            ...messageImages.map((message) => message.imageUrl),
-            user.avatarUrl,
-            profile?.coverUrl,
-        ]);
+        await this.storageService.removeByUrls(
+            [
+                ...media.flatMap((item) => [item.url, item.thumbnailUrl]),
+                ...stories.flatMap((story) => [story.url, story.thumbnailUrl]),
+                ...messageImages.map((message) => message.imageUrl),
+                user.avatarUrl,
+                user.coverUrl,
+            ].filter((url) => !url || !evidence.has(url)),
+        );
 
         return { data: { deleted: true } };
     }
 
     async findProfile(targetUserId: string, viewerId: string) {
         const [user, blocks, follows] = await Promise.all([
-            this.prisma.user.findUnique({
-                where: { id: targetUserId },
+            // Tài khoản bị khóa, khóa vì tuổi hoặc đã xóa: với người khác coi như không tồn tại.
+            this.prisma.user.findFirst({
+                where: { id: targetUserId, ...activeUserWhere },
                 select: {
                     ...authorSelect,
+                    mutedBy: { where: { muterId: viewerId }, select: { muterId: true } },
                     bio: true,
                     coverUrl: true,
                     isPrivate: true,
@@ -384,6 +457,8 @@ export class UsersService {
                 isBlocked: blocks.length > 0,
                 // Người này nhận tin ẩn danh; chỉ người đang theo dõi mới gửi được (MessagesService).
                 acceptsAnonymousMessages: user.allowAnonymousMessages,
+                // Viewer đã tắt tiếng người này (chỉ viewer thấy).
+                isMuted: user.mutedBy.length > 0,
             },
         };
     }
@@ -559,6 +634,7 @@ export class UsersService {
             const popular = await this.prisma.user.findMany({
                 where: {
                     id: { notIn: [...excluded, ...ids] },
+                    ...activeUserWhere,
                     // Bỏ tài khoản đăng ký xong chưa từng xác thực.
                     OR: [
                         { emailVerifiedAt: { not: null } },
@@ -575,7 +651,7 @@ export class UsersService {
 
         const [users, mutuals] = await Promise.all([
             this.prisma.user.findMany({
-                where: { id: { in: ids } },
+                where: { id: { in: ids }, ...activeUserWhere },
                 select: authorSelect,
             }),
             this.prisma.follow.findMany({

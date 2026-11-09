@@ -77,8 +77,9 @@ async function upload(token, kind, mimeType, bytes) {
   const item = reel?.media?.[0];
   check('create video post', r.status === 201 && item?.type === 'video' && item.durationMs === 12_000 && item.width === 720, r);
   check('media urls are absolute', /^https?:\/\//.test(item?.url ?? '') && /^https?:\/\//.test(item?.thumbnailUrl ?? ''), item);
-  const head = item ? await fetch(item.url, { method: 'HEAD' }) : null;
-  check('video is publicly readable', head?.status === 200 && head.headers.get('content-type') === 'video/mp4', head?.status);
+  // Tệp bài viết nằm ở bucket riêng tư: URL có chữ ký chỉ hợp lệ với GET.
+  const head = item ? await fetch(item.url) : null;
+  check('video is readable with its signed url', head?.status === 200 && head.headers.get('content-type') === 'video/mp4', head?.status);
 
   // horizontal video: posted, but not a reel
   const wide = await upload(a.token, 'video', 'video/mp4', Buffer.alloc(1_000, 2));
@@ -127,7 +128,7 @@ async function upload(token, kind, mimeType, bytes) {
   r = await call('POST', 'posts', a.token, undefined, form);
   const imageUrl = r.body?.data?.media?.[0]?.url;
   check('image post: absolute url', r.status === 201 && /^https?:\/\//.test(imageUrl ?? ''), r);
-  check('image is publicly readable', imageUrl ? (await fetch(imageUrl, { method: 'HEAD' })).status === 200 : false, imageUrl);
+  check('image is readable with its signed url', imageUrl ? (await fetch(imageUrl)).status === 200 : false, imageUrl);
 
   // only "...Url" fields are rewritten, never what a user typed
   r = await call('POST', 'posts', a.token, undefined, (() => { const f = new FormData(); f.append('content', 's3:not-a-file'); return f; })());

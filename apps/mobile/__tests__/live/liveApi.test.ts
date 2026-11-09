@@ -103,7 +103,7 @@ describeLive('Mobile services against the live API', () => {
 
   it('search: finds another user by username, not following yet', async () => {
     actAs(alice);
-    const results = await searchService.searchUsers('gaptest_b');
+    const results = (await searchService.searchUsers('gaptest_b')).users;
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ id: bob.user.id, isFollowing: false });
@@ -112,8 +112,8 @@ describeLive('Mobile services against the live API', () => {
   it('search: never lists the signed-in user and tolerates an empty query', async () => {
     actAs(alice);
 
-    expect(await searchService.searchUsers('gaptest_a')).toEqual([]);
-    expect(await searchService.searchUsers('   ')).toEqual([]);
+    expect((await searchService.searchUsers('gaptest_a')).users).toEqual([]);
+    expect((await searchService.searchUsers('   ')).users).toEqual([]);
   });
 
   // The feed holds the viewer's own posts and those of people they follow.
@@ -138,7 +138,7 @@ describeLive('Mobile services against the live API', () => {
 
   it('search: follow state is reflected after following', async () => {
     actAs(alice);
-    const results = await searchService.searchUsers('gaptest_b');
+    const results = (await searchService.searchUsers('gaptest_b')).users;
 
     expect(results[0].isFollowing).toBe(true);
   });
@@ -229,7 +229,7 @@ describeLive('Mobile services against the live API', () => {
 
   it('notifications: recipient sees FOLLOW, LIKE and COMMENT, unread', async () => {
     actAs(bob);
-    const notifications = await notificationService.getNotifications();
+    const notifications = (await notificationService.getNotifications()).items;
     const types = notifications.map((notification) => notification.type).sort();
 
     // One FOLLOW, one COMMENT, and a LIKE per like (liked twice above).
@@ -242,21 +242,21 @@ describeLive('Mobile services against the live API', () => {
 
   it('notifications: mark one read, follow back, then mark all read', async () => {
     actAs(bob);
-    const [first] = await notificationService.getNotifications();
+    const [first] = (await notificationService.getNotifications()).items;
 
     await notificationService.markAsRead(first.id);
 
-    let notifications = await notificationService.getNotifications();
+    let notifications = (await notificationService.getNotifications()).items;
 
     expect(notifications.filter((notification) => notification.isRead)).toHaveLength(1);
 
     expect(await notificationService.toggleFollowBack(alice.user.id, false)).toBe(true);
-    notifications = await notificationService.getNotifications();
+    notifications = (await notificationService.getNotifications()).items;
 
     expect(notifications.find((notification) => notification.type === 'FOLLOW')?.isFollowingBack).toBe(true);
 
     await notificationService.markAllAsRead();
-    notifications = await notificationService.getNotifications();
+    notifications = (await notificationService.getNotifications()).items;
 
     expect(notifications.every((notification) => notification.isRead)).toBe(true);
   });

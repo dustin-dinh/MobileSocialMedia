@@ -14,6 +14,7 @@ export type ApiPost = {
   content: string | null;
   createdAt: string;
   id: string;
+  isAuthorMuted?: boolean;
   isLiked?: boolean;
   isReposted?: boolean;
   isSaved?: boolean;
@@ -24,6 +25,7 @@ export type ApiPost = {
     height?: number | null;
     id: string;
     order: number;
+    sensitive?: boolean;
     thumbnailUrl?: string | null;
     type: string;
     url: string;
@@ -81,6 +83,7 @@ export function mapApiPost(post: ApiPost): Post {
     content: post.content ?? '',
     createdAt: post.createdAt,
     id: post.id,
+    isAuthorMuted: post.isAuthorMuted ?? false,
     isLiked: post.isLiked ?? false,
     isReposted: post.isReposted ?? false,
     isSaved: post.isSaved ?? false,
@@ -91,6 +94,7 @@ export function mapApiPost(post: ApiPost): Post {
       height: item.height ?? undefined,
       id: item.id,
       order: item.order,
+      sensitive: item.sensitive ?? false,
       thumbnailUrl: item.thumbnailUrl ?? undefined,
       type: mapMediaType(item.type),
       url: item.url,

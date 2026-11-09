@@ -37,7 +37,10 @@
   .row:last-child { border-bottom:0; }
   .meta { color:var(--muted); font-size:13px; }
   .tag { display:inline-block; padding:1px 8px; border-radius:999px; background:#F1DDE5; font-size:12px; font-weight:600; margin-right:6px; }
-  .tag.banned { background:#F7D9D4; color:var(--danger); }
+  .tag.banned, .tag.sev1 { background:#F7D9D4; color:var(--danger); }
+  .tag.sev2 { background:#FBEBD0; color:#8A5A00; }
+  .reveal { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .reveal input { flex:1; min-width:200px; }
   .quote { margin:8px 0 0; padding:8px 12px; background:#fff; border:1px solid var(--border); border-radius:10px; white-space:pre-wrap; word-break:break-word; }
   .quote img { display:block; max-width:220px; max-height:220px; border-radius:8px; margin-top:8px; }
   /* Ảnh nhạy cảm trong bản chụp tin nhắn: mờ cho tới khi người duyệt bấm vào (bảo vệ người duyệt). */
@@ -76,13 +79,10 @@
     <div class="stats" id="stats"></div>
     <div class="tabs">
       <button data-tab="reports" class="active">Báo cáo</button>
+      <button data-tab="closed">Đã xử lý</button>
       <button data-tab="users">Người dùng</button>
+      <button data-tab="audit">Nhật ký</button>
       <span class="spacer"></span>
-      <select id="statusFilter" aria-label="Trạng thái báo cáo">
-        <option value="OPEN">Đang mở</option>
-        <option value="RESOLVED">Đã xử lý</option>
-        <option value="DISMISSED">Đã bỏ qua</option>
-      </select>
       <input id="userSearch" type="search" placeholder="Tìm tên, @tên, email" hidden>
     </div>
     <div class="card" id="list"></div>
@@ -95,10 +95,22 @@
 (function () {
   var API = location.pathname.replace(/\/admin\/?$/, '');
   var token = sessionStorage.getItem('adminToken');
-  var state = { tab: 'reports', page: 1, status: 'OPEN', q: '' };
+  var state = { tab: 'reports', page: 1, q: '' };
   var $ = function (id) { return document.getElementById(id); };
-  var REASONS = { SPAM: 'Spam', HARASSMENT: 'Quấy rối', SENSITIVE: 'Nội dung nhạy cảm', MISINFORMATION: 'Thông tin sai', SCAM: 'Lừa đảo', OTHER: 'Khác' };
+  var REASONS = { CHILD_SAFETY: 'An toàn trẻ em', SPAM: 'Spam', HARASSMENT: 'Quấy rối', SENSITIVE: 'Nội dung nhạy cảm', MISINFORMATION: 'Thông tin sai', SCAM: 'Lừa đảo', OTHER: 'Khác' };
   var TYPES = { POST: 'Bài viết', COMMENT: 'Bình luận', USER: 'Người dùng', CONVERSATION: 'Tin nhắn' };
+  // severity 1 (nặng nhất) .. 7, theo lý do nặng nhất của nhóm báo cáo:
+  // an toàn trẻ em, lừa đảo, quấy rối là nghiêm trọng; nhạy cảm, tin sai là trung bình.
+  function severityTag(severity) {
+    return severity <= 3 ? el('span', { class: 'tag sev1', text: 'Nghiêm trọng' })
+      : severity <= 5 ? el('span', { class: 'tag sev2', text: 'Trung bình' })
+      : el('span', { class: 'tag', text: 'Thấp' });
+  }
+  var ACTIONS = {
+    VIEW_IDENTITY: 'Xem tin nhắn và danh tính', REPORT_DISMISS: 'Bỏ qua báo cáo', REPORT_REMOVE_CONTENT: 'Gỡ nội dung',
+    REPORT_BAN_USER: 'Khoá tài khoản (từ báo cáo)', BAN: 'Khoá tài khoản', UNBAN: 'Mở khoá tài khoản', AGE_UNLOCK: 'Mở khoá tuổi',
+    ANONYMOUS_RESTORE: 'Trả quyền ẩn danh', ANONYMOUS_SUSPEND: 'Tước quyền ẩn danh', COMMENT_RESTORE: 'Khôi phục bình luận'
+  };
 
   // Nội dung do người dùng viết: luôn đưa vào trang dưới dạng văn bản, không bao giờ dưới dạng HTML.
   function el(tag, attrs, children) {
@@ -166,12 +178,10 @@
       Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (other) {
         other.classList.toggle('active', other === button);
       });
-      $('statusFilter').hidden = state.tab !== 'reports';
       $('userSearch').hidden = state.tab !== 'users';
       refresh();
     });
   });
-  $('statusFilter').addEventListener('change', function () { state.status = this.value; state.page = 1; refresh(); });
   var searchTimer;
   $('userSearch').addEventListener('input', function () {
     var value = this.value;
@@ -223,28 +233,53 @@
     return quote;
   }
 
+  // Xem tin nhắn bị báo cáo và danh tính thật: phải nêu lý do, mỗi lần xem được ghi vào Nhật ký.
+  function revealForm(report) {
+    var box = el('div', { class: 'quote' }, [
+      el('div', { class: 'meta', text: (report.target.anonymous ? 'Hội thoại ẨN DANH. ' : '') + report.target.messageCount + ' tin trong bản chụp. Danh tính và tin nhắn được ẩn cho tới khi bạn nêu lý do xem.' })
+    ]);
+    var reason = el('input', { type: 'text', maxlength: '500', placeholder: 'Lý do xem (bắt buộc, ghi vào nhật ký)', 'aria-label': 'Lý do xem tin nhắn và danh tính' });
+    var error = el('div', { class: 'error', role: 'alert' });
+    var button = el('button', { text: 'Xem tin nhắn và danh tính', onclick: function () {
+      if (reason.value.trim().length < 3) { error.textContent = 'Nhập lý do (ít nhất 3 ký tự).'; return; }
+      button.disabled = true;
+      api('POST', '/admin/reports/' + report.id + '/identity', { reason: reason.value.trim() })
+        .then(function (res) { box.replaceWith(conversationQuote(res.data, res.data.author)); })
+        .catch(function (e) { error.textContent = e.message; button.disabled = false; });
+    } });
+    box.appendChild(el('div', { class: 'reveal' }, [reason, button]));
+    box.appendChild(error);
+    return box;
+  }
+
   function reportRow(report) {
     var target = report.target;
-    var author = target && (report.targetType === 'USER' ? target : target.author);
+    var conversation = report.targetType === 'CONVERSATION';
+    var author = target && !conversation && (report.targetType === 'USER' ? target : target.author);
     var info = el('div', {}, [
       el('div', {}, [
+        report.status === 'OPEN' ? severityTag(report.severity) : null,
         el('span', { class: 'tag', text: TYPES[report.targetType] || report.targetType }),
         el('span', { class: 'tag', text: REASONS[report.reason] || report.reason }),
+        el('span', { class: 'tag', text: report.reportCount + ' báo cáo' }),
         author && author.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null
-      ]),
-      el('div', { class: 'meta', text: 'Người báo cáo: ' + name(report.reporter) + ' · ' + when(report.createdAt) }),
-      report.note ? el('div', { class: 'meta', text: 'Ghi chú: ' + report.note }) : null
+      ])
     ]);
+    (report.reports || [report]).forEach(function (item) {
+      info.appendChild(el('div', { class: 'meta', text: 'Người báo cáo: ' + name(item.reporter) + ' · ' + (REASONS[item.reason] || item.reason) + ' · ' + when(item.createdAt) }));
+      if (item.note) info.appendChild(el('div', { class: 'meta', text: 'Ghi chú: ' + item.note }));
+    });
 
     if (!target) {
       info.appendChild(el('div', { class: 'quote meta', text: 'Nội dung đã bị xoá.' }));
-    } else if (report.targetType === 'CONVERSATION') {
-      info.appendChild(conversationQuote(target, author));
+    } else if (conversation) {
+      info.appendChild(revealForm(report));
     } else {
       var quote = el('div', { class: 'quote' }, [el('div', { class: 'meta', text: 'Của: ' + name(author) })]);
       if (report.targetType !== 'USER') {
         quote.appendChild(el('div', { text: target.content || '(không có chữ)' }));
         if (target.deletedAt) quote.appendChild(el('div', { class: 'meta', text: 'Bài viết đã bị gỡ.' }));
+        if (target.removedAt) quote.appendChild(el('div', { class: 'meta', text: 'Bình luận đã bị gỡ (khôi phục được).' }));
         var media = target.media && target.media[0];
         var image = media && (media.type === 'video' ? media.thumbnailUrl : media.url);
         if (image) quote.appendChild(el('img', { src: image, alt: 'Ảnh của bài viết bị báo cáo', loading: 'lazy' }));
@@ -258,16 +293,31 @@
         return function () { if (confirm(question)) act(api('POST', '/admin/reports/' + report.id + '/resolve', { action: action })); };
       };
       actions.appendChild(el('button', { text: 'Bỏ qua', onclick: resolve('DISMISS', 'Bỏ qua báo cáo này?') }));
-      if ((report.targetType === 'POST' || report.targetType === 'COMMENT') && target && !target.deletedAt) {
+      if ((report.targetType === 'POST' || report.targetType === 'COMMENT') && target && !target.deletedAt && !target.removedAt) {
         actions.appendChild(el('button', { class: 'danger', text: 'Gỡ nội dung', onclick: resolve('REMOVE_CONTENT', 'Gỡ nội dung này khỏi ứng dụng?') }));
       }
-      if (author && !author.bannedAt) {
-        actions.appendChild(el('button', { class: 'danger', text: 'Khoá tài khoản', onclick: resolve('BAN_USER', 'Khoá tài khoản ' + name(author) + '?') }));
+      // Hội thoại: server tự biết ai bị báo cáo, không cần xem danh tính để khoá.
+      if (conversation ? target : author && !author.bannedAt) {
+        actions.appendChild(el('button', { class: 'danger', text: 'Khoá tài khoản', onclick: resolve('BAN_USER', 'Khoá tài khoản ' + (conversation ? 'người bị báo cáo' : name(author)) + '?') }));
       }
     } else {
-      actions.appendChild(el('span', { class: 'meta', text: report.status === 'RESOLVED' ? 'Đã xử lý' : 'Đã bỏ qua' }));
+      actions.appendChild(el('span', { class: 'meta', text: (report.status === 'RESOLVED' ? 'Đã xử lý' : 'Đã bỏ qua') + (report.resolvedAt ? ' · ' + when(report.resolvedAt) : '') }));
+    }
+    if (report.targetType === 'COMMENT' && target && target.removedAt) {
+      actions.appendChild(el('button', { text: 'Khôi phục bình luận', onclick: function () { if (confirm('Hiện lại bình luận này cho mọi người?')) act(api('POST', '/admin/comments/' + target.id + '/restore', {})); } }));
     }
     return el('div', { class: 'row' }, [info, actions]);
+  }
+
+  function auditRow(entry) {
+    return el('div', { class: 'row' }, [
+      el('div', {}, [
+        el('div', {}, [el('b', { text: ACTIONS[entry.action] || entry.action })]),
+        el('div', { class: 'meta', text: name(entry.actor) + ' · ' + when(entry.createdAt) + ' · ' + (TYPES[entry.targetType] || entry.targetType) + ' ' + entry.targetId }),
+        entry.reason ? el('div', { class: 'meta', text: 'Lý do: ' + entry.reason }) : null
+      ]),
+      el('div')
+    ]);
   }
 
   function userRow(user) {
@@ -277,7 +327,8 @@
         user.role === 'ADMIN' ? el('span', { class: 'tag', text: 'Quản trị' }) : null,
         user.bannedAt ? el('span', { class: 'tag banned', text: 'Đã khoá' }) : null,
         user.ageLockedAt ? el('span', { class: 'tag banned', text: 'Khoá vì dưới 18 tuổi' }) : null,
-        user.anonymousSuspendedAt ? el('span', { class: 'tag banned', text: 'Bị tước quyền ẩn danh' }) : null
+        user.anonymousSuspendedAt ? el('span', { class: 'tag banned', text: 'Bị tước quyền ẩn danh' }) : null,
+        user.deletedAt ? el('span', { class: 'tag', text: 'Đã xoá tài khoản' }) : null
       ]),
       el('div', { class: 'meta', text: user.email + ' · ' + user._count.posts + ' bài viết · ' + user._count.followers + ' người theo dõi · tham gia ' + when(user.createdAt) })
     ]);
@@ -300,12 +351,15 @@
 
   function refresh() {
     api('GET', '/admin/stats').then(function (res) { renderStats(res.data); }).catch(function () {});
-    var path = state.tab === 'reports'
-      ? '/admin/reports?status=' + state.status + '&page=' + state.page
-      : '/admin/users?q=' + encodeURIComponent(state.q) + '&page=' + state.page;
-    api('GET', path).then(function (res) {
-      var rows = res.data.map(state.tab === 'reports' ? reportRow : userRow);
-      $('list').replaceChildren.apply($('list'), rows.length ? rows : [el('div', { class: 'empty', text: state.tab === 'reports' ? 'Không có báo cáo nào.' : 'Không tìm thấy người dùng.' })]);
+    var tab = {
+      reports: ['/admin/reports?status=OPEN&page=', reportRow, 'Không có báo cáo nào đang chờ.'],
+      closed: ['/admin/reports?status=CLOSED&page=', reportRow, 'Chưa có báo cáo nào được xử lý.'],
+      users: ['/admin/users?q=' + encodeURIComponent(state.q) + '&page=', userRow, 'Không tìm thấy người dùng.'],
+      audit: ['/admin/audit?page=', auditRow, 'Nhật ký trống.']
+    }[state.tab];
+    api('GET', tab[0] + state.page).then(function (res) {
+      var rows = res.data.map(tab[1]);
+      $('list').replaceChildren.apply($('list'), rows.length ? rows : [el('div', { class: 'empty', text: tab[2] })]);
       var meta = res.meta;
       $('pager').replaceChildren(
         el('button', Object.assign({ text: 'Trước', onclick: function () { state.page--; refresh(); } }, meta.page <= 1 ? { disabled: '' } : {})),

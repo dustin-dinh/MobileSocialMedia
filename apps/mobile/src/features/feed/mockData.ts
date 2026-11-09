@@ -77,6 +77,8 @@ export const MOCK_POSTS: Post[] = [
       {
         id: 'media-002',
         order: 0,
+        // Shows the blurred "Ảnh nhạy cảm" cover in mock mode.
+        sensitive: true,
         type: 'IMAGE',
         url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=70',
       },

@@ -26,6 +26,10 @@ const PENDING_MESSAGE_LIMIT = 3;
 const ANONYMOUS_DAILY_LIMIT = 10;
 const ANONYMOUS_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Tin nhắn chờ mới (hội thoại thường với người lạ) một người mở được trong 24 giờ; tài khoản dưới 7 ngày ít hơn.
+const REQUEST_DAILY_LIMIT = 20;
+const NEW_ACCOUNT_REQUEST_DAILY_LIMIT = 5;
+const NEW_ACCOUNT_MS = 7 * DAY_MS;
 
 // Thay cho người gửi ẩn danh trong mọi dữ liệu trả về cho người nhận (API, socket, push).
 export const ANONYMOUS_USER_ID = 'anonymous';
@@ -158,9 +162,13 @@ export class MessagesService {
     private viewMessage(message: MessageRow, conversation: ConversationRow, viewerId: string) {
         const hidden = hiddenUserOf(conversation);
         const fromOther = message.senderId !== viewerId;
+        // Không chữ, không ảnh: chỉ xảy ra khi người gửi đã xóa tài khoản (users.service, deleteAccount).
+        const deleted = message.content === null && message.imageUrl === null;
 
         return {
             ...message,
+            content: deleted ? 'Tin nhắn đã bị xóa' : message.content,
+            deleted,
             senderId: hidden && message.senderId === hidden && viewerId !== hidden
                 ? ANONYMOUS_USER_ID
                 : message.senderId,
@@ -221,7 +229,7 @@ export class MessagesService {
             ? null
             : await this.prisma.user.findUnique({
                 where: { id: peerId },
-                select: authorSelect,
+                select: { ...authorSelect, messagePermission: true },
             });
 
         if (!peer) {
@@ -234,10 +242,45 @@ export class MessagesService {
                 select: { followerId: true },
             });
 
-            return peerFollowsMe ? 'ACCEPTED' : 'PENDING';
+            if (peerFollowsMe) {
+                return 'ACCEPTED';
+            }
+
+            if (peer.messagePermission === 'FOLLOWING') {
+                throw messageError(HttpStatus.FORBIDDEN, 'MESSAGE_NOT_ALLOWED', 'Người này chỉ nhận tin nhắn từ những người họ theo dõi.');
+            }
+
+            await this.checkRequestDailyLimit(userId);
+
+            return 'PENDING';
         });
 
         return { data: this.viewConversation(conversation, userId, null, 0) };
+    }
+
+    // Chống spam tin nhắn chờ: đếm hội thoại thường người này mở với người lạ trong 24 giờ qua.
+    private async checkRequestDailyLimit(userId: string) {
+        const [sender, openedToday] = await Promise.all([
+            this.prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+            this.prisma.conversation.count({
+                where: {
+                    requesterId: userId,
+                    kind: 'DIRECT',
+                    createdAt: { gte: new Date(Date.now() - DAY_MS) },
+                },
+            }),
+        ]);
+        const isNewAccount = !sender || Date.now() - sender.createdAt.getTime() < NEW_ACCOUNT_MS;
+        const limit = isNewAccount ? NEW_ACCOUNT_REQUEST_DAILY_LIMIT : REQUEST_DAILY_LIMIT;
+
+        if (openedToday >= limit) {
+            throw messageError(
+                HttpStatus.TOO_MANY_REQUESTS,
+                'REQUEST_DAILY_LIMIT',
+                `Hôm nay bạn đã nhắn cho ${limit} người chưa theo dõi bạn. Hãy thử lại vào ngày mai.`,
+                { limit },
+            );
+        }
     }
 
     // Hội thoại ẩn danh từ nút "Nhắn ẩn danh" trên trang cá nhân.
@@ -553,6 +596,39 @@ export class MessagesService {
             throw messageError(HttpStatus.BAD_REQUEST, 'IMAGES_NOT_ALLOWED', 'Images are not allowed in this conversation');
         }
 
+        // Người nhận đổi cài đặt sau khi hội thoại đã mở: tắt tin ẩn danh, hoặc chỉ nhận tin từ người mình theo dõi.
+        // Trả lời story ẩn danh chỉ theo cài đặt của story (DEC-025), nên không xét ở đây.
+        const isHiddenSender = anonymousSide === userId && !conversation.revealedAt && !storyId;
+        const isStrangerRequest = isPendingRequester && conversation.kind === 'DIRECT';
+
+        if (isHiddenSender || isStrangerRequest) {
+            const peerSettings = await this.prisma.user.findUnique({
+                where: { id: peerId },
+                select: {
+                    allowAnonymousMessages: true,
+                    messagePermission: true,
+                    following: { where: { followingId: userId }, select: { followingId: true } },
+                },
+            });
+
+            // Hội thoại mở từ trả lời story (tin đầu có storyId) vẫn tiếp tục; mở từ trang cá nhân thì dừng.
+            const startedFromStory = isHiddenSender && !peerSettings?.allowAnonymousMessages
+                ? Boolean((await this.prisma.message.findFirst({
+                    where: { conversationId },
+                    orderBy: { createdAt: 'asc' },
+                    select: { storyId: true },
+                }))?.storyId)
+                : false;
+
+            if (isHiddenSender && !peerSettings?.allowAnonymousMessages && !startedFromStory) {
+                throw messageError(HttpStatus.FORBIDDEN, 'ANONYMOUS_NOT_ACCEPTED', 'Người này không nhận tin nhắn ẩn danh nữa.');
+            }
+
+            if (isStrangerRequest && peerSettings?.messagePermission === 'FOLLOWING' && !peerSettings.following.length) {
+                throw messageError(HttpStatus.FORBIDDEN, 'MESSAGE_NOT_ALLOWED', 'Người này chỉ nhận tin nhắn từ những người họ theo dõi.');
+            }
+        }
+
         // Người ẩn danh (chưa tiết lộ) và người lạ không được gửi link, số điện thoại, số tài khoản.
         const restricted = (anonymousSide === userId && !conversation.revealedAt) || isPendingRequester;
         const blockedContact = restricted && content ? findBlockedContact(content) : null;
@@ -617,8 +693,11 @@ export class MessagesService {
             select: conversationSelect,
         });
 
+        // Người nhận đã xóa tin nhắn chờ: tin vẫn lưu (người mở không biết bị từ chối) nhưng không làm phiền người nhận.
+        const peerDeclined = updated.status === 'DECLINED' && isRequester;
+
         // Người nhận, và các thiết bị khác của người gửi; mỗi bên thấy theo góc nhìn của mình.
-        for (const target of [peerId, userId]) {
+        for (const target of peerDeclined ? [userId] : [peerId, userId]) {
             void this.gateway
                 .emitToUser(
                     target,
@@ -632,17 +711,25 @@ export class MessagesService {
                 .catch(() => undefined);
         }
 
-        const sender = hiddenUserOf(updated) === userId
-            ? ANONYMOUS_PEER
-            : updated.userAId === userId ? updated.userA : updated.userB;
+        if (!peerDeclined) {
+            const fromHidden = hiddenUserOf(updated) === userId;
+            const sender = fromHidden
+                ? ANONYMOUS_PEER
+                : updated.userAId === userId ? updated.userA : updated.userB;
 
-        void this.notificationsService.pushToUser(
-            peerId,
-            sender.displayName ?? sender.username,
-            // Ảnh không bao giờ hiện trong thông báo; tin chờ ghi rõ để người nhận cảnh giác.
-            `${updated.status !== 'ACCEPTED' ? '[Tin nhắn chờ] ' : ''}${content ?? 'Đã gửi một ảnh'}`,
-            { type: 'MESSAGE', conversationId },
-        );
+            void this.notificationsService.pushToUser(
+                peerId,
+                sender.displayName ?? sender.username,
+                // Màn hình khóa không hiện nội dung tin ẩn danh, tin chờ, hay ảnh: người nhận mở app mới đọc,
+                // ở đó có cảnh báo lừa đảo.
+                fromHidden
+                    ? 'Bạn có tin nhắn ẩn danh mới'
+                    : updated.status !== 'ACCEPTED'
+                        ? 'Bạn có tin nhắn chờ mới'
+                        : content ?? 'Đã gửi một ảnh',
+                { type: 'MESSAGE', conversationId },
+            );
+        }
 
         return { data: this.viewMessage(message, updated, userId) };
     }

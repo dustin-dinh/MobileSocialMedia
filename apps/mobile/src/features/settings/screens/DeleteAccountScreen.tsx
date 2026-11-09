@@ -14,10 +14,13 @@ import { FormMessage } from '../../auth/components/FormMessage';
 import { useAuthSubmission } from '../../auth/hooks/useAuthSubmission';
 import { accountService } from '../accountService';
 
+// Matches the server (users.service deleteAccount): the account row is kept, emptied, so other people's chats and reports stay intact.
 const CONSEQUENCES = [
-  'Hồ sơ, ảnh đại diện và toàn bộ bài viết của bạn sẽ bị xoá.',
-  'Bình luận, lượt thích, bài đăng lại và danh sách theo dõi của bạn sẽ bị xoá.',
-  'Không thể khôi phục tài khoản sau khi xoá.',
+  'Hồ sơ, ảnh đại diện, ảnh bìa, bài viết, tin và bình luận của bạn sẽ bị xoá.',
+  'Lượt thích, cảm xúc, bài đăng lại, mục đã lưu và danh sách theo dõi của bạn sẽ bị xoá.',
+  'Người đã nhắn với bạn vẫn giữ cuộc trò chuyện: tin bạn gửi hiện là "Tin nhắn đã bị xóa", tên bạn hiện là "Người dùng đã xóa".',
+  'Báo cáo vi phạm liên quan đến tài khoản được giữ lại để đội kiểm duyệt xử lý.',
+  'Không thể khôi phục tài khoản. Bạn có thể dùng lại email này để đăng ký tài khoản mới.',
 ];
 
 /** Permanently delete the signed-in account, after re-confirming who is asking. */
@@ -108,7 +111,7 @@ export function DeleteAccountScreen() {
         confirmLabel="Xoá vĩnh viễn"
         destructive
         icon="Trash"
-        message="Toàn bộ dữ liệu của bạn sẽ bị xoá ngay và không thể khôi phục."
+        message="Hồ sơ và nội dung của bạn sẽ bị xoá ngay và không thể khôi phục."
         onCancel={() => setIsConfirmVisible(false)}
         onConfirm={handleDelete}
         title="Xoá tài khoản này?"

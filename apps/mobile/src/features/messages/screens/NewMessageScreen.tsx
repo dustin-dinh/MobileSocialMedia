@@ -7,6 +7,7 @@ import { USE_MOCK_API } from '../../../config/runtime';
 import { useAppNavigation } from '../../../navigation/useAppNavigation';
 import { followApi } from '../../../services/followApi';
 import { useAuthSession } from '../../auth/authSession';
+import { anonymousErrorText } from '../anonymousErrors';
 import { messageService } from '../services/messageService';
 
 /** Pick someone you follow to start (or continue) a conversation with. */
@@ -29,8 +30,8 @@ export function NewMessageScreen() {
 
       // The picker has done its job: the chat takes its place in the stack.
       navigation.replace('Chat', { conversationId: conversation.id, peer: conversation.peer });
-    } catch {
-      showToast('Không mở được cuộc trò chuyện. Vui lòng thử lại.', 'error');
+    } catch (error) {
+      showToast(anonymousErrorText(error, 'Không mở được cuộc trò chuyện. Vui lòng thử lại.'), 'error');
     }
   };
 

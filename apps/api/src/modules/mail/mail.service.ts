@@ -29,26 +29,26 @@ export class MailService {
             await this.transporter.sendMail({
                 from: this.config.getOrThrow<string>("MAIL_FROM"),
                 to: email,
-                subject: "Your MobileSocialMedia verification code",
-                text: `Your verification code is ${otp}. It expires in 5 minutes.
+                subject: "Mã xác thực email MobileSocialMedia",
+                text: `Mã xác thực của bạn là ${otp}. Mã hết hạn sau 5 phút.
 
 ${OTP_WARNING}`,
                 html: `
           <div style="font-family:Arial,sans-serif;line-height:1.6">
-            <h2>Verify your email</h2>
-            <p>Enter this code in the MobileSocialMedia app:</p>
+            <h2>Xác thực email của bạn</h2>
+            <p>Nhập mã này trong ứng dụng MobileSocialMedia:</p>
             <p style="font-size:30px;font-weight:bold;letter-spacing:8px">
               ${otp}
             </p>
-            <p>This code expires in 5 minutes.</p>
+            <p>Mã hết hạn sau 5 phút.</p>
             <p><strong>${OTP_WARNING}</strong></p>
-            <p>If you did not create this account, ignore this email.</p>
+            <p>Nếu bạn không tạo tài khoản này, hãy bỏ qua email này.</p>
           </div>
         `,
             });
         } catch {
             throw new InternalServerErrorException(
-                "Unable to send verification email",
+                "Không gửi được email xác thực. Vui lòng thử lại sau.",
             );
         }
     }
@@ -58,32 +58,64 @@ ${OTP_WARNING}`,
             await this.transporter.sendMail({
                 from: this.config.getOrThrow<string>("MAIL_FROM"),
                 to: email,
-                subject: "Your MobileSocialMedia password reset code",
+                subject: "Mã đặt lại mật khẩu MobileSocialMedia",
                 text: [
-                    `Your password reset code is: ${otp}`,
+                    `Mã đặt lại mật khẩu của bạn là: ${otp}`,
                     "",
-                    "This code expires in 5 minutes.",
+                    "Mã hết hạn sau 5 phút.",
                     OTP_WARNING,
-                    "If you did not request a password reset, ignore this email.",
+                    "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.",
                 ].join("\n"),
                 html: `
         <div style="font-family:Arial,sans-serif;line-height:1.6">
-          <h2>Reset your password</h2>
-          <p>Enter this code in the MobileSocialMedia app:</p>
+          <h2>Đặt lại mật khẩu</h2>
+          <p>Nhập mã này trong ứng dụng MobileSocialMedia:</p>
           <p style="font-size:30px;font-weight:bold;letter-spacing:8px">
             ${otp}
           </p>
-          <p>This code expires in 5 minutes.</p>
+          <p>Mã hết hạn sau 5 phút.</p>
             <p><strong>${OTP_WARNING}</strong></p>
-          <p>If you did not request a password reset, ignore this email.</p>
+          <p>Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
         </div>
       `,
             });
         } catch {
             throw new InternalServerErrorException(
-                "Unable to send password reset email",
+                "Không gửi được email đặt lại mật khẩu. Vui lòng thử lại sau.",
             );
         }
     }
 
+    async sendLoginCode(email: string, otp: string): Promise<void> {
+        try {
+            await this.transporter.sendMail({
+                from: this.config.getOrThrow<string>("MAIL_FROM"),
+                to: email,
+                subject: "Mã đăng nhập MobileSocialMedia",
+                text: [
+                    `Mã đăng nhập của bạn là: ${otp}`,
+                    "",
+                    "Mã hết hạn sau 5 phút.",
+                    OTP_WARNING,
+                    "Nếu bạn không vừa đăng nhập, hãy đổi mật khẩu ngay: ai đó đã biết mật khẩu của bạn.",
+                ].join("\n"),
+                html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6">
+          <h2>Mã đăng nhập</h2>
+          <p>Nhập mã này trong ứng dụng MobileSocialMedia để hoàn tất đăng nhập:</p>
+          <p style="font-size:30px;font-weight:bold;letter-spacing:8px">
+            ${otp}
+          </p>
+          <p>Mã hết hạn sau 5 phút.</p>
+          <p><strong>${OTP_WARNING}</strong></p>
+          <p>Nếu bạn không vừa đăng nhập, hãy đổi mật khẩu ngay: ai đó đã biết mật khẩu của bạn.</p>
+        </div>
+      `,
+            });
+        } catch {
+            throw new InternalServerErrorException(
+                "Không gửi được mã xác minh. Vui lòng thử lại sau.",
+            );
+        }
+    }
 }

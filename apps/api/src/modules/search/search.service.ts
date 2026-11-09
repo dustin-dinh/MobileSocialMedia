@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserSearchQueryDto } from './dto/user-search-query.dto';
-import { blockedUserIds } from '../posts/post-view';
+import { activeUserWhere, blockedUserIds } from '../posts/post-view';
 
 @Injectable()
 export class SearchService {
@@ -19,6 +19,7 @@ export class SearchService {
                 content: { contains: '#' },
                 createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
                 author: {
+                    ...activeUserWhere,
                     isPrivate: false,
                     id: { notIn: await blockedUserIds(this.prisma, viewerId) },
                 },
@@ -56,6 +57,7 @@ export class SearchService {
         const skip = (page - 1) * limit;
 
         const where = {
+            ...activeUserWhere,
             id: { notIn: await blockedUserIds(this.prisma, viewerId) },
             OR: [
                 {

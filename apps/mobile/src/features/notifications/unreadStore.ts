@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { USE_MOCK_API } from '../../config/runtime';
 import { httpClient } from '../../services/httpClient';
 import { notificationSocket } from './services/notificationSocket';
+import { pushService } from './services/pushService';
 
 let count = 0;
 const listeners = new Set<(value: number) => void>();
@@ -15,6 +16,7 @@ const listeners = new Set<(value: number) => void>();
 function set(value: number): void {
   count = Math.max(0, value);
   listeners.forEach((listener) => listener(count));
+  pushService.setBadge('notifications', count);
 }
 
 async function refresh(): Promise<void> {

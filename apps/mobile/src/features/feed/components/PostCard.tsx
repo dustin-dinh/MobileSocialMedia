@@ -19,6 +19,7 @@ import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import type { Post, PostMedia } from '../types';
 import { FeedVideo } from './FeedVideo';
+import { SENSITIVE_BLUR_RADIUS, SensitiveCover } from './SensitiveCover';
 import { ReactionPicker } from './ReactionPicker';
 import { reactionOf, type ReactionType } from '../reactions';
 import { RichText } from '../../../components/common/RichText';
@@ -35,6 +36,7 @@ import { DeletePostModal } from '../../post/components/DeletePostModal';
 import { PostPrivacyModal } from '../../post/components/PostPrivacyModal';
 import { postService } from '../../post/services/postService';
 import { feedEvents } from '../feedEvents';
+import { setUserMuted } from '../../profile/muteUser';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -98,20 +100,30 @@ function formatCount(n: number): string {
 // Media section
 // ---------------------------------------------------------------------------
 
-function SingleImage({ media }: { media: PostMedia }) {
-  const [loaded, setLoaded] = useState(false);
+/**
+ * Signed media URLs change on every load (private bucket), so images cache by
+ * media id. A sensitive image stays blurred under a cover until tapped; its
+ * author sees it clear, as the sender of a chat image does.
+ */
+function PostImage({ isOwn = false, media, single = false }: { isOwn?: boolean; media: PostMedia; single?: boolean }) {
+  const [loaded, setLoaded] = useState(!single);
+  const [revealed, setRevealed] = useState(false);
+  const isBlurred = Boolean(media.sensitive) && !revealed && !isOwn;
 
   return (
-    <View style={styles.mediaSingle}>
+    <View style={single ? styles.mediaSingle : styles.carouselSlide}>
       {!loaded && <View style={styles.mediaPlaceholder} />}
       <Image
         accessibilityIgnoresInvertColors
-        source={{ uri: media.url }}
-        style={[styles.mediaSingleImage, !loaded && styles.hidden]}
+        accessibilityLabel={isBlurred ? 'Ảnh có thể nhạy cảm, đang bị làm mờ' : undefined}
+        blurRadius={isBlurred ? SENSITIVE_BLUR_RADIUS : 0}
+        source={{ cacheKey: `post-media-${media.id}`, uri: media.url }}
+        style={single ? [styles.mediaSingleImage, !loaded && styles.hidden] : styles.carouselImage}
         contentFit="cover"
         cachePolicy="memory-disk"
         onLoad={() => setLoaded(true)}
       />
+      {isBlurred ? <SensitiveCover onReveal={() => setRevealed(true)} /> : null}
     </View>
   );
 }
@@ -120,12 +132,20 @@ function SlideGap() {
   return <View style={styles.slideGap} />;
 }
 
-function MediaGrid({ items, onPressVideo }: { items: PostMedia[]; onPressVideo: () => void }) {
+function MediaGrid({
+  isOwn,
+  items,
+  onPressVideo,
+}: {
+  isOwn: boolean;
+  items: PostMedia[];
+  onPressVideo: () => void;
+}) {
   if (items.length === 1) {
     return items[0].type === 'VIDEO' ? (
       <FeedVideo media={items[0]} onPress={onPressVideo} />
     ) : (
-      <SingleImage media={items[0]} />
+      <PostImage isOwn={isOwn} media={items[0]} single />
     );
   }
 
@@ -137,15 +157,7 @@ function MediaGrid({ items, onPressVideo }: { items: PostMedia[]; onPressVideo: 
       horizontal
       ItemSeparatorComponent={SlideGap}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <Image
-          accessibilityIgnoresInvertColors
-          source={{ uri: item.url }}
-          style={styles.carouselImage}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      )}
+      renderItem={({ item }) => <PostImage isOwn={isOwn} media={item} />}
       showsHorizontalScrollIndicator={false}
       snapToAlignment="start"
       snapToInterval={SLIDE_WIDTH + SLIDE_GAP}
@@ -364,6 +376,7 @@ export const PostCard = memo(function PostCard({
       {post.media.length > 0 && (
         <View style={styles.mediaContainer}>
           <MediaGrid
+            isOwn={isAuthor}
             items={post.media}
             onPressVideo={() => navigation.open('ReelViewer', { post })}
           />
@@ -466,6 +479,7 @@ export const PostCard = memo(function PostCard({
       {/* ── Modals ─────────────────────────────────────────── */}
       <PostOptionsModal
         isAuthor={isAuthor}
+        isAuthorMuted={post.isAuthorMuted}
         isSaved={post.isSaved}
         onChangePrivacy={() => setIsPrivacyModalOpen(true)}
         onClose={() => setIsOptionsModalOpen(false)}
@@ -475,6 +489,7 @@ export const PostCard = memo(function PostCard({
         onReport={() => setReportTarget({ id: post.id, type: 'POST' })}
         onSave={handleSave}
         onShare={() => setIsShareModalOpen(true)}
+        onToggleMute={() => void setUserMuted(post.author.id, !post.isAuthorMuted)}
         post={post}
         visible={isOptionsModalOpen}
       />
@@ -611,9 +626,12 @@ const styles = StyleSheet.create({
   },
   carouselImage: {
     backgroundColor: clayColors.surfaceWell,
-    borderRadius: clayRadii.media,
     height: MEDIA_HEIGHT,
     width: SLIDE_WIDTH,
+  },
+  carouselSlide: {
+    borderRadius: clayRadii.media,
+    overflow: 'hidden',
   },
   content: {
     lineHeight: 22,

@@ -12,7 +12,18 @@ import type { AppNotification, NotificationActor, NotificationType } from '../ty
 
 const USE_MOCK = USE_MOCK_API;
 
-const NOTIFICATIONS_PAGE_SIZE = 50;
+const NOTIFICATIONS_PAGE_SIZE = 20;
+/** Small enough that the mock list has two pages. */
+const MOCK_PAGE_SIZE = 4;
+
+export type NotificationPage = {
+  hasMore: boolean;
+  items: AppNotification[];
+  /** All notifications, every page. */
+  total: number;
+  /** Unread across every page, not just this one. */
+  unreadCount: number;
+};
 
 type ApiNotification = {
   actor: NotificationActor;
@@ -141,36 +152,49 @@ let mockNotifications: AppNotification[] = [
 // ---------------------------------------------------------------------------
 
 export const notificationService = {
-  /**
-   * Fetch all notifications for current user.
-   */
-  async getNotifications(): Promise<AppNotification[]> {
+  /** One page of the current user's notifications, newest first (`page` starts at 1). */
+  async getNotifications(page = 1): Promise<NotificationPage> {
     if (USE_MOCK) {
       await delay(MOCK_DELAY_MS);
-      return [...mockNotifications];
+      const start = (page - 1) * MOCK_PAGE_SIZE;
+
+      return {
+        hasMore: start + MOCK_PAGE_SIZE < mockNotifications.length,
+        items: mockNotifications.slice(start, start + MOCK_PAGE_SIZE),
+        total: mockNotifications.length,
+        unreadCount: mockNotifications.filter((n) => !n.isRead).length,
+      };
     }
 
     const [response, followingIds] = await Promise.all([
-      httpClient.requestJson<{ data: ApiNotification[] }>({
+      httpClient.requestJson<{
+        data: ApiNotification[];
+        meta: { page: number; total: number; totalPages: number; unreadCount: number };
+      }>({
         method: 'GET',
-        path: `notifications?page=1&limit=${NOTIFICATIONS_PAGE_SIZE}`,
+        path: `notifications?page=${page}&limit=${NOTIFICATIONS_PAGE_SIZE}`,
       }),
       followApi.getMyFollowingIds(),
     ]);
 
     // The API returns ids only for the related post/comment, so the list
     // shows the actor and the action without a post preview.
-    return response.data.map((notification) => ({
-      actor: notification.actor,
-      commentId: notification.comment?.id,
-      createdAt: notification.createdAt,
-      id: notification.id,
-      isFollowingBack:
-        notification.type === 'FOLLOW' ? followingIds.has(notification.actor.id) : undefined,
-      isRead: notification.readAt !== null,
-      postId: notification.post?.id,
-      type: notification.type,
-    }));
+    return {
+      hasMore: response.meta.page < response.meta.totalPages,
+      items: response.data.map((notification) => ({
+        actor: notification.actor,
+        commentId: notification.comment?.id,
+        createdAt: notification.createdAt,
+        id: notification.id,
+        isFollowingBack:
+          notification.type === 'FOLLOW' ? followingIds.has(notification.actor.id) : undefined,
+        isRead: notification.readAt !== null,
+        postId: notification.post?.id,
+        type: notification.type,
+      })),
+      total: response.meta.total,
+      unreadCount: response.meta.unreadCount,
+    };
   },
 
   /**

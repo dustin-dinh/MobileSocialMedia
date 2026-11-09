@@ -7,7 +7,7 @@ export class ResetPasswordDto {
 
     @IsString()
     @Matches(/^\d{6}$/, {
-        message: "OTP must contain exactly 6 digits",
+        message: "Mã xác minh gồm đúng 6 chữ số.",
     })
     otp!: string;
 

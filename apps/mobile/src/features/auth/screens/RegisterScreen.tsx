@@ -1,22 +1,20 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import { StyleSheet, type TextInput } from 'react-native';
+import { type TextInput } from 'react-native';
 
 import { isGoogleSignInAvailable } from '../../../config/google';
-import { ClayText } from '../../../components/ui/ClayText';
 import type { AuthStackParamList } from '../../../navigation/types';
 import { useAuthSession } from '../authSession';
-import { clayColors } from '../../../theme/colors';
-import { fontFamilies } from '../../../theme/typography';
 import { AuthDivider } from '../components/AuthDivider';
 import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { GoogleButton } from '../components/GoogleButton';
+import { LegalConsent } from '../components/LegalConsent';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { formatBirthDateInput } from '../birthDate';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
-import { authService } from '../services/authService';
+import { authService, TwoFactorRequiredError } from '../services/authService';
 import {
   type FieldErrors,
   type RegisterFormValues,
@@ -36,6 +34,7 @@ const INITIAL_VALUES: RegisterFormValues = {
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [errors, setErrors] = useState<FieldErrors<keyof RegisterFormValues>>({});
   const [values, setValues] = useState<RegisterFormValues>(INITIAL_VALUES);
+  const [hasAgreed, setHasAgreed] = useState(false);
   const emailInputRef = useRef<TextInput | null>(null);
   const passwordInputRef = useRef<TextInput | null>(null);
   const confirmPasswordInputRef = useRef<TextInput | null>(null);
@@ -74,7 +73,22 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
   const handleGoogleSignIn = () => {
     reset();
-    void submit(() => signInWithGoogle());
+    void submit(async () => {
+      try {
+        await signInWithGoogle();
+      } catch (error) {
+        if (error instanceof TwoFactorRequiredError) {
+          navigation.navigate('VerifyCode', {
+            challengeToken: error.challengeToken,
+            email: error.email,
+            mode: 'twoFactor',
+          });
+          return;
+        }
+
+        throw error;
+      }
+    });
   };
 
   return (
@@ -161,31 +175,24 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         value={values.confirmPassword}
       />
       <FormMessage message={submissionMessage} tone={submissionTone} />
-      <ClayText style={styles.legal} variant="meta">
-        Khi tạo tài khoản, bạn đồng ý với{' '}
-        <ClayText
-          accessibilityRole="link"
-          onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
-          style={styles.legalLink}
-          variant="meta"
-        >
-          Điều khoản sử dụng
-        </ClayText>{' '}
-        và{' '}
-        <ClayText
-          accessibilityRole="link"
-          onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
-          style={styles.legalLink}
-          variant="meta"
-        >
-          Chính sách quyền riêng tư
-        </ClayText>{' '}
-        của Mobile Social.
-      </ClayText>
-      <PrimaryButton isLoading={isSubmitting} label="Tạo tài khoản" onPress={handleSubmit} />
+      <LegalConsent
+        checked={hasAgreed}
+        onChange={setHasAgreed}
+        onOpenDoc={(doc) => navigation.navigate('Legal', { doc })}
+      />
+      <PrimaryButton
+        disabled={!hasAgreed}
+        isLoading={isSubmitting}
+        label="Tạo tài khoản"
+        onPress={handleSubmit}
+      />
       {showGoogle && (
         <>
           <AuthDivider />
+          <LegalConsent
+            lead="Khi tiếp tục với Google, bạn đồng ý với"
+            onOpenDoc={(doc) => navigation.navigate('Legal', { doc })}
+          />
           <GoogleButton
             disabled={isSubmitting}
             isLoading={isSubmitting}
@@ -196,13 +203,3 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
     </AuthScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  legal: {
-    marginBottom: 16,
-  },
-  legalLink: {
-    color: clayColors.primaryInk,
-    fontFamily: fontFamilies.semiBold,
-  },
-});

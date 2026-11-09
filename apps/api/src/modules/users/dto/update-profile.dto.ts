@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
     IsBoolean,
+    IsIn,
     IsOptional,
     IsString,
     Matches,
@@ -45,4 +46,9 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsBoolean()
     allowAnonymousMessages?: boolean;
+
+    // Ai được mở tin nhắn mới: EVERYONE (người lạ vào Tin nhắn chờ) | FOLLOWING (chỉ người mình theo dõi).
+    @IsOptional()
+    @IsIn(['EVERYONE', 'FOLLOWING'])
+    messagePermission?: 'EVERYONE' | 'FOLLOWING';
 }

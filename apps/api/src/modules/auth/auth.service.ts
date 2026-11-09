@@ -26,6 +26,21 @@ import { ResendVerificationDto } from "./dto/resend-verification.dto";
 
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { SESSION_REVOKED_ERROR } from "./session";
+
+type SessionUser = NonNullable<Awaited<ReturnType<UsersService["findById"]>>>;
+
+// Email không tồn tại vẫn chạy bcrypt.compare với hash giả để thời gian trả lời không lộ email nào đã đăng ký.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("timing-equaliser-not-a-password", 10);
+const MAX_FAILED_LOGINS = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const INVALID_CREDENTIALS = "Email hoặc mật khẩu không đúng.";
+const INVALID_LOGIN_CODE = "Mã xác minh không đúng hoặc đã hết hạn.";
+const ACCOUNT_BANNED_ERROR = {
+    statusCode: 401,
+    code: "ACCOUNT_BANNED",
+    message: "Tài khoản này đã bị khóa.",
+};
 
 @Injectable()
 export class AuthService {
@@ -42,7 +57,7 @@ export class AuthService {
         const secret = process.env.OTP_HASH_SECRET;
         if (!secret) {
             throw new InternalServerErrorException(
-                "OTP service is not configured",
+                "Dịch vụ mã xác minh chưa được cấu hình.",
             );
         }
 
@@ -59,32 +74,40 @@ export class AuthService {
         return new HttpException(message, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    private async issueVerificationOtp(userId: string, email: string) {
+    // Mã email xác minh, hoặc mã đăng nhập hai lớp (LOGIN_TWO_FACTOR). Mã hai lớp được 5 lần/giờ
+    // thay vì 3 vì mỗi lần đăng nhập cũng gửi một mã.
+    private async issueVerificationOtp(
+        userId: string,
+        email: string,
+        purpose: "EMAIL_VERIFICATION" | "LOGIN_TWO_FACTOR" = "EMAIL_VERIFICATION",
+    ) {
         const now = new Date();
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
         const recentSends = await this.prisma.authToken.count({
             where: {
                 userId,
-                purpose: "EMAIL_VERIFICATION",
+                purpose,
                 createdAt: { gte: oneHourAgo },
             },
         });
 
-        if (recentSends >= this.maxResendsPerHour) {
+        if (recentSends >= (purpose === "LOGIN_TWO_FACTOR" ? 5 : this.maxResendsPerHour)) {
             throw this.tooManyRequests(
-                "Too many verification emails. Try again later.",
+                "Bạn đã yêu cầu quá nhiều mã. Vui lòng thử lại sau.",
             );
         }
 
         const otp = this.generateOtp();
-        const tokenHash = this.hashOtp(userId, otp);
+        const tokenHash = purpose === "LOGIN_TWO_FACTOR"
+            ? this.hashOtp(`LOGIN_TWO_FACTOR:${userId}`, otp)
+            : this.hashOtp(userId, otp);
 
         await this.prisma.$transaction(async (tx) => {
             await tx.authToken.updateMany({
                 where: {
                     userId,
-                    purpose: "EMAIL_VERIFICATION",
+                    purpose,
                     usedAt: null,
                 },
                 data: { usedAt: now },
@@ -94,13 +117,17 @@ export class AuthService {
                 data: {
                     userId,
                     tokenHash,
-                    purpose: "EMAIL_VERIFICATION",
+                    purpose,
                     expiresAt: new Date(now.getTime() + this.otpTtlMs),
                 },
             });
         });
 
-        await this.mailService.sendVerificationOtp(email, otp);
+        if (purpose === "LOGIN_TWO_FACTOR") {
+            await this.mailService.sendLoginCode(email, otp);
+        } else {
+            await this.mailService.sendVerificationOtp(email, otp);
+        }
     }
 
     async verifyEmail(dto: VerifyEmailDto) {
@@ -109,11 +136,11 @@ export class AuthService {
 
         // Tránh tiết lộ email có đăng ký hay không.
         if (!user) {
-            throw new UnauthorizedException("Invalid or expired OTP");
+            throw new UnauthorizedException("Mã xác minh không đúng hoặc đã hết hạn.");
         }
 
         if (user.emailVerifiedAt) {
-            return { message: "Email already verified" };
+            return { message: "Email đã được xác minh." };
         }
 
         const now = new Date();
@@ -128,7 +155,7 @@ export class AuthService {
         });
 
         if (!token || token.attemptCount >= this.maxOtpAttempts) {
-            throw new UnauthorizedException("Invalid or expired OTP");
+            throw new UnauthorizedException("Mã xác minh không đúng hoặc đã hết hạn.");
         }
 
         const expectedHash = Buffer.from(token.tokenHash, "hex");
@@ -151,7 +178,7 @@ export class AuthService {
                 data: { attemptCount: { increment: 1 } },
             });
 
-            throw new UnauthorizedException("Invalid or expired OTP");
+            throw new UnauthorizedException("Mã xác minh không đúng hoặc đã hết hạn.");
         }
 
         await this.prisma.$transaction(async (tx) => {
@@ -167,7 +194,7 @@ export class AuthService {
             });
 
             if (consumed.count !== 1) {
-                throw new UnauthorizedException("Invalid or expired OTP");
+                throw new UnauthorizedException("Mã xác minh không đúng hoặc đã hết hạn.");
             }
 
             await tx.user.update({
@@ -176,7 +203,7 @@ export class AuthService {
             });
         });
 
-        return { message: "Email verified successfully" };
+        return { message: "Đã xác minh email." };
     }
 
     async resendVerification(dto: ResendVerificationDto) {
@@ -186,7 +213,7 @@ export class AuthService {
         // Trả cùng một thông báo dù email không tồn tại, đã xác minh,
         // hay đã gửi lại mã để tránh tiết lộ trạng thái tài khoản.
         const genericResponse = {
-            message: "If the account needs verification, a code will be sent.",
+            message: "Nếu tài khoản cần xác minh, mã mới sẽ được gửi tới email.",
         };
 
         if (!user || user.emailVerifiedAt || !user.passwordHash) {
@@ -202,7 +229,7 @@ export class AuthService {
 
             // Không tiết lộ thông tin SMTP hoặc chi tiết nội bộ cho client.
             throw new InternalServerErrorException(
-                "Unable to send verification email",
+                "Không gửi được email xác minh. Vui lòng thử lại sau.",
             );
         }
 
@@ -229,11 +256,11 @@ export class AuthService {
         }
 
         if (await this.usersService.findByEmail(email)) {
-            throw new ConflictException("Email already exists");
+            throw new ConflictException("Email này đã được dùng cho một tài khoản khác.");
         }
 
         if (await this.usersService.findByUsername(username)) {
-            throw new ConflictException("Username already exists");
+            throw new ConflictException("Tên người dùng này đã có người dùng.");
         }
 
         const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -263,7 +290,7 @@ export class AuthService {
                     verificationEmailSent: false,
                 },
                 message:
-                    "Account created, but the verification email could not be sent. Request a new code.",
+                    "Đã tạo tài khoản nhưng chưa gửi được email xác minh. Hãy yêu cầu mã mới.",
             };
         }
 
@@ -279,7 +306,7 @@ export class AuthService {
                 emailVerified: false,
                 verificationEmailSent: true,
             },
-            message: "Account created. Check your email for the verification code.",
+            message: "Đã tạo tài khoản. Kiểm tra email để lấy mã xác minh.",
         };
     }
 
@@ -292,22 +319,29 @@ export class AuthService {
         const user =
             await this.usersService.findByEmail(email);
 
-        if (!user || !user.passwordHash) {
-            throw new UnauthorizedException(
-                "Invalid email or password",
-            );
+        if (user?.loginLockedUntil && user.loginLockedUntil > new Date()) {
+            throw this.loginLocked(user.loginLockedUntil);
         }
 
         const passwordMatches =
             await bcrypt.compare(
                 dto.password,
-                user.passwordHash,
+                user?.passwordHash ?? DUMMY_PASSWORD_HASH,
             );
 
-        if (!passwordMatches) {
-            throw new UnauthorizedException(
-                "Invalid email or password",
-            );
+        if (!user || !user.passwordHash || !passwordMatches) {
+            if (user?.passwordHash) {
+                await this.recordFailedLogin(user.id);
+            }
+
+            throw new UnauthorizedException(INVALID_CREDENTIALS);
+        }
+
+        if (user.failedLoginCount > 0 || user.loginLockedUntil) {
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: { failedLoginCount: 0, loginLockedUntil: null },
+            });
         }
 
         if (!user.emailVerifiedAt) {
@@ -315,26 +349,89 @@ export class AuthService {
             throw new UnauthorizedException({
                 statusCode: 401,
                 code: "EMAIL_NOT_VERIFIED",
-                message: "Please verify your email before logging in",
+                message: "Vui lòng xác minh email trước khi đăng nhập.",
             });
         }
 
-        if (user.bannedAt) {
-            throw new UnauthorizedException({
-                statusCode: 401,
-                code: "ACCOUNT_BANNED",
-                message: "This account has been suspended",
+        return this.startSession(user);
+    }
+
+    // 423, không phải 429: app hiện nguyên câu này, còn 429 bị app thay bằng câu "thao tác quá nhanh".
+    private loginLocked(until: Date): HttpException {
+        const minutes = Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000));
+
+        return new HttpException(
+            {
+                statusCode: HttpStatus.LOCKED,
+                code: "LOGIN_LOCKED",
+                message: `Bạn đã nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`,
+            },
+            HttpStatus.LOCKED,
+        );
+    }
+
+    // Sai lần thứ 5 liên tiếp: khóa đăng nhập 15 phút và báo ngay ở lần sai này.
+    private async recordFailedLogin(userId: string) {
+        const { failedLoginCount } = await this.prisma.user.update({
+            where: { id: userId },
+            data: { failedLoginCount: { increment: 1 } },
+            select: { failedLoginCount: true },
+        });
+
+        if (failedLoginCount >= MAX_FAILED_LOGINS) {
+            const until = new Date(Date.now() + LOGIN_LOCK_MS);
+
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { failedLoginCount: 0, loginLockedUntil: until },
             });
+
+            throw this.loginLocked(until);
+        }
+    }
+
+    private assertCanSignIn(user: SessionUser): void {
+        if (user.deletedAt) {
+            throw new UnauthorizedException(INVALID_CREDENTIALS);
+        }
+
+        if (user.bannedAt) {
+            throw new UnauthorizedException(ACCOUNT_BANNED_ERROR);
         }
 
         if (user.ageLockedAt) {
             throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
         }
+    }
 
-        const accessToken =
-            await this.jwtService.signAsync({
-                sub: user.id,
-            });
+    // Mật khẩu hoặc Google đã đúng: cấp phiên, hoặc gửi mã hai lớp và trả challengeToken nếu người dùng đã bật.
+    private async startSession(user: SessionUser) {
+        this.assertCanSignIn(user);
+
+        if (!user.twoFactorEnabled) {
+            return this.issueSession(user);
+        }
+
+        await this.sendLoginCode(user);
+
+        return {
+            data: {
+                twoFactorRequired: true,
+                challengeToken: await this.jwtService.signAsync(
+                    { sub: user.id, purpose: "LOGIN_TWO_FACTOR" },
+                    { secret: this.challengeSecret(), expiresIn: "10m" },
+                ),
+                // Để màn nhập mã hiện email đã che (đăng nhập Google không gõ email).
+                email: user.email,
+            },
+        };
+    }
+
+    private async issueSession(user: SessionUser) {
+        const accessToken = await this.jwtService.signAsync({
+            sub: user.id,
+            ver: user.tokenVersion,
+        });
 
         return {
             data: {
@@ -345,11 +442,156 @@ export class AuthService {
         };
     }
 
+    // Khóa ký riêng: challengeToken không bao giờ dùng được như access token (JwtStrategy, socket).
+    private challengeSecret(): string {
+        return `${process.env.JWT_SECRET}:login-two-factor`;
+    }
+
+    private async sendLoginCode(user: SessionUser) {
+        try {
+            await this.issueVerificationOtp(user.id, user.email, "LOGIN_TWO_FACTOR");
+        } catch (error) {
+            // Giữ 429 (gửi quá nhiều mã); lỗi SMTP không lộ chi tiết.
+            if (error instanceof HttpException && error.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+                throw error;
+            }
+
+            throw new InternalServerErrorException(
+                "Không gửi được mã xác minh. Vui lòng thử lại sau.",
+            );
+        }
+    }
+
+    private async readChallenge(challengeToken: string): Promise<SessionUser> {
+        const payload = await this.jwtService
+            .verifyAsync<{ sub?: string; purpose?: string }>(challengeToken, {
+                secret: this.challengeSecret(),
+            })
+            .catch(() => null);
+        const user = payload?.purpose === "LOGIN_TWO_FACTOR" && payload.sub
+            ? await this.usersService.findById(payload.sub)
+            : null;
+
+        if (!user) {
+            throw new UnauthorizedException({
+                statusCode: 401,
+                code: "TWO_FACTOR_EXPIRED",
+                message: "Phiên xác minh đã hết hạn. Vui lòng đăng nhập lại.",
+            });
+        }
+
+        return user;
+    }
+
+    async verifyTwoFactor(challengeToken: string, code: string) {
+        const user = await this.readChallenge(challengeToken);
+        const token = await this.prisma.authToken.findFirst({
+            where: {
+                userId: user.id,
+                purpose: "LOGIN_TWO_FACTOR",
+                usedAt: null,
+                expiresAt: { gt: new Date() },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        if (!token || token.attemptCount >= this.maxOtpAttempts) {
+            throw new UnauthorizedException(INVALID_LOGIN_CODE);
+        }
+
+        const expectedHash = Buffer.from(token.tokenHash, "hex");
+        const submittedHash = Buffer.from(
+            this.hashOtp(`LOGIN_TWO_FACTOR:${user.id}`, code),
+            "hex",
+        );
+
+        if (
+            expectedHash.length !== submittedHash.length ||
+            !timingSafeEqual(expectedHash, submittedHash)
+        ) {
+            await this.prisma.authToken.updateMany({
+                where: {
+                    id: token.id,
+                    usedAt: null,
+                    attemptCount: { lt: this.maxOtpAttempts },
+                },
+                data: { attemptCount: { increment: 1 } },
+            });
+
+            throw new UnauthorizedException(INVALID_LOGIN_CODE);
+        }
+
+        // Dùng một lần: hai yêu cầu cùng lúc với cùng mã thì chỉ một cái được.
+        const consumed = await this.prisma.authToken.updateMany({
+            where: {
+                id: token.id,
+                usedAt: null,
+                expiresAt: { gt: new Date() },
+                attemptCount: { lt: this.maxOtpAttempts },
+            },
+            data: { usedAt: new Date() },
+        });
+
+        if (consumed.count !== 1) {
+            throw new UnauthorizedException(INVALID_LOGIN_CODE);
+        }
+
+        // Tài khoản có thể bị khóa trong lúc chờ mã.
+        this.assertCanSignIn(user);
+
+        return this.issueSession(user);
+    }
+
+    async resendTwoFactor(challengeToken: string) {
+        const user = await this.readChallenge(challengeToken);
+
+        await this.sendLoginCode(user);
+
+        return { message: "Đã gửi mã mới tới email của bạn." };
+    }
+
+    // Bật/tắt xác thực hai lớp, luôn hỏi mật khẩu hiện tại. Tài khoản chỉ có Google phải đặt mật khẩu trước.
+    // Sai mật khẩu trả 400, không phải 401: client coi 401 là hết phiên và tự đăng xuất.
+    async setTwoFactor(userId: string, enabled: boolean, currentPassword: string) {
+        const user = await this.usersService.findById(userId);
+
+        if (!user) {
+            throw new UnauthorizedException(SESSION_REVOKED_ERROR);
+        }
+
+        if (!user.passwordHash) {
+            throw new BadRequestException({
+                statusCode: 400,
+                code: "PASSWORD_REQUIRED",
+                message: "Hãy đặt mật khẩu trước khi bật xác thực hai lớp.",
+            });
+        }
+
+        if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+            throw new BadRequestException("Mật khẩu hiện tại không đúng.");
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { twoFactorEnabled: enabled },
+        });
+
+        return { data: { twoFactorEnabled: enabled } };
+    }
+
+    // Đăng xuất mọi thiết bị: mọi token đang có mang tokenVersion cũ.
+    async logout(userId: string): Promise<void> {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { tokenVersion: { increment: 1 } },
+        });
+    }
+
     async loginWithGoogle(dto: GoogleLoginDto) {
         const payload = await this.googleVerifier.verify(dto.idToken);
 
         if (!payload.email || payload.emailVerified !== true) {
-            throw new UnauthorizedException("Invalid Google token");
+            throw new UnauthorizedException("Không xác minh được tài khoản Google. Vui lòng thử lại.");
         }
 
         const normalizedEmail = payload.email.trim().toLowerCase();
@@ -404,35 +646,13 @@ export class AuthService {
                 }
 
                 if (!createdUser) {
-                    throw new ConflictException("Could not generate a unique username");
+                    throw new ConflictException("Không tạo được tên người dùng. Vui lòng thử lại.");
                 }
                 user = createdUser;
             }
         }
 
-        if (user.bannedAt) {
-            throw new UnauthorizedException({
-                statusCode: 401,
-                code: "ACCOUNT_BANNED",
-                message: "This account has been suspended",
-            });
-        }
-
-        if (user.ageLockedAt) {
-            throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
-        }
-
-        const accessToken = await this.jwtService.signAsync({
-            sub: user.id,
-        });
-
-        return {
-            data: {
-                accessToken,
-
-                user: toMe(user),
-            },
-        };
+        return this.startSession(user);
     }
     ///////////////Reset Password
 
@@ -441,7 +661,7 @@ export class AuthService {
 
         if (!secret) {
             throw new InternalServerErrorException(
-                "OTP service is not configured",
+                "Dịch vụ mã xác minh chưa được cấu hình.",
             );
         }
 
@@ -453,7 +673,7 @@ export class AuthService {
     async forgotPassword(dto: ForgotPasswordDto) {
         const email = this.normalizeEmail(dto.email);
         const genericResponse = {
-            message: "If the account is eligible, a reset code will be sent.",
+            message: "Nếu email đã đăng ký, mã đặt lại mật khẩu sẽ được gửi tới email.",
         };
 
         const user = await this.usersService.findByEmail(email);
@@ -518,7 +738,7 @@ export class AuthService {
         const user = await this.usersService.findByEmail(email);
 
         if (!user || !user.passwordHash || !user.emailVerifiedAt) {
-            throw new UnauthorizedException("Invalid or expired reset code");
+            throw new UnauthorizedException("Mã đặt lại mật khẩu không đúng hoặc đã hết hạn.");
         }
 
         const now = new Date();
@@ -533,7 +753,7 @@ export class AuthService {
         });
 
         if (!token || token.attemptCount >= this.maxOtpAttempts) {
-            throw new UnauthorizedException("Invalid or expired reset code");
+            throw new UnauthorizedException("Mã đặt lại mật khẩu không đúng hoặc đã hết hạn.");
         }
 
         const expectedHash = Buffer.from(token.tokenHash, "hex");
@@ -556,7 +776,7 @@ export class AuthService {
                 data: { attemptCount: { increment: 1 } },
             });
 
-            throw new UnauthorizedException("Invalid or expired reset code");
+            throw new UnauthorizedException("Mã đặt lại mật khẩu không đúng hoặc đã hết hạn.");
         }
 
         const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
@@ -575,12 +795,18 @@ export class AuthService {
             });
 
             if (consumed.count !== 1) {
-                throw new UnauthorizedException("Invalid or expired reset code");
+                throw new UnauthorizedException("Mã đặt lại mật khẩu không đúng hoặc đã hết hạn.");
             }
 
+            // Đăng xuất mọi thiết bị và mở khóa đăng nhập (chủ tài khoản vừa chứng minh qua email).
             await tx.user.update({
                 where: { id: user.id },
-                data: { passwordHash: newPasswordHash },
+                data: {
+                    passwordHash: newPasswordHash,
+                    tokenVersion: { increment: 1 },
+                    failedLoginCount: 0,
+                    loginLockedUntil: null,
+                },
             });
 
             // Vô hiệu hóa những reset token khác còn hiệu lực.
@@ -594,7 +820,7 @@ export class AuthService {
             });
         });
 
-        return { message: "Password reset successfully" };
+        return { message: "Đã đặt lại mật khẩu." };
     }
 
     async changePassword(
@@ -614,14 +840,19 @@ export class AuthService {
             user.passwordHash &&
             !(await bcrypt.compare(currentPassword ?? "", user.passwordHash))
         ) {
-            throw new BadRequestException("Current password is incorrect");
+            throw new BadRequestException("Mật khẩu hiện tại không đúng.");
         }
 
-        await this.prisma.user.update({
+        // Các thiết bị khác bị đăng xuất; thiết bị này nhận token mới để vẫn đăng nhập.
+        const updated = await this.prisma.user.update({
             where: { id: userId },
-            data: { passwordHash: await bcrypt.hash(newPassword, 10) },
+            data: {
+                passwordHash: await bcrypt.hash(newPassword, 10),
+                tokenVersion: { increment: 1 },
+            },
         });
+        const { data } = await this.issueSession(updated);
 
-        return { data: { changed: true } };
+        return { data: { changed: true, accessToken: data.accessToken } };
     }
 }

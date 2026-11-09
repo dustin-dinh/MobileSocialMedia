@@ -63,20 +63,20 @@ describe('Week 3 Functional Tests (T3-01 to T3-13)', () => {
 
   // T3-05
   test('T3-05: Search user by username and display name', async () => {
-    const byUsername = await searchService.searchUsers('alex');
+    const byUsername = (await searchService.searchUsers('alex')).users;
     expect(byUsername.length).toBeGreaterThan(0);
     expect(byUsername.some((u) => u.username.toLowerCase().includes('alex'))).toBe(true);
 
-    const byDisplayName = await searchService.searchUsers('Minh');
+    const byDisplayName = (await searchService.searchUsers('Minh')).users;
     expect(byDisplayName.length).toBeGreaterThan(0);
   });
 
   // T3-06
   test('T3-06: Search edge cases (empty and non-existent queries)', async () => {
-    const emptyResults = await searchService.searchUsers('   ');
+    const emptyResults = (await searchService.searchUsers('   ')).users;
     expect(emptyResults.length).toBeGreaterThan(0); // Returns suggested users
 
-    const noResults = await searchService.searchUsers('non_existent_xyz_99999');
+    const noResults = (await searchService.searchUsers('non_existent_xyz_99999')).users;
     expect(noResults).toEqual([]);
   });
 
@@ -91,14 +91,14 @@ describe('Week 3 Functional Tests (T3-01 to T3-13)', () => {
 
   // T3-08
   test('T3-08: Notification creation and retrieval', async () => {
-    const notifications = await notificationService.getNotifications();
+    const notifications = (await notificationService.getNotifications()).items;
     expect(Array.isArray(notifications)).toBe(true);
     expect(notifications.length).toBeGreaterThan(0);
   });
 
   // T3-09
   test('T3-09: Notification displays valid actor, action, and target fields', async () => {
-    const notifications = await notificationService.getNotifications();
+    const notifications = (await notificationService.getNotifications()).items;
     const first = notifications[0];
     expect(first).toHaveProperty('id');
     expect(first).toHaveProperty('type');
@@ -108,17 +108,17 @@ describe('Week 3 Functional Tests (T3-01 to T3-13)', () => {
 
   // T3-10
   test('T3-10: Mark notification as read updates read state', async () => {
-    const notifs = await notificationService.getNotifications();
+    const notifs = (await notificationService.getNotifications()).items;
     const targetId = notifs[0].id;
     await notificationService.markAsRead(targetId);
-    const updated = await notificationService.getNotifications();
+    const updated = (await notificationService.getNotifications()).items;
     const found = updated.find((n) => n.id === targetId);
     expect(found?.isRead).toBe(true);
   });
 
   // T3-11
   test('T3-11: No duplicate notifications in initial list', async () => {
-    const notifs = await notificationService.getNotifications();
+    const notifs = (await notificationService.getNotifications()).items;
     const ids = notifs.map((n) => n.id);
     const uniqueIds = new Set(ids);
     expect(ids.length).toBe(uniqueIds.size);
@@ -135,8 +135,8 @@ describe('Week 3 Functional Tests (T3-01 to T3-13)', () => {
   test('T3-13: Full regression check of core services', async () => {
     const feed = await feedService.getFeed(1);
     const comments = await commentService.getComments(feed.data[0].id);
-    const search = await searchService.searchUsers('');
-    const notifs = await notificationService.getNotifications();
+    const search = (await searchService.searchUsers('')).users;
+    const notifs = (await notificationService.getNotifications()).items;
 
     expect(feed.data.length).toBeGreaterThan(0);
     expect(Array.isArray(comments)).toBe(true);

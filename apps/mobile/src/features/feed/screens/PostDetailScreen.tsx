@@ -63,6 +63,11 @@ export function PostDetailScreen({ navigation, route }: PostDetailScreenProps) {
           setPost(updated);
         }
       }),
+      feedEvents.on('muteChanged', ({ isMuted, userId }) => {
+        setPost((current) =>
+          current?.author.id === userId ? { ...current, isAuthorMuted: isMuted } : current,
+        );
+      }),
       feedEvents.on('commentAdded', ({ commentsCount, postId: changedId }) => {
         if (changedId === postId) {
           setPost((current) => (current ? { ...current, commentsCount } : current));

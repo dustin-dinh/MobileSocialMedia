@@ -13,7 +13,7 @@ export class RegisterDto {
     @MaxLength(30)
     @Matches(/^[a-zA-Z0-9._]+$/, {
         message:
-            "Username can only contain letters, numbers, dots and underscores",
+            "Tên người dùng chỉ gồm chữ cái không dấu, số, dấu chấm và dấu gạch dưới.",
     })
     username!: string;
 

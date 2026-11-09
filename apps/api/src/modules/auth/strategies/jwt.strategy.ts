@@ -8,6 +8,8 @@ import {
 
 import { ageLockedUserIds, bannedUserIds } from "../ban-list";
 import { AGE_RESTRICTED_ERROR } from "../../moderation/age";
+import { PrismaService } from "../../../prisma/prisma.service";
+import { assertSessionValid } from "../session";
 import { JwtPayload } from "../types/jwt-payload.type";
 
 @Injectable()
@@ -16,6 +18,7 @@ export class JwtStrategy extends PassportStrategy(
 ) {
     constructor(
         configService: ConfigService,
+        private readonly prisma: PrismaService,
     ) {
         super({
             jwtFromRequest:
@@ -30,19 +33,21 @@ export class JwtStrategy extends PassportStrategy(
         });
     }
 
-    validate(payload: JwtPayload) {
+    async validate(payload: JwtPayload) {
         // Tài khoản bị khóa: mọi token đang có đều bị từ chối.
         if (bannedUserIds.has(payload.sub)) {
             throw new UnauthorizedException({
                 statusCode: 401,
                 code: "ACCOUNT_BANNED",
-                message: "This account has been suspended",
+                message: "Tài khoản này đã bị khóa.",
             });
         }
 
         if (ageLockedUserIds.has(payload.sub)) {
             throw new UnauthorizedException(AGE_RESTRICTED_ERROR);
         }
+
+        await assertSessionValid(this.prisma, payload);
 
         return {
             userId: payload.sub,

@@ -23,6 +23,7 @@ import {
     Max,
     MaxLength,
     Min,
+    MinLength,
 } from 'class-validator';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -71,7 +72,8 @@ class PageQueryDto {
 
 class ReportsQueryDto extends PageQueryDto {
     @IsOptional()
-    @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
+    // CLOSED = RESOLVED + DISMISSED (tab "Đã xử lý").
+    @IsIn(['OPEN', 'RESOLVED', 'DISMISSED', 'CLOSED'])
     status = 'OPEN';
 }
 
@@ -82,9 +84,25 @@ class UsersQueryDto extends PageQueryDto {
     q = '';
 }
 
-class ResolveReportDto {
+// Lý do ghi vào nhật ký quản trị (tùy chọn cho thao tác thường).
+class ReasonDto {
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
+    reason?: string;
+}
+
+class ResolveReportDto extends ReasonDto {
     @IsIn(['DISMISS', 'REMOVE_CONTENT', 'BAN_USER'])
     action!: ReportAction;
+}
+
+// Xem danh tính thật / tin nhắn bị báo cáo: bắt buộc nêu lý do.
+class ViewIdentityDto {
+    @IsString()
+    @MinLength(3)
+    @MaxLength(500)
+    reason!: string;
 }
 
 type AuthedRequest = { user: { userId: string } };
@@ -123,7 +141,26 @@ export class AdminController {
         @Param('id') id: string,
         @Body() dto: ResolveReportDto,
     ) {
-        return this.adminService.resolveReport(request.user.userId, id, dto.action);
+        return this.adminService.resolveReport(request.user.userId, id, dto.action, dto.reason);
+    }
+
+    @Post('reports/:id/identity')
+    viewIdentity(
+        @Request() request: AuthedRequest,
+        @Param('id') id: string,
+        @Body() dto: ViewIdentityDto,
+    ) {
+        return this.adminService.viewIdentity(request.user.userId, id, dto.reason.trim());
+    }
+
+    @Post('comments/:id/restore')
+    restoreComment(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.restoreComment(request.user.userId, id, dto.reason);
+    }
+
+    @Get('audit')
+    findAudit(@Query() query: PageQueryDto) {
+        return this.adminService.findAudit(query.page, query.limit);
     }
 
     @Get('users')
@@ -132,28 +169,28 @@ export class AdminController {
     }
 
     @Post('users/:id/ban')
-    ban(@Request() request: AuthedRequest, @Param('id') id: string) {
-        return this.adminService.setBanned(request.user.userId, id, true);
+    ban(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.setBanned(request.user.userId, id, true, dto.reason);
     }
 
     @Delete('users/:id/ban')
-    unban(@Request() request: AuthedRequest, @Param('id') id: string) {
-        return this.adminService.setBanned(request.user.userId, id, false);
+    unban(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.setBanned(request.user.userId, id, false, dto.reason);
     }
 
     @Delete('users/:id/age-lock')
-    unlockAge(@Param('id') id: string) {
-        return this.adminService.unlockAge(id);
+    unlockAge(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.unlockAge(request.user.userId, id, dto.reason);
     }
 
     // Trả lại / tước quyền gửi tin ẩn danh.
     @Post('users/:id/anonymous')
-    allowAnonymous(@Param('id') id: string) {
-        return this.adminService.setAnonymousAllowed(id, true);
+    allowAnonymous(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.setAnonymousAllowed(request.user.userId, id, true, dto.reason);
     }
 
     @Delete('users/:id/anonymous')
-    suspendAnonymous(@Param('id') id: string) {
-        return this.adminService.setAnonymousAllowed(id, false);
+    suspendAnonymous(@Request() request: AuthedRequest, @Param('id') id: string, @Body() dto: ReasonDto) {
+        return this.adminService.setAnonymousAllowed(request.user.userId, id, false, dto.reason);
     }
 }

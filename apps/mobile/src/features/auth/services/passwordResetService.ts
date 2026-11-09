@@ -41,7 +41,7 @@ export const passwordResetService = {
     if (!normalizedEmail || !EMAIL_PATTERN.test(normalizedEmail)) {
       throw new ApiError({
         kind: 'server',
-        message: 'Enter a valid email address.',
+        message: 'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.',
         status: 400,
       });
     }
@@ -49,7 +49,7 @@ export const passwordResetService = {
     if (USE_MOCK) {
       await delay(MOCK_DELAY_MS);
       return {
-        message: 'A verification code has been sent to your email.',
+        message: 'Đã gửi mã xác minh tới email của bạn.',
         success: true,
       };
     }
@@ -63,7 +63,7 @@ export const passwordResetService = {
     });
 
     return {
-      message: response.message ?? 'If the account exists, a reset code has been sent.',
+      message: response.message ?? 'Nếu email đã đăng ký, mã đặt lại mật khẩu sẽ được gửi tới email.',
       success: true,
     };
   },
@@ -78,7 +78,7 @@ export const passwordResetService = {
     if (!normalizedEmail || !EMAIL_PATTERN.test(normalizedEmail)) {
       throw new ApiError({
         kind: 'server',
-        message: 'Enter a valid email address.',
+        message: 'Email chưa đúng định dạng, ví dụ ten.ban@gmail.com.',
         status: 400,
       });
     }
@@ -86,7 +86,7 @@ export const passwordResetService = {
     if (!normalizedCode || !/^\d{6}$/.test(normalizedCode)) {
       throw new ApiError({
         kind: 'server',
-        message: 'Verification code must be exactly 6 digits.',
+        message: 'Mã xác minh gồm đúng 6 chữ số.',
         status: 400,
       });
     }
@@ -97,13 +97,13 @@ export const passwordResetService = {
       if (normalizedCode !== MOCK_VERIFICATION_CODE) {
         throw new ApiError({
           kind: 'server',
-          message: 'Invalid or expired verification code.',
+          message: 'Mã xác minh không đúng hoặc đã hết hạn.',
           status: 400,
         });
       }
 
       return {
-        message: 'Verification code confirmed successfully.',
+        message: 'Đã xác nhận mã.',
         success: true,
       };
     }
@@ -111,7 +111,7 @@ export const passwordResetService = {
     // The backend has no separate "verify" step: the code is checked together
     // with the new password by `resetPassword`. Here it only has to be well-formed.
     return {
-      message: 'Enter a new password to finish.',
+      message: 'Nhập mật khẩu mới để hoàn tất.',
       success: true,
     };
   },
@@ -130,12 +130,12 @@ export const passwordResetService = {
       if (code.trim() !== MOCK_VERIFICATION_CODE) {
         throw new ApiError({
           kind: 'server',
-          message: 'Invalid or expired reset code.',
+          message: 'Mã đặt lại mật khẩu không đúng hoặc đã hết hạn.',
           status: 400,
         });
       }
 
-      return { message: 'Password updated.', success: true };
+      return { message: 'Đã đặt lại mật khẩu.', success: true };
     }
 
     await httpClient.requestVoid<{ email: string; newPassword: string; otp: string }>({
@@ -148,6 +148,6 @@ export const passwordResetService = {
       path: 'auth/reset-password',
     });
 
-    return { message: 'Password updated.', success: true };
+    return { message: 'Đã đặt lại mật khẩu.', success: true };
   },
 };

@@ -13,6 +13,7 @@ export type ReportTarget = {
 
 /** Codes accepted by the backend, with the label shown to the user. */
 export const REPORT_REASONS = [
+  { code: 'CHILD_SAFETY', label: 'Xâm hại hoặc gợi dục trẻ em' },
   { code: 'SCAM', label: 'Lừa đảo, đòi tiền hoặc mã OTP' },
   { code: 'SPAM', label: 'Spam hoặc quảng cáo' },
   { code: 'HARASSMENT', label: 'Quấy rối hoặc bắt nạt' },

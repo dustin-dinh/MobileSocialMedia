@@ -28,8 +28,9 @@ import { MailModule } from "../mail/mail.module";
           ),
 
         signOptions: {
-          // shortcut: chưa có refresh token nên token sống 30 ngày để người dùng
-          // không bị đăng xuất mỗi ngày; làm refresh token xoay vòng khi cần thu hồi phiên.
+          // shortcut: chưa có refresh token nên token sống 30 ngày để người dùng không bị đăng xuất
+          // mỗi ngày; thu hồi phiên đã có qua tokenVersion (session.ts) nhưng chỉ theo cả tài khoản,
+          // làm refresh token xoay vòng khi cần token ngắn hạn hoặc đăng xuất riêng từng thiết bị.
           expiresIn: "30d",
         },
       }),

@@ -14,17 +14,41 @@ export const accountService = {
    * Change the password. `currentPassword` is omitted for Google-only
    * accounts, which are setting a password for the first time.
    */
-  async changePassword(currentPassword: string | undefined, newPassword: string): Promise<void> {
+  async changePassword(
+    currentPassword: string | undefined,
+    newPassword: string,
+  ): Promise<{ accessToken?: string }> {
+    if (USE_MOCK_API) {
+      await mockDelay();
+
+      return {};
+    }
+
+    // The server signs out every other device and returns a new token for this one.
+    const response = await httpClient.requestJson<
+      { data: { accessToken?: string } },
+      { currentPassword?: string; newPassword: string }
+    >({
+      body: { currentPassword, newPassword },
+      method: 'PATCH',
+      path: 'auth/password',
+    });
+
+    return { accessToken: response.data.accessToken };
+  },
+
+  /** Turn two-factor sign-in on or off; always confirmed with the current password. */
+  async setTwoFactor(enabled: boolean, currentPassword: string): Promise<void> {
     if (USE_MOCK_API) {
       await mockDelay();
 
       return;
     }
 
-    await httpClient.requestVoid<{ currentPassword?: string; newPassword: string }>({
-      body: { currentPassword, newPassword },
+    await httpClient.requestVoid<{ currentPassword: string; enabled: boolean }>({
+      body: { currentPassword, enabled },
       method: 'PATCH',
-      path: 'auth/password',
+      path: 'auth/2fa',
     });
   },
 
@@ -79,6 +103,21 @@ export const accountService = {
 
     await httpClient.requestVoid<{ allowAnonymousMessages: boolean }>({
       body: { allowAnonymousMessages: allow },
+      method: 'PATCH',
+      path: 'users/me',
+    });
+  },
+
+  /** Who may start a new conversation with this account. */
+  async setMessagePermission(messagePermission: 'EVERYONE' | 'FOLLOWING'): Promise<void> {
+    if (USE_MOCK_API) {
+      await mockDelay();
+
+      return;
+    }
+
+    await httpClient.requestVoid<{ messagePermission: 'EVERYONE' | 'FOLLOWING' }>({
+      body: { messagePermission },
       method: 'PATCH',
       path: 'users/me',
     });

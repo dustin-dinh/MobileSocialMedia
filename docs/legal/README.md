@@ -61,7 +61,7 @@ Nếu chưa có trang xóa tài khoản trên web, có thể tạm thời đặt
    - Cần xác nhận nội dung tin nhắn và lịch sử xem Reels có thuộc nhóm này không.
    - Nếu có, cần xác nhận các nghĩa vụ thêm: thông báo riêng, có thể phải xin đồng ý riêng.
 3. **Hình thức đồng ý.**
-   - Hiện nay người dùng chỉ thấy câu "By creating an account you agree to…" (tiếng Anh, không có ô đánh dấu).
+   - Hiện nay màn đăng ký có một ô đánh dấu bắt buộc bằng tiếng Việt, gộp chung Điều khoản, Chính sách và Tiêu chuẩn cộng đồng (xem mục 5).
    - Luật 91 nói im lặng không phải là đồng ý.
    - Cần xác nhận có phải thêm ô đánh dấu riêng cho chính sách dữ liệu và cho việc chuyển dữ liệu ra nước ngoài không.
 4. **Thời hạn trả lời yêu cầu.** Chính sách ghi 2 ngày làm việc / 10 / 15 / 20 ngày theo Nghị định 356/2025/NĐ-CP, Điều 5. Con số lấy từ bản trên luatvietnam.vn, chưa đối chiếu Công báo.
@@ -106,7 +106,9 @@ Nếu chưa có trang xóa tài khoản trên web, có thể tạm thời đặt
 
 ## 4. Lệch giữa `LegalScreen.tsx` hiện tại và thực tế
 
-Văn bản trong `apps/mobile/src/features/settings/screens/LegalScreen.tsx` lệch với code ở các điểm sau. Không sửa trong lần này vì yêu cầu là không đụng tệp có sẵn.
+Văn bản viết tay cũ trong `apps/mobile/src/features/settings/screens/LegalScreen.tsx` lệch với code ở các điểm sau.
+
+**Đã xử lý (DEC-028):** `LegalScreen` không còn văn bản viết tay. Nó hiển thị `src/features/settings/legalContent.ts`, sinh từ ba tệp trong thư mục này bằng `apps/mobile/scripts/build-legal-content.mjs`. Các điểm 1-5, 7, 8 vì vậy hết lệch; danh sách giữ lại làm lịch sử. Điểm 6 và 9 có ghi chú riêng.
 
 1. **"Khi có tính năng video ngắn, chúng tôi ghi nhận…"** Reels đã có, và lịch sử xem (bảng `ContentInteraction`) **đang** được ghi.
 2. **Thiếu hẳn các nội dung sau:**
@@ -127,6 +129,7 @@ Văn bản trong `apps/mobile/src/features/settings/screens/LegalScreen.tsx` l�
    - Bản sao lưu vẫn còn.
    - Việc xóa còn xóa luôn cuộc trò chuyện của người kia, và bình luận của người khác dưới bài của bạn.
 6. **Điều khoản "hiển thị nội dung cho những người mà bạn đã chọn"**: ảnh, video bài viết, story, ảnh đại diện nằm trong bucket **đọc công khai**. Ai có đường dẫn trực tiếp đều mở được, kể cả bài "Chỉ mình tôi".
+   - **Đã xử lý cho tệp mới:** ảnh, video, ảnh thu nhỏ của bài viết và story giờ nằm ở bucket riêng tư; ứng dụng nhận URL có chữ ký, hết hạn sau 1 giờ. Tệp tải lên trước thay đổi này vẫn công khai cho tới khi được chuyển sang bucket riêng tư. Ảnh đại diện và ảnh bìa vẫn công khai.
 7. **"Ứng dụng được cung cấp ở trạng thái hiện có"** là câu miễn trừ trách nhiệm chung. Câu này có thể vô hiệu theo Bộ luật Dân sự, Điều 405.3 và Luật Bảo vệ quyền lợi người tiêu dùng, Điều 25.
 8. **Điều khoản trong app không có:**
    - giới hạn 18+;
@@ -134,6 +137,7 @@ Văn bản trong `apps/mobile/src/features/settings/screens/LegalScreen.tsx` l�
    - cách kháng nghị;
    - thông tin doanh nghiệp, kênh liên hệ (Apple Guideline 1.2 yêu cầu có thông tin liên hệ).
 9. **Câu đồng ý ở màn đăng ký là tiếng Anh**, trong khi văn bản là tiếng Việt. Đăng nhập bằng Google ở **màn đăng nhập** tạo được tài khoản mới mà người dùng không thấy câu đồng ý nào.
+   - **Đã xử lý:** xem mục 5, phần Đăng ký.
 
 ---
 
@@ -142,13 +146,13 @@ Văn bản trong `apps/mobile/src/features/settings/screens/LegalScreen.tsx` l�
 ### Trong ứng dụng (Android và iOS)
 
 - **Đăng ký:**
-  - Hiện liên kết tới Điều khoản, Chính sách và Tiêu chuẩn cộng đồng **trước** nút tạo tài khoản, bằng tiếng Việt.
-  - Nên có ô đánh dấu đồng ý, xem mục 3.3 ở trên.
-  - Áp dụng cả cho đường đăng nhập bằng Google lần đầu (tạo tài khoản mới), ở cả màn đăng nhập lẫn màn đăng ký.
+  - Đã có: ô đánh dấu đồng ý bắt buộc bằng tiếng Việt (`LegalConsent`) **trước** nút tạo tài khoản, với liên kết tới Điều khoản, Chính sách và Tiêu chuẩn cộng đồng. Chưa đánh dấu thì nút bị khóa.
+  - Đã có: câu đồng ý phía trên nút Google, ở cả màn đăng nhập lẫn màn đăng ký.
+  - Đã có: lần đầu đăng nhập bằng Google (tạo tài khoản mới), màn `BirthDateScreen` có cùng ô đánh dấu.
+  - Ô đánh dấu riêng cho chính sách dữ liệu và chuyển dữ liệu ra nước ngoài: chờ luật sư, xem mục 3.3 ở trên.
 - **Cài đặt > Giới thiệu:**
-  - Đã có hai dòng "Điều khoản sử dụng" và "Chính sách quyền riêng tư".
-  - Thêm dòng "Tiêu chuẩn cộng đồng".
-  - Thay văn bản trong `LegalScreen.tsx` bằng nội dung ba tệp này, hoặc mở URL công khai.
+  - Đã có ba dòng "Điều khoản sử dụng", "Chính sách quyền riêng tư" và "Tiêu chuẩn cộng đồng".
+  - `LegalScreen` hiển thị nội dung ba tệp này, sinh vào app bằng `apps/mobile/scripts/build-legal-content.mjs` (DEC-028). Sửa văn bản thì sửa Markdown ở đây rồi chạy lại script, không sửa `legalContent.ts`.
 - **Xóa tài khoản:** màn `DeleteAccountScreen` nên nói rõ những gì còn lại (mục 13 của Chính sách).
 - **Bật nhận tin ẩn danh, và lần đầu gửi tin ẩn danh:** nên dẫn tới Điều khoản mục 7.
 - **Khi đổi chính sách:** ghi phiên bản và thời điểm người dùng đồng ý. Hiện chưa có trường lưu việc này.

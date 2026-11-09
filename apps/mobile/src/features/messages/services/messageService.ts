@@ -80,7 +80,7 @@ export type OutgoingMessage = {
 
 // Mock inbox for UI work and demos: four accepted conversations (two unread) and one
 // request from a stranger, each with its own messages. It also shows the safety marks:
-// a blurred sensitive image and a message the scam check flagged.
+// a blurred sensitive image, a message the scam check flagged, and a suspicious link.
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}?w=120&h=120&fit=crop&crop=face`;
 
@@ -141,7 +141,7 @@ const mockThreads: MockThread[] = [
     { avatarUrl: unsplash('1438761681033-6461ffad8d80'), displayName: 'Linh Phạm', id: 'user-005', username: 'linhpham' },
     [
       ['me', 'Thứ Sáu này team họp lúc mấy giờ nhỉ?', 300],
-      ['peer', '9 giờ sáng nha, phòng họp tầng 3.', 280],
+      ['peer', '9 giờ sáng nha, phòng họp tầng 3. Tài liệu ở đây: https://docs.google.com/document/d/hop-thu-sau', 280],
     ],
   ),
   thread(
@@ -150,6 +150,7 @@ const mockThreads: MockThread[] = [
     [
       ['peer', 'Bài viết về race condition hay lắm, cảm ơn bạn.', 2_900],
       ['me', 'Cảm ơn bạn đã đọc!', 2_880],
+      ['peer', 'Bạn xác nhận giúp mình khoản nhận tiền ở đây nhé: http://vietc0mbank-xacthuc.top/dang-nhap', 2_870],
     ],
   ),
   thread(

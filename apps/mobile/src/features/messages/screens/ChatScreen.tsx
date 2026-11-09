@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -33,7 +34,9 @@ import type { PostAuthor } from '../../feed/types';
 import { notificationSocket } from '../../notifications/services/notificationSocket';
 import { profileService } from '../../profile/services/profileService';
 import { ReportModal } from '../../report/ReportModal';
+import { chatOutbox } from '../chatOutbox';
 import { PeerAvatar } from '../components/PeerAvatar';
+import { isSuspiciousLink, splitLinks, toOpenableUrl } from '../linkSafety';
 import {
   ANONYMOUS_USER_ID,
   messageService,
@@ -55,7 +58,9 @@ const SEND_ERRORS: Record<string, string> = {
   CONTACT_INFO_BLOCKED:
     'Cuộc trò chuyện này không cho gửi đường link, số điện thoại hay số tài khoản ngân hàng.',
   CONVERSATION_CLOSED: 'Cuộc trò chuyện đã đóng.',
+  ANONYMOUS_NOT_ACCEPTED: 'Người này không nhận tin nhắn ẩn danh nữa.',
   IMAGES_NOT_ALLOWED: 'Cuộc trò chuyện này chỉ gửi được chữ.',
+  MESSAGE_NOT_ALLOWED: 'Người này chỉ nhận tin nhắn từ những người họ theo dõi.',
   REQUEST_LIMIT: 'Hãy chờ người này trả lời trước khi gửi thêm.',
 };
 
@@ -82,8 +87,11 @@ export function ChatScreen({ route }: ChatScreenProps) {
   const isFocused = useIsScreenFocused();
   const currentUserId = user?.id ?? '';
 
-  // Newest first: the list is inverted, so index 0 sits at the bottom.
+  // Newest first: the list is inverted, so index 0 sits at the bottom. Only what the server has;
+  // messages still being sent (or failed) live in chatOutbox so they survive leaving the chat.
   const [messages, setMessages] = useState<Message[]>([]);
+  const outboxKey = chatOutbox.key(currentUserId, conversationId);
+  const [localMessages, setLocalMessages] = useState(() => chatOutbox.messages(outboxKey));
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [peerReadAt, setPeerReadAt] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -93,11 +101,12 @@ export function ChatScreen({ route }: ChatScreenProps) {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isReportVisible, setIsReportVisible] = useState(false);
   const [confirm, setConfirm] = useState<'block' | 'reveal' | null>(null);
+  // A link waiting for the user to confirm before it opens.
+  const [linkToOpen, setLinkToOpen] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   // Sensitive images the user chose to see.
   const [shownImages, setShownImages] = useState<ReadonlySet<string>>(new Set());
   const isLoadingMoreRef = useRef(false);
-  const outgoingRef = useRef(new Map<string, OutgoingMessage>());
 
   // The peer from the server wins: after an anonymous sender reveals themselves it changes.
   const peer: PostAuthor = conversation?.peer ?? route.params.peer;
@@ -114,11 +123,7 @@ export function ChatScreen({ route }: ChatScreenProps) {
     try {
       const page = await messageService.getMessages(conversationId);
 
-      // Keep what is still being sent: the server does not know it yet.
-      setMessages((current) => [
-        ...current.filter((message) => message.pending || message.failed),
-        ...page.messages,
-      ]);
+      setMessages(page.messages);
       setConversation(page.conversation);
       setHasMore(page.hasMore);
       setPeerReadAt(page.peerReadAt);
@@ -140,6 +145,29 @@ export function ChatScreen({ route }: ChatScreenProps) {
   useEffect(() => {
     void load().then(markRead);
   }, [load, markRead]);
+
+  useEffect(() => {
+    setLocalMessages(chatOutbox.messages(outboxKey));
+
+    return chatOutbox.subscribe((key, sent) => {
+      if (key !== outboxKey) {
+        return;
+      }
+
+      setLocalMessages(chatOutbox.messages(outboxKey));
+
+      if (sent) {
+        setMessages((current) => [sent, ...current.filter((message) => message.id !== sent.id)]);
+      }
+    });
+  }, [outboxKey]);
+
+  // Local copies on top until the server's copy arrives (by socket or by the send's answer).
+  const shownMessages = useMemo(() => {
+    const known = new Set(messages.map((message) => message.id));
+
+    return [...localMessages.filter((message) => !known.has(message.id)), ...messages];
+  }, [localMessages, messages]);
 
   useEffect(() => {
     const unsubscribers = [
@@ -214,18 +242,13 @@ export function ChatScreen({ route }: ChatScreenProps) {
       try {
         const sent = await messageService.send(conversationId, currentUserId, outgoing);
 
-        outgoingRef.current.delete(outgoing.clientId);
-        setMessages((current) => [
-          sent,
-          ...current.filter((message) => message.id !== outgoing.clientId && message.id !== sent.id),
-        ]);
+        chatOutbox.remove(outboxKey, outgoing.clientId, sent);
       } catch (error) {
         const refused = error instanceof ApiError && error.code ? SEND_ERRORS[error.code] : undefined;
 
         if (refused) {
           // Refused by a rule, not a network failure: retrying would fail again.
-          outgoingRef.current.delete(outgoing.clientId);
-          setMessages((current) => current.filter((message) => message.id !== outgoing.clientId));
+          chatOutbox.remove(outboxKey, outgoing.clientId);
           showToast(refused, 'error');
 
           if (error instanceof ApiError && error.code === 'CONVERSATION_CLOSED') {
@@ -235,18 +258,14 @@ export function ChatScreen({ route }: ChatScreenProps) {
           return;
         }
 
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === outgoing.clientId ? { ...message, failed: true, pending: false } : message,
-          ),
-        );
+        chatOutbox.update(outboxKey, outgoing.clientId, { failed: true, pending: false });
 
         if (error instanceof ApiError && error.status === 403) {
           showToast('Bạn không thể nhắn tin cho người này.', 'error');
         }
       }
     },
-    [conversationId, currentUserId, load],
+    [conversationId, currentUserId, load, outboxKey],
   );
 
   const send = useCallback(
@@ -257,8 +276,8 @@ export function ChatScreen({ route }: ChatScreenProps) {
         image,
       };
 
-      outgoingRef.current.set(outgoing.clientId, outgoing);
-      setMessages((current) => [
+      chatOutbox.add(
+        outboxKey,
         {
           content: content ?? null,
           conversationId,
@@ -268,11 +287,11 @@ export function ChatScreen({ route }: ChatScreenProps) {
           pending: true,
           senderId: currentUserId,
         },
-        ...current,
-      ]);
+        outgoing,
+      );
       void deliver(outgoing);
     },
-    [conversationId, currentUserId, deliver],
+    [conversationId, currentUserId, deliver, outboxKey],
   );
 
   const handleSendText = () => {
@@ -301,16 +320,27 @@ export function ChatScreen({ route }: ChatScreenProps) {
   };
 
   const handleRetry = (message: Message) => {
-    const outgoing = outgoingRef.current.get(message.id);
+    const outgoing = chatOutbox.outgoing(outboxKey, message.id);
 
     if (!outgoing) {
       return;
     }
 
-    setMessages((current) =>
-      current.map((item) => (item.id === message.id ? { ...item, failed: false, pending: true } : item)),
-    );
+    chatOutbox.update(outboxKey, message.id, { failed: false, pending: true });
     void deliver(outgoing);
+  };
+
+  const openLink = (url: string) => {
+    Linking.openURL(toOpenableUrl(url)).catch(() => showToast('Không mở được đường link.', 'error'));
+  };
+
+  // Links from requests and anonymous chats, and suspicious ones anywhere, open only after a confirm.
+  const handlePressLink = (url: string) => {
+    if (conversation?.status !== 'ACCEPTED' || anonymity || isSuspiciousLink(url)) {
+      setLinkToOpen(url);
+    } else {
+      openLink(url);
+    }
   };
 
   // ── Requests, anonymity, safety ────────────────────────────────────────
@@ -374,11 +404,15 @@ export function ChatScreen({ route }: ChatScreenProps) {
 
   // ── Rendering ──────────────────────────────────────────────────────────
   // "Seen" belongs under the newest message of mine that the other person has read.
-  const lastOwn = messages.find((message) => message.senderId === currentUserId && !message.failed);
+  const lastOwn = shownMessages.find((message) => message.senderId === currentUserId && !message.failed);
 
   const renderItem = ({ index, item }: { index: number; item: Message }) => {
     const isMine = item.senderId === currentUserId;
-    const older = messages[index + 1];
+    const older = shownMessages[index + 1];
+    const parts = item.content ? splitLinks(item.content) : [];
+    const hasLinks = parts.some((part) => part.url);
+    const hasSuspiciousLink = !isMine && parts.some((part) => part.url && isSuspiciousLink(part.url));
+    const textStyle = isMine ? styles.textMine : styles.textTheirs;
     const showTime =
       !older || new Date(item.createdAt).getTime() - new Date(older.createdAt).getTime() > TIME_GAP_MS;
     const isBlurred = Boolean(item.sensitive) && !isMine && !shownImages.has(item.id);
@@ -413,6 +447,8 @@ export function ChatScreen({ route }: ChatScreenProps) {
               : `${isMine ? 'Bạn' : peerName}: ${item.content ?? 'ảnh'}`
           }
           accessibilityRole={item.failed ? 'button' : 'text'}
+          // With links inside, the screen reader must reach each link on its own.
+          accessible={Boolean(item.failed) || !hasLinks}
           disabled={!item.failed}
           onPress={() => handleRetry(item)}
           style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}
@@ -454,8 +490,23 @@ export function ChatScreen({ route }: ChatScreenProps) {
               </View>
             ) : null}
             {item.content ? (
-              <ClayText style={isMine ? styles.textMine : styles.textTheirs} variant="body">
-                {item.content}
+              <ClayText style={textStyle} variant="body">
+                {parts.map((part, partIndex) =>
+                  part.url ? (
+                    <ClayText
+                      accessibilityHint="Mở đường link"
+                      accessibilityRole="link"
+                      key={partIndex}
+                      onPress={() => handlePressLink(part.url ?? '')}
+                      style={[textStyle, styles.link]}
+                      variant="body"
+                    >
+                      {part.text}
+                    </ClayText>
+                  ) : (
+                    part.text
+                  ),
+                )}
               </ClayText>
             ) : null}
           </View>
@@ -470,6 +521,14 @@ export function ChatScreen({ route }: ChatScreenProps) {
             <ClayIcon color={clayColors.warningInk} name="TriangleWarning" size={16} />
             <ClayText style={styles.warningText} variant="caption">
               Tin nhắn có dấu hiệu lừa đảo. Đừng chuyển tiền hay gửi mã OTP.
+            </ClayText>
+          </View>
+        ) : null}
+        {hasSuspiciousLink ? (
+          <View style={styles.warning}>
+            <ClayIcon color={clayColors.warningInk} name="TriangleWarning" size={16} />
+            <ClayText style={styles.warningText} variant="caption">
+              Đường link có dấu hiệu đáng ngờ. Đừng nhập mật khẩu, mã OTP hay thông tin ngân hàng.
             </ClayText>
           </View>
         ) : null}
@@ -583,13 +642,13 @@ export function ChatScreen({ route }: ChatScreenProps) {
 
       {isLoading ? (
         <ActivityIndicator color={clayColors.primary} style={styles.fill} />
-      ) : loadFailed && messages.length === 0 ? (
+      ) : loadFailed && shownMessages.length === 0 ? (
         <View style={styles.fill}>
           <LoadError onRetry={load} />
         </View>
       ) : (
         <FlatList
-          data={messages}
+          data={shownMessages}
           initialNumToRender={20}
           windowSize={11}
           contentContainerStyle={styles.listContent}
@@ -710,6 +769,25 @@ export function ChatScreen({ route }: ChatScreenProps) {
         onConfirm={confirm === 'reveal' ? handleReveal : handleBlock}
         title={confirm === 'reveal' ? 'Tiết lộ danh tính?' : 'Chặn người này?'}
         visible={confirm !== null}
+      />
+      <ConfirmModal
+        confirmLabel="Mở link"
+        icon="LinkSimple"
+        message={`${linkToOpen ?? ''}\n\n${
+          linkToOpen && isSuspiciousLink(linkToOpen)
+            ? 'Đường link có dấu hiệu đáng ngờ.'
+            : 'Đường link này đến từ tin nhắn chờ hoặc tin nhắn ẩn danh.'
+        } Đừng nhập mật khẩu, mã OTP hay thông tin ngân hàng ở trang mở ra.`}
+        onCancel={() => setLinkToOpen(null)}
+        onConfirm={() => {
+          if (linkToOpen) {
+            openLink(linkToOpen);
+          }
+
+          setLinkToOpen(null);
+        }}
+        title="Mở đường link?"
+        visible={linkToOpen !== null}
       />
     </KeyboardAvoidingView>
   );
@@ -877,6 +955,10 @@ const styles = StyleSheet.create({
     minHeight: clayDimensions.minTouchTarget,
     paddingHorizontal: claySpacing.base,
     paddingVertical: 10,
+  },
+  // Underlined in the bubble's own ink: the brand hue stays for small marks.
+  link: {
+    textDecorationLine: 'underline',
   },
   listContent: {
     paddingVertical: claySpacing.md,

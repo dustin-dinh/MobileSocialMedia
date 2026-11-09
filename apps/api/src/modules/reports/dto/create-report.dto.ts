@@ -9,7 +9,8 @@ export class CreateReportDto {
     @MaxLength(64)
     targetId!: string;
 
-    @IsIn(['SPAM', 'HARASSMENT', 'SENSITIVE', 'MISINFORMATION', 'SCAM', 'OTHER'])
+    // CHILD_SAFETY: nội dung xâm hại hoặc gợi dục trẻ em, luôn được xử lý trước tiên.
+    @IsIn(['CHILD_SAFETY', 'SPAM', 'HARASSMENT', 'SENSITIVE', 'MISINFORMATION', 'SCAM', 'OTHER'])
     reason!: string;
 
     @IsOptional()

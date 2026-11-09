@@ -9,8 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ReactionType } from '../likes/likes.service';
 import { MessagesService } from '../messages/messages.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { authorSelect, blockedUserIds } from '../posts/post-view';
-import { storedUrl } from '../storage/media-url';
+import { activeUserWhere, authorSelect, blockedUserIds, mutedUserIds } from '../posts/post-view';
+import { storedPrivateUrl } from '../storage/media-url';
 import { StorageService } from '../storage/storage.service';
 
 const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +56,7 @@ export class StoriesService {
         }
 
         const reject = async (message: string): Promise<never> => {
-            await Promise.allSettled(keys.map((key) => this.storageService.remove(key)));
+            await this.storageService.removeByUrls(keys.map(storedPrivateUrl));
             throw new BadRequestException(message);
         };
 
@@ -84,8 +84,8 @@ export class StoriesService {
             data: {
                 authorId: userId,
                 type: isVideo ? 'video' : 'image',
-                url: storedUrl(dto.storageKey),
-                thumbnailUrl: dto.thumbnailKey ? storedUrl(dto.thumbnailKey) : null,
+                url: storedPrivateUrl(dto.storageKey),
+                thumbnailUrl: dto.thumbnailKey ? storedPrivateUrl(dto.thumbnailKey) : null,
                 durationMs: isVideo ? dto.durationMs : null,
                 expiresAt: new Date(Date.now() + STORY_LIFETIME_MS),
                 allowAnonymous: dto.allowAnonymous ?? false,
@@ -95,9 +95,12 @@ export class StoriesService {
         return { data: { ...story, isSeen: true, reactionsCount: 0 } };
     }
 
-    // Tin còn hạn của mình và của người mình theo dõi, gom theo tác giả.
+    // Tin còn hạn của mình và của người mình theo dõi (trừ người đã tắt tiếng), gom theo tác giả.
     async feed(userId: string) {
-        const blocked = await blockedUserIds(this.prisma, userId);
+        const [blocked, muted] = await Promise.all([
+            blockedUserIds(this.prisma, userId),
+            mutedUserIds(this.prisma, userId),
+        ]);
 
         const stories = await this.prisma.story.findMany({
             where: {
@@ -105,8 +108,11 @@ export class StoriesService {
                 OR: [
                     { authorId: userId },
                     {
-                        authorId: { notIn: blocked },
-                        author: { followers: { some: { followerId: userId } } },
+                        authorId: { notIn: [...blocked, ...muted] },
+                        author: {
+                            ...activeUserWhere,
+                            followers: { some: { followerId: userId } },
+                        },
                     },
                 ],
             },
@@ -195,6 +201,7 @@ export class StoriesService {
                 id: storyId,
                 expiresAt: { gt: new Date() },
                 authorId: { notIn: blocked },
+                author: activeUserWhere,
                 OR: [
                     { authorId: userId },
                     { author: { followers: { some: { followerId: userId } } } },

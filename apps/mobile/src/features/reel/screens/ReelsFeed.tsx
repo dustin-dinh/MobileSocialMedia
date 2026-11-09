@@ -24,6 +24,7 @@ import { feedEvents } from '../../feed/feedEvents';
 import { feedService } from '../../feed/services/feedService';
 import type { Post } from '../../feed/types';
 import { SharePostModal } from '../../post/components/SharePostModal';
+import { setUserMuted } from '../../profile/muteUser';
 import { ReportModal } from '../../report/ReportModal';
 import type { ReportTarget } from '../../report/reportService';
 import { ReelOverlay } from '../components/ReelOverlay';
@@ -209,6 +210,11 @@ export function ReelsFeed({ bottomInset = 12, initialPost, isActive }: ReelsFeed
           current.filter((reel) => reel.id !== postId && reel.author.id !== authorId),
         );
       }),
+      feedEvents.on('muteChanged', ({ isMuted, userId }) => {
+        if (isMuted) {
+          setReels((current) => current.filter((reel) => reel.author.id !== userId));
+        }
+      }),
       feedEvents.on('followChanged', ({ isFollowing, userId }) => {
         setFollowedIds((current) => {
           const next = new Set(current);
@@ -386,6 +392,12 @@ export function ReelsFeed({ bottomInset = 12, initialPost, isActive }: ReelsFeed
             ...(menuPost.isSample || menuPost.author.id === user?.id
               ? []
               : [
+                  {
+                    icon: 'SpeakerSlash',
+                    key: 'mute',
+                    label: 'Tắt tiếng người đăng',
+                    onPress: () => void setUserMuted(menuPost.author.id, true),
+                  },
                   {
                     destructive: true,
                     icon: 'Flag',

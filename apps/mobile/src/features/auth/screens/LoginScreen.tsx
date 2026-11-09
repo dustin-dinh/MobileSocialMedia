@@ -14,8 +14,10 @@ import { AuthScreenContainer } from '../components/AuthScreenContainer';
 import { AuthTextInput } from '../components/AuthTextInput';
 import { FormMessage } from '../components/FormMessage';
 import { GoogleButton } from '../components/GoogleButton';
+import { LegalConsent } from '../components/LegalConsent';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthSubmission } from '../hooks/useAuthSubmission';
+import { TwoFactorRequiredError } from '../services/authService';
 import {
   type FieldErrors,
   type LoginFormValues,
@@ -49,6 +51,20 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
     reset();
   };
 
+  // Two-factor accounts: the password (or Google) was right, a code was emailed.
+  const goToTwoFactor = (error: unknown): boolean => {
+    if (!(error instanceof TwoFactorRequiredError)) {
+      return false;
+    }
+
+    navigation.navigate('VerifyCode', {
+      challengeToken: error.challengeToken,
+      email: error.email,
+      mode: 'twoFactor',
+    });
+    return true;
+  };
+
   const handleSubmit = () => {
     const nextErrors = validateLogin(values);
 
@@ -63,6 +79,10 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
       try {
         await signIn(values);
       } catch (error) {
+        if (goToTwoFactor(error)) {
+          return;
+        }
+
         if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
           navigation.navigate('VerifyCode', {
             email: values.email.trim().toLowerCase(),
@@ -80,7 +100,15 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
   const handleGoogleSignIn = () => {
     reset();
     setSuccessMessage(null);
-    void submit(() => signInWithGoogle());
+    void submit(async () => {
+      try {
+        await signInWithGoogle();
+      } catch (error) {
+        if (!goToTwoFactor(error)) {
+          throw error;
+        }
+      }
+    });
   };
 
   return (
@@ -141,6 +169,10 @@ export function LoginScreen({ navigation, route }: LoginScreenProps) {
       {showGoogle && (
         <>
           <AuthDivider />
+          <LegalConsent
+            lead="Khi tiếp tục với Google, bạn đồng ý với"
+            onOpenDoc={(doc) => navigation.navigate('Legal', { doc })}
+          />
           <GoogleButton
             disabled={isSubmitting}
             isLoading={isSubmitting}

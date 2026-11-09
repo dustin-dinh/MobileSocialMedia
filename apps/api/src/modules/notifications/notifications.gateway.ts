@@ -7,6 +7,8 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { Server, Socket } from "socket.io";
 
+import { PrismaService } from "../../prisma/prisma.service";
+import { assertSessionValid } from "../auth/session";
 import { resolveMediaUrls } from "../storage/media-url";
 
 @WebSocketGateway({
@@ -22,6 +24,7 @@ export class NotificationsGateway
 
     constructor(
         private readonly jwtService: JwtService,
+        private readonly prisma: PrismaService,
     ) { }
 
     async handleConnection(
@@ -38,7 +41,11 @@ export class NotificationsGateway
             const payload =
                 await this.jwtService.verifyAsync<{
                     sub?: string;
+                    ver?: number;
                 }>(token);
+
+            // Cùng điều kiện với JwtStrategy: token của phiên đã đăng xuất / tài khoản đã xóa bị từ chối.
+            await assertSessionValid(this.prisma, payload);
 
             const userId = payload.sub;
 

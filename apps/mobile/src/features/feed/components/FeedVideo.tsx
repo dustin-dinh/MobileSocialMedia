@@ -31,7 +31,8 @@ export function FeedVideo({ media, onPress }: { media: PostMedia; onPress?: () =
             <Image
               cachePolicy="memory-disk"
               contentFit="cover"
-              source={{ uri: media.thumbnailUrl }}
+              // Signed URL changes per load: cache by media id.
+              source={{ cacheKey: `post-thumb-${media.id}`, uri: media.thumbnailUrl }}
               style={styles.fill}
             />
           ) : null}

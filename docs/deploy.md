@@ -17,7 +17,7 @@ Các tệp liên quan:
 | Cần có | Dùng cho | Ghi chú |
 |---|---|---|
 | PostgreSQL (Supabase hoặc PostgreSQL tự quản) | Cơ sở dữ liệu | Supabase: lấy hai chuỗi kết nối, Transaction Pooler (cổng 6543) cho `DATABASE_URL` và Session/Direct (cổng 5432) cho `DIRECT_URL`. PostgreSQL thường: dùng cùng một chuỗi cho cả hai. |
-| Kho lưu tệp S3 (AWS S3, Cloudflare R2, hoặc MinIO tự chạy) | Ảnh, video, ảnh đại diện, ảnh trong tin nhắn | Backend tự tạo hai bucket khi khởi động: bucket công khai (`S3_BUCKET`) và bucket riêng tư cho ảnh tin nhắn (`S3_PRIVATE_BUCKET`). Khoá truy cập phải có quyền tạo bucket, hoặc tạo sẵn hai bucket và cho bucket công khai quyền đọc công khai. |
+| Kho lưu tệp S3 (AWS S3, Cloudflare R2, hoặc MinIO tự chạy) | Ảnh, video, ảnh đại diện, ảnh trong tin nhắn | Backend tự tạo hai bucket khi khởi động: bucket công khai (`S3_BUCKET`, chỉ ảnh đại diện và ảnh bìa) và bucket riêng tư (`S3_PRIVATE_BUCKET`) cho ảnh/video bài đăng, ảnh thu nhỏ, story và ảnh tin nhắn. Khoá truy cập phải có quyền tạo bucket, hoặc tạo sẵn hai bucket và cho bucket công khai quyền đọc công khai. |
 | Máy chủ SMTP (SendGrid, Mailgun, Amazon SES, Gmail Workspace…) | Gửi mã xác thực email và mã đặt lại mật khẩu | |
 | Tên miền và HTTPS | Địa chỉ API cho ứng dụng | iOS chặn HTTP thường; bản phát hành phải dùng `https://`. |
 | Máy chủ chạy Docker (VPS, EC2, Lightsail…) | Chạy container backend | Tối thiểu 1 vCPU, 2 GB RAM (mô hình làm mờ ảnh chiếm vài trăm MB khi chạy). |
@@ -49,12 +49,12 @@ cp apps/api/.env.example apps/api/.env.production
 | `S3_ENDPOINT` | Có | Địa chỉ dịch vụ S3. AWS: `https://s3.<region>.amazonaws.com`; R2: `https://<account-id>.r2.cloudflarestorage.com`; MinIO trong compose: `http://minio:9000`. |
 | `S3_REGION` | Có | AWS: region thật; R2: `auto`; MinIO: `us-east-1`. |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Có | Khoá truy cập S3. |
-| `S3_BUCKET` | Có | Bucket công khai cho ảnh và video bài đăng. |
-| `S3_PRIVATE_BUCKET` | Không | Bucket riêng tư cho ảnh tin nhắn (ứng dụng nhận URL có chữ ký, hết hạn). Mặc định `<S3_BUCKET>-private`. |
-| `S3_PUBLIC_URL` | Có khi deploy | URL công khai cố định của bucket (CDN hoặc tên miền riêng), ví dụ `https://media.ten-mien.vn`. Để rỗng thì URL ảnh dựng từ địa chỉ máy chủ, chỉ hợp cho môi trường phát triển. |
+| `S3_BUCKET` | Có | Bucket công khai, chỉ cho ảnh đại diện và ảnh bìa. Tệp bài đăng cũ tải lên trước khi chuyển sang bucket riêng tư vẫn nằm ở đây (vẫn công khai) cho đến khi được chuyển. |
+| `S3_PRIVATE_BUCKET` | Không | Bucket riêng tư cho ảnh/video bài đăng, ảnh thu nhỏ, story và ảnh tin nhắn (ứng dụng nhận URL có chữ ký, hết hạn sau 1 giờ). Mặc định `<S3_BUCKET>-private`. |
+| `S3_PUBLIC_URL` | Có khi deploy | URL công khai cố định của bucket công khai (CDN hoặc tên miền riêng), ví dụ `https://media.ten-mien.vn`. Để rỗng thì URL ảnh dựng từ địa chỉ máy chủ, chỉ hợp cho môi trường phát triển. |
 | `IMAGE_MODERATION_MODEL_DIR` | Không | Thư mục mô hình làm mờ ảnh nhạy cảm. Mặc định `models/nsfw-vit` (trong image là `/app/models/nsfw-vit`). |
 | `IMAGE_MODERATION_THRESHOLD` | Không | Xác suất nhạy cảm từ mức này trở lên thì ảnh bị làm mờ với người nhận. Mặc định `0.7`. |
-| `IMAGE_MODERATION_REQUIRED` | Không | `true`: từ chối ảnh tin nhắn khi thiếu mô hình, thay vì gửi không làm mờ. Khuyên bật `true` khi chạy thật. |
+| `IMAGE_MODERATION_REQUIRED` | Không | `true`: từ chối ảnh tin nhắn và ảnh bài đăng khi thiếu mô hình, thay vì gửi không làm mờ. Khuyên bật `true` khi chạy thật. |
 | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Chỉ khi dùng MinIO trong compose | Tài khoản quản trị MinIO; đặt `S3_ACCESS_KEY`/`S3_SECRET_KEY` bằng đúng hai giá trị này. |
 
 ## 3. Build và chạy backend
@@ -74,7 +74,7 @@ node scripts/download-moderation-model.cjs        # tạo apps/api/models/nsfw-v
 docker run ... -v /duong-dan/models:/app/models:ro mobilesocial-api
 ```
 
-Thiếu mô hình thì API vẫn chạy, chỉ là ảnh tin nhắn không được làm mờ (hoặc bị từ chối nếu `IMAGE_MODERATION_REQUIRED=true`); trang quản trị hiện trạng thái này.
+Thiếu mô hình thì API vẫn chạy, chỉ là ảnh tin nhắn và ảnh bài đăng không được làm mờ (hoặc bị từ chối nếu `IMAGE_MODERATION_REQUIRED=true`); trang quản trị hiện trạng thái này.
 
 ### 3.2. Chạy bằng Docker Compose (khuyên dùng)
 
@@ -222,5 +222,5 @@ Danh sách kiểm tra trước khi nộp:
 - **Thông báo đẩy chưa từng được thử trên thiết bị thật.** Code gửi và đăng ký token đã có, nhưng chưa có development build nào nhận được push.
 - **Ứng dụng chưa từng chạy trên iOS.** Mọi kiểm thử đến nay là Android (BlueStacks/máy Android) và bản web. Cấu hình iOS (Google Sign-In cần `iosUrlScheme` hoặc `GoogleService-Info.plist`, APNs, ad-hoc) chưa được kiểm chứng.
 - CORS đang mở cho mọi origin (mục 4).
-- Token đăng nhập sống 30 ngày, chưa có refresh token để thu hồi phiên.
+- Token đăng nhập sống 30 ngày và chưa có refresh token. Phiên thu hồi được qua `tokenVersion`: đăng xuất là đăng xuất mọi thiết bị; đổi mật khẩu đăng xuất các thiết bị khác, đặt lại mật khẩu và xoá tài khoản đăng xuất tất cả. Chưa đăng xuất riêng từng thiết bị được.
 - Mô hình làm mờ ảnh tải từ nhánh `main` của Hugging Face, chưa ghim theo commit; mỗi lần build có thể nhận bản khác nếu tác giả cập nhật.

@@ -212,10 +212,10 @@ Server kiểm tra đủ các điều kiện sau mới cho mở hội thoại ẩ
 
 | Biến (`apps/api/.env`) | Mặc định | Ý nghĩa |
 |---|---|---|
-| `S3_PRIVATE_BUCKET` | `<S3_BUCKET>-private` | Kho ảnh tin nhắn, không đọc công khai |
+| `S3_PRIVATE_BUCKET` | `<S3_BUCKET>-private` | Kho ảnh tin nhắn và tệp bài viết, story (ảnh, video, ảnh thu nhỏ), không đọc công khai; ứng dụng nhận URL có chữ ký, hết hạn sau 1 giờ |
 | `IMAGE_MODERATION_MODEL_DIR` | `models/nsfw-vit` | Thư mục mô hình nhận diện ảnh |
 | `IMAGE_MODERATION_THRESHOLD` | `0.7` | Ngưỡng xác suất để làm mờ |
-| `IMAGE_MODERATION_REQUIRED` | `false` | `true`: không có mô hình thì từ chối ảnh |
+| `IMAGE_MODERATION_REQUIRED` | `false` | `true`: không có mô hình thì từ chối ảnh (tin nhắn và bài viết) |
 
 Các con số khác (3 tin chờ, 7 ngày tuổi, 10 hội thoại ẩn danh / ngày, 3 người báo cáo / 30 ngày, 50 tin trong bản chụp, 15 phút gộp thông báo story) là hằng số ở đầu các file:
 - `messages.service.ts`
@@ -238,5 +238,5 @@ Thư viện: `onnxruntime-node` (MIT), `sharp` (Apache-2.0; thư viện libvips 
 - **Danh sách tài khoản bị khóa** (khóa thường và khóa vì tuổi) nằm trong bộ nhớ của một tiến trình API. Chạy nhiều bản API thì phải chuyển sang Redis hoặc kiểm tra database.
 - **Mốc gộp thông báo cảm xúc story** cũng nằm trong bộ nhớ một tiến trình.
 - **Chặn liên lạc theo luật** lách được bằng cách viết số thành chữ ("không chín một hai…"). Lớp OCR và mô hình chữ ở mục 8 sẽ giảm việc này.
-- **Bộ nhận diện ảnh** chưa chạy cho ảnh bài viết, story và ảnh đại diện.
+- **Bộ nhận diện ảnh** đã chạy cho ảnh tin nhắn và ảnh bài viết tải lên qua API (`PostMedia.sensitive`: người xem thấy ảnh mờ, tự chọn có xem không; tác giả thấy ảnh rõ). Chưa chạy cho tệp tải thẳng lên kho qua URL có chữ ký (video, ảnh thu nhỏ, story) và ảnh đại diện, ảnh bìa.
 - **Báo cáo hội thoại thường** không tự đóng hội thoại; người dùng tự chặn.

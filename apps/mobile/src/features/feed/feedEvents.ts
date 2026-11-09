@@ -18,6 +18,8 @@ type FeedEventMap = {
   /** Fired whenever a post's comment total changes (added or deleted). */
   commentAdded: { commentsCount: number; postId: string };
   followChanged: { isFollowing: boolean; userId: string };
+  /** The viewer muted or unmuted a user (their posts leave the home feed and Reels). */
+  muteChanged: { isMuted: boolean; userId: string };
   postCreated: Post;
   postDeleted: { postId: string };
   /** The viewer hid the post, or blocked its author (`authorId`). */
@@ -72,6 +74,7 @@ export const feedEvents = {
   emitPostCreated: (post: Post) => emit('postCreated', post),
   emitFollowChanged: (userId: string, isFollowing: boolean) =>
     emit('followChanged', { isFollowing, userId }),
+  emitMuteChanged: (userId: string, isMuted: boolean) => emit('muteChanged', { isMuted, userId }),
   emitPostDeleted: (postId: string) => emit('postDeleted', { postId }),
   emitPostHidden: (payload: { authorId?: string; postId?: string }) =>
     emit('postHidden', payload),

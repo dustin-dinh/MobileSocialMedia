@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -38,7 +38,7 @@ import { ClayButton } from '../../../components/ui/ClayButton';
 import { ClayText } from '../../../components/ui/ClayText';
 import { ClayIcon } from '../../../components/icons/ClayIcon';
 import { fontFamilies, tabularNums } from '../../../theme/typography';
-import { searchService, type TrendingHashtag } from '../services/searchService';
+import { searchService, type TrendingHashtag, type UserSearchPage } from '../services/searchService';
 import type { SearchedUser } from '../types';
 
 /** Adjust a follower total by one, leaving an unknown (null) total untouched. */
@@ -53,14 +53,15 @@ type SearchMode = 'posts' | 'users';
  * Users for a query; with an empty query, people the viewer may know (the
  * mock layer already answers an empty query with suggestions).
  */
-async function loadUsers(searchQuery: string): Promise<SearchedUser[]> {
+async function loadUsers(searchQuery: string, page: number): Promise<UserSearchPage> {
   if (USE_MOCK_API || searchQuery.trim()) {
-    return searchService.searchUsers(searchQuery);
+    return searchService.searchUsers(searchQuery, page);
   }
 
+  // Suggestions come as one short list.
   const suggestions = await profileService.getSuggestions();
 
-  return suggestions.map((user) => ({
+  const users = suggestions.map((user) => ({
     avatarUrl: user.avatarUrl,
     bio: suggestionReason(user),
     displayName: user.displayName,
@@ -69,6 +70,8 @@ async function loadUsers(searchQuery: string): Promise<SearchedUser[]> {
     isFollowing: user.isFollowing,
     username: user.username,
   }));
+
+  return { hasMore: false, total: users.length, users };
 }
 
 export function SearchScreen({ route }: SearchScreenProps = {}) {
@@ -107,21 +110,41 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
   }, []);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const pageRef = useRef(1);
+  // Heights of the list and of its content, to spot a list too short to scroll.
+  const usersListHeightRef = useRef({ content: 0, list: 0 });
+  // The query being shown: a late answer for an older query is dropped.
+  const queryRef = useRef('');
 
   // ── Fetch users ────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async (searchQuery: string) => {
+    queryRef.current = searchQuery;
     setIsLoading(true);
     try {
-      const data = await loadUsers(searchQuery);
-      setUsers(data);
-      setUsersFailed(false);
+      const page = await loadUsers(searchQuery, 1);
+      if (queryRef.current === searchQuery) {
+        pageRef.current = 1;
+        setUsers(page.users);
+        setHasMore(page.hasMore);
+        setUsersTotal(page.total);
+        setUsersFailed(false);
+        setLoadMoreFailed(false);
+      }
     } catch (error) {
       console.error('Failed to search users:', error);
       // Shown inside the list with a retry, not as a toast.
-      setUsers([]);
-      setUsersFailed(true);
+      if (queryRef.current === searchQuery) {
+        setUsers([]);
+        setUsersFailed(true);
+      }
     } finally {
-      setIsLoading(false);
+      if (queryRef.current === searchQuery) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -158,14 +181,58 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const data = await loadUsers(debouncedQuery);
-      setUsers(data);
+      const page = await loadUsers(debouncedQuery, 1);
+      pageRef.current = 1;
+      setUsers(page.users);
+      setHasMore(page.hasMore);
+      setUsersTotal(page.total);
+      setLoadMoreFailed(false);
     } catch (error) {
       console.error('Refresh search failed:', error);
     } finally {
       setIsRefreshing(false);
     }
   }, [debouncedQuery]);
+
+  const loadMoreUsers = useCallback(async () => {
+    if (!hasMore || isLoadingMore || isLoading) {
+      return;
+    }
+
+    const searchQuery = debouncedQuery;
+    setIsLoadingMore(true);
+    setLoadMoreFailed(false);
+
+    try {
+      const page = await loadUsers(searchQuery, pageRef.current + 1);
+      if (queryRef.current !== searchQuery) {
+        return;
+      }
+      pageRef.current += 1;
+      setHasMore(page.hasMore);
+      setUsers((current) => {
+        const seen = new Set(current.map((user) => user.id));
+
+        return [...current, ...page.users.filter((user) => !seen.has(user.id))];
+      });
+    } catch {
+      setLoadMoreFailed(true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [debouncedQuery, hasMore, isLoading, isLoadingMore]);
+
+  // A list shorter than the screen (a short page, a filter) cannot be scrolled to its end: load on.
+  const fillShortList = () => {
+    const { content, list } = usersListHeightRef.current;
+
+    if (list > 0 && content <= list && !loadMoreFailed) {
+      void loadMoreUsers();
+    }
+  };
+
+  // Also after a page lands: the content height may not change (the list stretches to the screen).
+  useEffect(fillShortList, [hasMore, isLoading, users]);
 
   // ── Optimistic Toggle Follow ───────────────────────────────────────────
   const handleToggleFollow = useCallback(async (targetUser: SearchedUser) => {
@@ -283,12 +350,12 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
             {hasQuery ? 'Người dùng' : 'Gợi ý cho bạn'}
           </ClayText>
           <ClayText style={styles.sectionSubtitle} variant="caption">
-            {hasQuery ? `${users.length} người phù hợp` : 'Những người bạn có thể quen'}
+            {hasQuery ? `${usersTotal} người phù hợp` : 'Những người bạn có thể quen'}
           </ClayText>
         </View>
       </>
     );
-  }, [debouncedQuery, isLoading, trending, users.length]);
+  }, [debouncedQuery, isLoading, trending, users.length, usersTotal]);
 
   const renderItem = useCallback(
     ({ item }: { item: SearchedUser }) => (
@@ -466,7 +533,26 @@ export function SearchScreen({ route }: SearchScreenProps = {}) {
           windowSize={7}
           removeClippedSubviews={Platform.OS === 'android'}
           ListEmptyComponent={usersEmpty}
+          ListFooterComponent={
+            <ListFooter
+              hasItems={users.length > 0}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              loadMoreFailed={loadMoreFailed}
+              onRetry={loadMoreUsers}
+            />
+          }
           ListHeaderComponent={renderListHeader}
+          onEndReached={loadMoreUsers}
+          onEndReachedThreshold={0.5}
+          onContentSizeChange={(_, height) => {
+            usersListHeightRef.current.content = height;
+            fillShortList();
+          }}
+          onLayout={(event) => {
+            usersListHeightRef.current.list = event.nativeEvent.layout.height;
+            fillShortList();
+          }}
           refreshControl={
             <RefreshControl
               colors={[searchColors.primary]}

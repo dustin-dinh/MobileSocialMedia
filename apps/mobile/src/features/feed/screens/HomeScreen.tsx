@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -26,6 +26,7 @@ import { ReelsFeed } from '../../reel/screens/ReelsFeed';
 import { StoriesTray } from '../../stories/components/StoriesTray';
 import { FeedEmptyState } from '../components/FeedEmptyState';
 import { PostCard } from '../components/PostCard';
+import { feedEvents } from '../feedEvents';
 import { feedColors } from '../feedTheme';
 import { usePostList } from '../hooks/usePostList';
 import { feedService } from '../services/feedService';
@@ -44,7 +45,7 @@ const PANES: Array<{ key: HomePane; label: string }> = [
 
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const feed = usePostList(fetchFeedPage, { acceptCreated });
+  const feed = usePostList(fetchFeedPage, { acceptCreated, dropMuted: true });
   const [activeCommentPost, setActiveCommentPost] = useState<Post | null>(null);
   const [pane, setPane] = useState<HomePane>('feed');
   const isFocused = useIsScreenFocused();
@@ -52,6 +53,9 @@ export function HomeScreen() {
   const unreadNotifications = useUnreadNotifications();
   const [storiesKey, setStoriesKey] = useState(0);
   const paneOpacity = useRef(new Animated.Value(1)).current;
+
+  // A muted user's stories leave the tray too.
+  useEffect(() => feedEvents.on('muteChanged', () => setStoriesKey((key) => key + 1)), []);
 
   // Fade the new pane in instead of swapping it instantly.
   const switchPane = useCallback(

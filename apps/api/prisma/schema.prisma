@@ -59,6 +59,48 @@ model User {
   allowAnonymousMessages Boolean   @default(false)
   // Bị tước quyền gửi tin ẩn danh (bị báo cáo); admin trả lại.
   anonymousSuspendedAt   DateTime?
+  // Tăng lên khi đăng xuất hoặc đổi mật khẩu: mọi token cũ (mang số cũ) hết hiệu lực.
+  tokenVersion           Int       @default(0)
+  // Chống dò mật khẩu theo tài khoản: số lần sai liên tiếp và thời điểm hết khóa tạm.
+  failedLoginCount       Int       @default(0)
+  loginLockedUntil       DateTime?
+  // Xác thực hai lớp bằng mã gửi qua email khi đăng nhập.
+  twoFactorEnabled       Boolean   @default(false)
+  // Ai được mở tin nhắn mới: EVERYONE (người lạ vào Tin nhắn chờ) | FOLLOWING (chỉ người mình theo dõi).
+  messagePermission      String    @default("EVERYONE")
+  // Đã xóa tài khoản: hàng được giữ (đã xóa thông tin cá nhân) để tin nhắn, báo cáo của người khác còn nguyên.
+  deletedAt              DateTime?
+  mutes                  Mute[]    @relation("Muter")
+  mutedBy                Mute[]    @relation("Muted")
+  auditLogs              AuditLog[]
+}
+
+// Tắt tiếng: ẩn bài viết và story của người bị tắt tiếng khỏi bảng tin của người tắt. Người kia không biết.
+model Mute {
+  id        String   @id @default(cuid())
+  muterId   String
+  mutedId   String
+  createdAt DateTime @default(now())
+  muter     User     @relation("Muter", fields: [muterId], references: [id], onDelete: Cascade)
+  muted     User     @relation("Muted", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@unique([muterId, mutedId])
+  @@index([mutedId])
+}
+
+// Nhật ký thao tác nhạy cảm của quản trị viên (xem danh tính người ẩn danh, xử lý báo cáo, khóa tài khoản).
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String
+  reason     String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }
 
 model Post {
@@ -97,6 +139,8 @@ model PostMedia {
   height       Int?
   durationMs   Int?
   sizeBytes    Int?
+  // Ảnh bị mô hình nhận diện đánh giá nhạy cảm: người xem thấy ảnh mờ, tự chọn có xem không.
+  sensitive    Boolean @default(false)
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, order])
@@ -142,6 +186,8 @@ model Comment {
   notifications Notification[]
   editedAt      DateTime?
   likes         CommentLike[]
+  // Bị quản trị viên gỡ: ẩn khỏi mọi người nhưng giữ lại, để khôi phục nếu kháng nghị đúng.
+  removedAt     DateTime?
 
   @@index([postId, createdAt])
   @@index([parentId])
@@ -169,6 +215,7 @@ model Notification {
 enum AuthTokenPurpose {
   EMAIL_VERIFICATION
   PASSWORD_RESET
+  LOGIN_TWO_FACTOR
 }
 
 model AuthToken {

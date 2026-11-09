@@ -22,6 +22,8 @@ export type UserProfile = {
   isBlocked?: boolean;
   /** True when viewing another user's profile and you follow them. */
   isFollowing: boolean;
+  /** The viewer muted this user: their posts and stories leave the viewer's feed, Reels and story tray. */
+  isMuted?: boolean;
   /** Only followers see this account's posts; following needs approval. */
   isPrivate?: boolean;
   postsCount: number;

@@ -1888,3 +1888,35 @@ Owner (2026-11-01): reduce the scope to about 30% of Facebook for a sale (DEC-02
 - `apps/mobile/src/**`, `apps/mobile/__tests__/**`, `apps/mobile/jest.setup.js`, `apps/mobile/package.json`, `apps/mobile/pnpm-lock.yaml`, `apps/mobile/scripts/build-legal-content.mjs`, `apps/mobile/eas.json`
 - `apps/api/Dockerfile`, `apps/api/.dockerignore`, `apps/api/package.json`, `docker-compose.prod.yml`
 - `docs/legal/`, `docs/deploy.md`, `docs/decisions.md`, `docs/change.md`, `.gitignore`
+
+## 2026-11-09 - Parts 1-2 (stability and safety), handover documents
+
+### Task
+
+Owner-approved reduced plan (DEC-026), parts 1 and 2 built by five parallel agents (DEC-029), handover documents (part 3, item 14), then a security audit. The owner stopped the audit part-way ("ổn rồi") and asked to push to main.
+
+### Changed
+
+- Account security: real logout and session revocation (`tokenVersion`), lockout after 5 wrong passwords, timing-leak fix, 2FA by email code (Settings > Bảo mật, TwoFactorScreen, VerifyCode mode), required consent checkbox on Register and BirthDate, consent line above the Google button, Vietnamese auth messages and emails.
+- Messaging safety: neutral push text for requests and anonymous chats, quiet after decline, anonymous opt-out for profile-started chats, outbox for unsent messages (memory only), "Ai được nhắn tin cho tôi", daily request cap, tappable links with a suspicious-link warning (`linkSafety.ts`, unit-tested).
+- Content and privacy: banned/age-locked/deleted users hidden everywhere, mention notifications only to people who can see the post, interactions checked, mute (+ "Đã tắt tiếng" screen), sensitive post images blurred (author sees them clear), new post/story media private with signed URLs.
+- Moderation and deletion: grouped severity queue with CHILD_SAFETY first, audit log and audited identity reveal in admin.html, restorable comment removal, tombstone account deletion.
+- Push (code side): Android channel, tap routing incl. cold start, app badge, DeviceNotRegistered cleanup, no push to inactive users; paging for notifications and user search; intro slides show real interface fragments.
+- Local Postgres profile in `docker-compose.yml`; migration `20261101090000_stability_and_safety`; five new smoke suites; `docs/handover/` (README, kien-truc, cai-dat-va-chay, van-de-da-biet, kich-ban-demo); docs brought in line with the code (api-contract, deploy, moderation plan, legal README, READMEs).
+
+### Checks
+
+- Local Postgres + MinIO: api-smoke 72/72, social-smoke 73/73, safety-smoke 77/77, reels-smoke 28/28, account-security 42/42, messaging-safety 30/30, visibility 62/62, moderation 46/46, push 11/11 (441 checks).
+- API and mobile `tsc --noEmit` clean; mobile jest 113 passed, 39 skipped; taste-skill lint 0 FAIL.
+
+### Platforms run
+
+- Web build (mock data) and API on the local database only. **Android: not run. iPhone: not run.** No real push delivered (fake Expo server), no Google sign-in tested.
+
+### Security audit (stopped part-way, not fixed)
+
+- 22 preliminary findings: 0 critical, 0 high, 7 medium, 12 low, 3 unrated. Medium: push tokens kept after logout/reset (revoked devices keep getting message text); socket handshake skips ban/age-lock checks and open sockets are not closed on revocation; blocking a suspect can reveal an anonymous sender; a session on a password-less account can set a password and turn off 2FA; upload URLs do not bind size/type; `GET /users/:id/reposts` ignores privacy/blocks. Unrated: 18+ enforced only by the client, moderation model not pinned, `JWT_SECRET` placeholder accepted. Also: admin.html cannot sign in when 2FA is on. Fix these before real users.
+
+### Files
+
+- `apps/api/**` (auth, messages, posts, reels, stories, search, storage, notifications, admin, reports, comments, users, mail, scripts, prisma), `apps/mobile/**` (auth, messages, feed, post, profile, settings, notifications, onboarding, search, reel, stories, navigation, tests, app.json), `docker-compose.yml`, `docs/handover/`, `docs/api-contract.md`, `docs/deploy.md`, `docs/moderation/MODERATION_PLAN.md`, `docs/legal/README.md`, `README.md`, `apps/api/README.md`, `docs/decisions.md`, `docs/change.md`

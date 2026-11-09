@@ -27,6 +27,8 @@ export type PostMedia = {
   id: string;
   /** Display order (0-based). */
   order: number;
+  /** The server judged this image sensitive: shown blurred until the viewer taps it. */
+  sensitive?: boolean;
   /** Poster image for a video. */
   thumbnailUrl?: string;
   type: PostMediaType;
@@ -44,6 +46,8 @@ export type Post = {
   content: string;
   createdAt: string;
   id: string;
+  /** The viewer muted the author: their posts leave the home feed and Reels. */
+  isAuthorMuted?: boolean;
   isLiked: boolean;
   /** Whether the signed-in user has reposted this post. */
   isReposted?: boolean;

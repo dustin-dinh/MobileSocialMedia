@@ -177,17 +177,17 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
 
   // R-14: Search - Flow
   test('R-14: Search - Flow retrieves users matching query', async () => {
-    const results = await searchService.searchUsers('alex');
+    const results = (await searchService.searchUsers('alex')).users;
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].username.toLowerCase()).toContain('alex');
   });
 
   // R-15: Notification - Flow
   test('R-15: Notification - Flow retrieves notifications and marks as read', async () => {
-    const notifs = await notificationService.getNotifications();
+    const notifs = (await notificationService.getNotifications()).items;
     expect(notifs.length).toBeGreaterThan(0);
     await notificationService.markAsRead(notifs[0].id);
-    const updated = await notificationService.getNotifications();
+    const updated = (await notificationService.getNotifications()).items;
     expect(updated[0].isRead).toBe(true);
   });
 
@@ -222,7 +222,7 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
 
   // State: Empty State
   test('State - Empty: Search returns empty list when query does not match', async () => {
-    const emptyResults = await searchService.searchUsers('query_with_no_matches_at_all_xyz');
+    const emptyResults = (await searchService.searchUsers('query_with_no_matches_at_all_xyz')).users;
     expect(emptyResults).toEqual([]);
   });
 
@@ -230,5 +230,20 @@ describe('MVP Full Regression Suite (R-01 to R-16 & State Testing)', () => {
   test('State - Error: Safe handling of invalid post IDs', async () => {
     const comments = await commentService.getComments('non-existent-post-id');
     expect(Array.isArray(comments)).toBe(true);
+  });
+
+  test('Paging: notifications and user suggestions load in two pages without repeats', async () => {
+    const n1 = await notificationService.getNotifications(1);
+    const n2 = await notificationService.getNotifications(2);
+    expect(n1.hasMore).toBe(true);
+    expect(n2.hasMore).toBe(false);
+    expect(n1.items.length + n2.items.length).toBe(n1.total);
+    expect(n2.items.some((item) => n1.items.some((first) => first.id === item.id))).toBe(false);
+
+    const u1 = await searchService.searchUsers('', 1);
+    const u2 = await searchService.searchUsers('', 2);
+    expect(u1.hasMore).toBe(true);
+    expect(u2.hasMore).toBe(false);
+    expect(u1.users.length + u2.users.length).toBe(u1.total);
   });
 });

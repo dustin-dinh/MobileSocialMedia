@@ -19,7 +19,7 @@ type Fields = 'confirmPassword' | 'currentPassword' | 'password';
 /** Change the password, or set the first one on a Google-only account. */
 export function ChangePasswordScreen() {
   const navigation = useAppNavigation();
-  const { updateUser, user } = useAuthSession();
+  const { replaceAccessToken, updateUser, user } = useAuthSession();
   // Google-only accounts have no current password to ask for.
   const hasPassword = user?.hasPassword !== false;
   const [values, setValues] = useState<Record<Fields, string>>({
@@ -53,17 +53,22 @@ export function ChangePasswordScreen() {
     }
 
     const done = await submit(async () => {
-      await accountService.changePassword(
+      const { accessToken } = await accountService.changePassword(
         hasPassword ? values.currentPassword : undefined,
         values.password,
       );
+
+      // The old token is revoked on the server: keep this device signed in with the new one.
+      if (accessToken) {
+        await replaceAccessToken(accessToken);
+      }
 
       return true;
     });
 
     if (done) {
       updateUser?.({ hasPassword: true });
-      showToast('Đã đổi mật khẩu.');
+      showToast(hasPassword ? 'Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.' : 'Đã đặt mật khẩu.');
       navigation.back();
     }
   };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ListFooter } from '../../../components/common/ListFooter';
 import { NotificationEmptyState } from '../components/NotificationEmptyState';
 import { NotificationItem } from '../components/NotificationItem';
 import { NotificationSkeleton } from '../components/NotificationSkeleton';
@@ -39,13 +40,27 @@ export function NotificationsScreen() {
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  // Totals across every page, from the server; the list holds only the pages loaded so far.
+  const [total, setTotal] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const pageRef = useRef(1);
+  // Heights of the list and of its content, to spot a list too short to scroll.
+  const listHeightRef = useRef({ content: 0, list: 0 });
 
   // ── Load Notifications ────────────────────────────────────────────────
   const loadNotifications = useCallback(async () => {
     try {
-      const data = await notificationService.getNotifications();
-      setNotifications(data);
+      const page = await notificationService.getNotifications(1);
+      pageRef.current = 1;
+      setNotifications(page.items);
+      setHasMore(page.hasMore);
+      setTotal(page.total);
+      setUnreadCount(page.unreadCount);
       setLoadFailed(false);
+      setLoadMoreFailed(false);
     } catch (error) {
       console.error('Failed to load notifications:', error);
       setLoadFailed(true);
@@ -53,6 +68,45 @@ export function NotificationsScreen() {
       setIsLoading(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore || isLoading) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    setLoadMoreFailed(false);
+
+    try {
+      const page = await notificationService.getNotifications(pageRef.current + 1);
+      pageRef.current += 1;
+      setHasMore(page.hasMore);
+      setTotal(page.total);
+      setUnreadCount(page.unreadCount);
+      // Pages shift when new notifications arrive: skip rows already shown.
+      setNotifications((current) => {
+        const seen = new Set(current.map((n) => n.id));
+
+        return [...current, ...page.items.filter((n) => !seen.has(n.id))];
+      });
+    } catch {
+      setLoadMoreFailed(true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoading, isLoadingMore]);
+
+  // A list shorter than the screen (a short page, a filter) cannot be scrolled to its end: load on.
+  const fillShortList = () => {
+    const { content, list } = listHeightRef.current;
+
+    if (list > 0 && content <= list && !loadMoreFailed) {
+      void loadMore();
+    }
+  };
+
+  // Also after a page lands: the content height may not change (the list stretches to the screen).
+  useEffect(fillShortList, [hasMore, isLoading, notifications]);
 
   useEffect(() => {
     void loadNotifications();
@@ -64,15 +118,9 @@ export function NotificationsScreen() {
   // ── Pull-to-refresh ───────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    try {
-      const data = await notificationService.getNotifications();
-      setNotifications(data);
-    } catch (error) {
-      console.error('Refresh notifications failed:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
+    await loadNotifications();
+    setIsRefreshing(false);
+  }, [loadNotifications]);
 
   // ── Mark single item as read (Optimistic) ─────────────────────────────
   const handlePressItem = useCallback(
@@ -95,6 +143,7 @@ export function NotificationsScreen() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)),
       );
+      setUnreadCount((count) => Math.max(0, count - 1));
 
       try {
         await notificationService.markAsRead(item.id);
@@ -104,6 +153,7 @@ export function NotificationsScreen() {
         setNotifications((prev) =>
           prev.map((n) => (n.id === item.id ? { ...n, isRead: false } : n)),
         );
+        setUnreadCount((count) => count + 1);
       }
     },
     [navigation],
@@ -112,7 +162,8 @@ export function NotificationsScreen() {
   // ── Mark all as read (Optimistic) ─────────────────────────────────────
   const handleMarkAllAsRead = useCallback(async () => {
     const unreadItems = notifications.filter((n) => !n.isRead);
-    if (unreadItems.length === 0 || isMarkingAll) {
+    const previousUnread = unreadCount;
+    if (previousUnread === 0 || isMarkingAll) {
       return;
     }
 
@@ -120,6 +171,7 @@ export function NotificationsScreen() {
 
     // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
 
     try {
       await notificationService.markAllAsRead();
@@ -132,10 +184,11 @@ export function NotificationsScreen() {
           return wasUnread ? { ...n, isRead: false } : n;
         }),
       );
+      setUnreadCount(previousUnread);
     } finally {
       setIsMarkingAll(false);
     }
-  }, [isMarkingAll, notifications]);
+  }, [isMarkingAll, notifications, unreadCount]);
 
   // ── Toggle follow back directly from notification ────────────────────
   const handleToggleFollowBack = useCallback(async (item: AppNotification) => {
@@ -177,11 +230,6 @@ export function NotificationsScreen() {
   }, []);
 
   // ── Computed data ─────────────────────────────────────────────────────
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.isRead).length,
-    [notifications],
-  );
-
   const displayedNotifications = useMemo(() => {
     if (activeTab === 'unread') {
       return notifications.filter((n) => !n.isRead);
@@ -191,7 +239,7 @@ export function NotificationsScreen() {
 
   const hasUnread = unreadCount > 0;
 
-  // The tab bar badge shows the same number as this screen.
+  // The home badge and the app icon badge show the same number as this screen.
   useEffect(() => {
     if (!isLoading) {
       unreadStore.set(unreadCount);
@@ -238,8 +286,8 @@ export function NotificationsScreen() {
           selected={activeTab}
           tabs={[
             {
-              accessibilityLabel: `Tất cả thông báo, ${notifications.length} mục`,
-              count: notifications.length,
+              accessibilityLabel: `Tất cả thông báo, ${total} mục`,
+              count: total,
               key: 'all',
               label: 'Tất cả',
             },
@@ -281,6 +329,25 @@ export function NotificationsScreen() {
             <NotificationEmptyState activeTab={activeTab} />
           )
         }
+        ListFooterComponent={
+          <ListFooter
+            hasItems={displayedNotifications.length > 0}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            loadMoreFailed={loadMoreFailed}
+            onRetry={loadMore}
+          />
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        onContentSizeChange={(_, height) => {
+          listHeightRef.current.content = height;
+          fillShortList();
+        }}
+        onLayout={(event) => {
+          listHeightRef.current.list = event.nativeEvent.layout.height;
+          fillShortList();
+        }}
         refreshControl={
           <RefreshControl
             colors={[clayColors.primary]}
